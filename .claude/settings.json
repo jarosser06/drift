@@ -1,0 +1,32 @@
+{
+  "enableAllProjectMcpServers": true,
+  "tools": {
+    "bash": {
+      "timeout": 960000
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(pwd:*)",
+      "Bash(git:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(pytest:*)",
+      "Bash(./test.sh:*)",
+      "Bash(./lint.sh:*)",
+      "mcp__serena",
+      "mcp__context7",
+      "mcp__github",
+      "Skill(testing)",
+      "Skill(linting)",
+      "Skill(python-docs)",
+      "Skill(code-review)",
+      "Skill(github-operations)",
+      "Skill(pr-writing)",
+      "Skill(issue-writing)",
+      "Skill(definition-of-done)",
+      "WebSearch"
+    ]
+  }
+}

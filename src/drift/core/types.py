@@ -1,0 +1,126 @@
+"""Core data types and models for drift analysis."""
+
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class FrequencyType(str, Enum):
+    """Frequency of a drift learning occurrence."""
+
+    ONE_TIME = "one-time"
+    REPEATED = "repeated"
+
+
+class WorkflowElement(str, Enum):
+    """Type of workflow element that needs improvement."""
+
+    DOCUMENTATION = "documentation"
+    SKILL = "skill"
+    COMMAND = "command"
+    CONTEXT = "context"
+    CONFIGURATION = "configuration"
+    UNKNOWN = "unknown"
+
+
+class Turn(BaseModel):
+    """A single turn in a conversation."""
+
+    number: int = Field(..., description="Turn number in the conversation")
+    uuid: Optional[str] = Field(None, description="Unique identifier for the turn")
+    user_message: str = Field(..., description="User's message in this turn")
+    ai_message: str = Field(..., description="AI's response in this turn")
+    timestamp: Optional[datetime] = Field(None, description="When this turn occurred")
+
+
+class Conversation(BaseModel):
+    """A complete conversation from an agent tool."""
+
+    session_id: str = Field(..., description="Unique identifier for the conversation session")
+    agent_tool: str = Field(..., description="Which agent tool created this conversation")
+    file_path: str = Field(..., description="Path to the conversation file")
+    project_path: Optional[str] = Field(None, description="Path to the project being worked on")
+    project_context: Optional[str] = Field(
+        None, description="Structured summary of project customizations and available features"
+    )
+    turns: List[Turn] = Field(default_factory=list, description="All turns in the conversation")
+    started_at: Optional[datetime] = Field(None, description="When the conversation started")
+    ended_at: Optional[datetime] = Field(None, description="When the conversation ended")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata about the conversation"
+    )
+
+
+class Learning(BaseModel):
+    """A single drift learning identified in a conversation."""
+
+    turn_number: int = Field(..., description="Turn where the drift occurred")
+    turn_uuid: Optional[str] = Field(None, description="UUID of the turn")
+    agent_tool: str = Field(..., description="Agent tool where drift was found")
+    conversation_file: str = Field(..., description="Conversation file containing the drift")
+    observed_behavior: str = Field(
+        ..., description="What was observed (AI action or user behavior)"
+    )
+    expected_behavior: str = Field(..., description="What should have happened instead")
+    learning_type: str = Field(..., description="Type of drift learning")
+    frequency: FrequencyType = Field(
+        FrequencyType.ONE_TIME, description="How often this pattern appears"
+    )
+    workflow_element: WorkflowElement = Field(
+        WorkflowElement.UNKNOWN, description="What workflow element needs improvement"
+    )
+    turns_to_resolve: int = Field(1, description="How many turns to resolve this drift")
+    turns_involved: List[int] = Field(
+        default_factory=list, description="All turns involved in this drift"
+    )
+    context: str = Field("", description="Additional context about the drift")
+
+
+class AnalysisResult(BaseModel):
+    """Results from analyzing a single conversation."""
+
+    session_id: str = Field(..., description="Conversation session ID")
+    agent_tool: str = Field(..., description="Agent tool that created the conversation")
+    conversation_file: str = Field(..., description="Path to conversation file")
+    project_path: Optional[str] = Field(None, description="Project path from conversation")
+    learnings: List[Learning] = Field(default_factory=list, description="All learnings found")
+    analysis_timestamp: datetime = Field(
+        default_factory=datetime.now, description="When this analysis was performed"
+    )
+    error: Optional[str] = Field(None, description="Error message if analysis failed")
+
+
+class AnalysisSummary(BaseModel):
+    """Summary statistics for a complete analysis run."""
+
+    total_conversations: int = Field(0, description="Total conversations analyzed")
+    total_learnings: int = Field(0, description="Total learnings found")
+    by_type: Dict[str, int] = Field(default_factory=dict, description="Learning count by type")
+    by_agent: Dict[str, int] = Field(
+        default_factory=dict, description="Learning count by agent tool"
+    )
+    by_frequency: Dict[str, int] = Field(
+        default_factory=dict, description="Learning count by frequency"
+    )
+    conversations_with_drift: int = Field(0, description="Number of conversations containing drift")
+    conversations_without_drift: int = Field(0, description="Number of conversations without drift")
+
+
+class CompleteAnalysisResult(BaseModel):
+    """Complete analysis results including all conversations and summary."""
+
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Analysis run metadata")
+    summary: AnalysisSummary = Field(
+        default_factory=lambda: AnalysisSummary(
+            total_conversations=0,
+            total_learnings=0,
+            conversations_with_drift=0,
+            conversations_without_drift=0,
+        ),
+        description="Summary statistics",
+    )
+    results: List[AnalysisResult] = Field(
+        default_factory=list, description="Per-conversation results"
+    )

@@ -1,0 +1,63 @@
+providers:
+  bedrock:
+    provider: bedrock
+    params:
+      region: us-east-1
+
+  bedrock-west:
+    provider: bedrock
+    params:
+      region: us-west-2
+
+models:
+  haiku:
+    provider: bedrock
+    model_id: us.anthropic.claude-3-haiku-20240307-v1:0
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+
+  sonnet:
+    provider: bedrock-west
+    model_id: us.anthropic.claude-3-5-sonnet-20241022-v2:0
+    params:
+      max_tokens: 8192
+      temperature: 0.1
+
+default_model: haiku
+
+drift_learning_types:
+  incomplete_work:
+    description: AI stopped before completing the full scope of work
+    detection_prompt: Look for instances where the AI claimed to be done but the user had to ask for completion
+    explicit_signals:
+      - Finish
+      - Complete
+      - You didn't finish
+    implicit_signals:
+      - User lists missing items after AI says done
+    examples:
+      - "User: implement auth | AI: adds login | User: what about logout?"
+
+  wrong_assumption:
+    description: AI made incorrect assumptions not stated by user
+    detection_prompt: Find cases where AI assumed something the user never stated
+    explicit_signals:
+      - I never said
+      - Don't assume
+    implicit_signals:
+      - User corrects fundamental approach AI took
+    examples:
+      - "User: add error handling | AI: implements retry logic | User: just log it"
+    model: sonnet
+
+agent_tools:
+  claude-code:
+    conversation_path: ~/.claude/projects/
+    enabled: true
+
+conversations:
+  mode: latest
+  days: 7
+
+temp_dir: /tmp/drift
