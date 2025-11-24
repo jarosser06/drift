@@ -35,6 +35,31 @@ class ModelConfig(BaseModel):
     )
 
 
+class BundleStrategy(str, Enum):
+    """Strategy for grouping files into bundles."""
+
+    INDIVIDUAL = "individual"
+    COLLECTION = "collection"
+
+
+class DocumentBundleConfig(BaseModel):
+    """Configuration for document bundle loading."""
+
+    bundle_type: str = Field(
+        ..., description="Type of bundle (skill, command, agent, mixed, etc.)"
+    )
+    file_patterns: List[str] = Field(
+        ..., description="Glob patterns for files to include (e.g., '.claude/skills/*/SKILL.md')"
+    )
+    bundle_strategy: BundleStrategy = Field(
+        ..., description="How to group matching files"
+    )
+    resource_patterns: List[str] = Field(
+        default_factory=list,
+        description="Optional glob patterns for supporting files within bundle directories",
+    )
+
+
 class DriftLearningType(BaseModel):
     """Definition of a drift learning type."""
 
@@ -45,7 +70,7 @@ class DriftLearningType(BaseModel):
     analysis_method: Literal["programmatic", "ai_analyzed"] = Field(
         ..., description="How this rule is evaluated"
     )
-    scope: Literal["turn_level", "conversation_level"] = Field(
+    scope: Literal["turn_level", "conversation_level", "document_level", "project_level"] = Field(
         ..., description="What scope this rule analyzes"
     )
     context: str = Field(..., description="Why this rule exists for optimization")
@@ -55,14 +80,10 @@ class DriftLearningType(BaseModel):
     supported_clients: Optional[List[str]] = Field(
         None, description="Which clients this rule applies to (None = all clients)"
     )
-    explicit_signals: List[str] = Field(
-        default_factory=list, description="Explicit phrases indicating this drift"
-    )
-    implicit_signals: List[str] = Field(
-        default_factory=list, description="Behavioral patterns indicating this drift"
-    )
-    examples: List[str] = Field(default_factory=list, description="Example conversations")
     model: Optional[str] = Field(None, description="Optional model override for this type")
+    document_bundle: Optional[DocumentBundleConfig] = Field(
+        None, description="Optional document bundle configuration for document/project scope"
+    )
 
 
 class AgentToolConfig(BaseModel):

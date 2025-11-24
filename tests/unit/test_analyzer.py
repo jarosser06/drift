@@ -76,9 +76,8 @@ class TestDriftAnalyzer:
         assert sample_learning_type.description in prompt
         assert sample_learning_type.detection_prompt in prompt
         assert "JSON" in prompt
-        # Check that signals are included
-        for signal in sample_learning_type.explicit_signals:
-            assert signal in prompt
+        # Signals are now part of detection_prompt, so just verify prompt has content
+        assert len(prompt) > 100
 
     def test_parse_analysis_response_valid(self, sample_conversation):
         """Test parsing valid analysis response."""
@@ -503,3 +502,522 @@ class TestDriftAnalyzer:
                 "nonexistent_model",
             )
         assert "not found in configured providers" in str(exc_info.value)
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_no_project_path(
+        self, mock_provider_class, mock_loader_class, sample_drift_config
+    ):
+        """Test analyze_documents requires project_path."""
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=None)
+
+        with pytest.raises(ValueError) as exc_info:
+            analyzer.analyze_documents()
+        assert "project path" in str(exc_info.value).lower()
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_filters_learning_types(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test analyze_documents filters to only document learning types."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+
+        # Add mixed learning types
+        sample_drift_config.drift_learning_types = {
+            "turn_type": DriftLearningType(
+                description="Turn level",
+                detection_prompt="Find issues",
+                analysis_method="ai_analyzed",
+                scope="turn_level",
+                context="Test",
+                requires_project_context=False,
+            ),
+            "doc_type": DriftLearningType(
+                description="Document level",
+                detection_prompt="Find doc issues",
+                analysis_method="ai_analyzed",
+                scope="document_level",
+                context="Test",
+                requires_project_context=True,
+                supported_clients=["claude-code"],
+                document_bundle=DocumentBundleConfig(
+                    bundle_type="test",
+                    file_patterns=["*.md"],
+                    bundle_strategy=BundleStrategy.INDIVIDUAL,
+                    resource_patterns=[],
+                ),
+            ),
+        }
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = []
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        analyzer.analyze_documents()
+
+        # Should only load bundles once (for doc_type, not turn_type)
+        assert mock_loader.load_bundles.call_count == 1
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_document_level(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test analyze_documents with document_level scope."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create document learning type
+        doc_type = DriftLearningType(
+            description="Test document type",
+            detection_prompt="Find issues in {files_with_paths}",
+            analysis_method="ai_analyzed",
+            scope="document_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="test",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+                resource_patterns=[],
+            ),
+        )
+        sample_drift_config.drift_learning_types = {"doc_test": doc_type}
+
+        # Create mock bundles
+        bundle1 = DocumentBundle(
+            bundle_id="bundle1",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test1.md",
+                    content="content1",
+                    file_path=temp_dir / "test1.md",
+                )
+            ],
+        )
+        bundle2 = DocumentBundle(
+            bundle_id="bundle2",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test2.md",
+                    content="content2",
+                    file_path=temp_dir / "test2.md",
+                )
+            ],
+        )
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = [bundle1, bundle2]
+        mock_loader.format_bundle_for_llm.return_value = "formatted content"
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider.generate.return_value = json.dumps(
+            [
+                {
+                    "file_paths": ["test1.md"],
+                    "observed_issue": "Issue found",
+                    "expected_quality": "Should be better",
+                    "context": "Test context",
+                }
+            ]
+        )
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        result = analyzer.analyze_documents()
+
+        # Should analyze each bundle separately
+        assert mock_provider.generate.call_count == 2
+        assert "document_learnings" in result.metadata
+        assert len(result.metadata["document_learnings"]) == 2
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_project_level(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test analyze_documents with project_level scope."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create project-level learning type
+        proj_type = DriftLearningType(
+            description="Test project type",
+            detection_prompt="Find cross-document issues",
+            analysis_method="ai_analyzed",
+            scope="project_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="mixed",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.COLLECTION,
+                resource_patterns=[],
+            ),
+        )
+        sample_drift_config.drift_learning_types = {"proj_test": proj_type}
+
+        # Create mock bundles
+        bundle1 = DocumentBundle(
+            bundle_id="bundle1",
+            bundle_type="mixed",
+            bundle_strategy="collection",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test1.md",
+                    content="content1",
+                    file_path=temp_dir / "test1.md",
+                ),
+                DocumentFile(
+                    relative_path="test2.md",
+                    content="content2",
+                    file_path=temp_dir / "test2.md",
+                ),
+            ],
+        )
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = [bundle1]
+        mock_loader.format_bundle_for_llm.return_value = "formatted content"
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider.generate.return_value = json.dumps(
+            [
+                {
+                    "file_paths": ["test1.md", "test2.md"],
+                    "observed_issue": "Contradiction found",
+                    "expected_quality": "Should be consistent",
+                    "context": "Test context",
+                }
+            ]
+        )
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        result = analyzer.analyze_documents()
+
+        # Should analyze combined bundle once (max 1 for project level)
+        assert mock_provider.generate.call_count == 1
+        assert "document_learnings" in result.metadata
+        # Project level should have max 1 learning
+        assert len(result.metadata["document_learnings"]) == 1
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_with_learning_type_filter(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test analyze_documents with specific learning type filter."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+
+        # Create two document learning types
+        sample_drift_config.drift_learning_types = {
+            "type1": DriftLearningType(
+                description="Type 1",
+                detection_prompt="Find type1 issues",
+                analysis_method="ai_analyzed",
+                scope="document_level",
+                context="Test",
+                requires_project_context=True,
+                supported_clients=["claude-code"],
+                document_bundle=DocumentBundleConfig(
+                    bundle_type="test",
+                    file_patterns=["*.md"],
+                    bundle_strategy=BundleStrategy.INDIVIDUAL,
+                    resource_patterns=[],
+                ),
+            ),
+            "type2": DriftLearningType(
+                description="Type 2",
+                detection_prompt="Find type2 issues",
+                analysis_method="ai_analyzed",
+                scope="document_level",
+                context="Test",
+                requires_project_context=True,
+                supported_clients=["claude-code"],
+                document_bundle=DocumentBundleConfig(
+                    bundle_type="test",
+                    file_patterns=["*.txt"],
+                    bundle_strategy=BundleStrategy.INDIVIDUAL,
+                    resource_patterns=[],
+                ),
+            ),
+        }
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = []
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        analyzer.analyze_documents(learning_types=["type1"])
+
+        # Should only load bundles for type1
+        assert mock_loader.load_bundles.call_count == 1
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_documents_handles_empty_bundles(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test analyze_documents handles no matching files gracefully."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+
+        doc_type = DriftLearningType(
+            description="Test",
+            detection_prompt="Find issues",
+            analysis_method="ai_analyzed",
+            scope="document_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="test",
+                file_patterns=["*.nonexistent"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+                resource_patterns=[],
+            ),
+        )
+        sample_drift_config.drift_learning_types = {"test": doc_type}
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = []  # No bundles found
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        result = analyzer.analyze_documents()
+
+        # Should not call provider if no bundles
+        assert mock_provider.generate.call_count == 0
+        assert result.metadata["document_learnings"] == []
+
+    def test_build_document_analysis_prompt(self, sample_drift_config, temp_dir):
+        """Test building document analysis prompt."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        learning_type = DriftLearningType(
+            description="Test type",
+            detection_prompt="Find issues in {files_with_paths} at {project_root}",
+            analysis_method="ai_analyzed",
+            scope="document_level",
+            context="Test context",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="skill",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+                resource_patterns=[],
+            ),
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test_bundle",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test.md",
+                    content="test content",
+                    file_path=temp_dir / "test.md",
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        prompt = analyzer._build_document_analysis_prompt(
+            bundle, "test_type", learning_type
+        )
+
+        assert "test_type" in prompt
+        assert learning_type.description in prompt
+        assert "skill" in prompt  # bundle_type
+        assert "JSON" in prompt
+        assert len(prompt) > 100
+
+    def test_parse_document_analysis_response_valid(self, sample_drift_config, temp_dir):
+        """Test parsing valid document analysis response."""
+        from drift.core.types import DocumentBundle
+
+        bundle = DocumentBundle(
+            bundle_id="test_bundle",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[],
+        )
+
+        # Response doesn't include bundle_id - that's added from the bundle param
+        response = json.dumps(
+            [
+                {
+                    "file_paths": ["test.md"],
+                    "observed_issue": "Issue found",
+                    "expected_quality": "Should be better",
+                    "context": "Test context",
+                }
+            ]
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        learnings = analyzer._parse_document_analysis_response(
+            response, bundle, "test_type"
+        )
+
+        assert len(learnings) == 1
+        assert learnings[0].bundle_id == "test_bundle"
+        assert learnings[0].learning_type == "test_type"
+        assert learnings[0].observed_issue == "Issue found"
+
+    def test_parse_document_analysis_response_empty(self, sample_drift_config, temp_dir):
+        """Test parsing empty document analysis response."""
+        from drift.core.types import DocumentBundle
+
+        bundle = DocumentBundle(
+            bundle_id="test_bundle",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[],
+        )
+
+        response = "[]"
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        learnings = analyzer._parse_document_analysis_response(
+            response, bundle, "test_type"
+        )
+
+        assert learnings == []
+
+    def test_parse_document_analysis_response_invalid_json(self, sample_drift_config, temp_dir):
+        """Test parsing invalid JSON in document analysis response."""
+        from drift.core.types import DocumentBundle
+
+        bundle = DocumentBundle(
+            bundle_id="test_bundle",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[],
+        )
+
+        response = "This is not valid JSON"
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        learnings = analyzer._parse_document_analysis_response(
+            response, bundle, "test_type"
+        )
+
+        assert learnings == []
+
+    def test_combine_bundles(self, sample_drift_config, temp_dir):
+        """Test combining multiple bundles into collection."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        bundle1 = DocumentBundle(
+            bundle_id="bundle1",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test1.md",
+                    content="content1",
+                    file_path=temp_dir / "test1.md",
+                )
+            ],
+        )
+        bundle2 = DocumentBundle(
+            bundle_id="bundle2",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test2.md",
+                    content="content2",
+                    file_path=temp_dir / "test2.md",
+                )
+            ],
+        )
+
+        learning_type = DriftLearningType(
+            description="Test",
+            detection_prompt="Find issues",
+            analysis_method="ai_analyzed",
+            scope="project_level",
+            context="Test",
+            requires_project_context=True,
+            document_bundle=DocumentBundleConfig(
+                bundle_type="test",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.COLLECTION,
+                resource_patterns=[],
+            ),
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        combined = analyzer._combine_bundles([bundle1, bundle2], learning_type)
+
+        assert combined.bundle_strategy == "collection"
+        assert len(combined.files) == 2
+        assert combined.bundle_type == "test"
+        assert combined.bundle_id == "combined_project_level"

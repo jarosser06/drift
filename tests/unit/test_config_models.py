@@ -104,9 +104,6 @@ class TestDriftLearningType:
             context="Test context for optimization",
             requires_project_context=False,
             supported_clients=None,
-            explicit_signals=["signal1", "signal2"],
-            implicit_signals=["pattern1"],
-            examples=["example1"],
             model="haiku",
         )
         assert learning_type.description == "Test learning type"
@@ -116,10 +113,8 @@ class TestDriftLearningType:
         assert learning_type.context == "Test context for optimization"
         assert learning_type.requires_project_context is False
         assert learning_type.supported_clients is None
-        assert learning_type.explicit_signals == ["signal1", "signal2"]
-        assert learning_type.implicit_signals == ["pattern1"]
-        assert learning_type.examples == ["example1"]
         assert learning_type.model == "haiku"
+        assert learning_type.document_bundle is None
 
     def test_default_values(self):
         """Test default values for optional fields."""
@@ -131,11 +126,9 @@ class TestDriftLearningType:
             context="Test context",
             requires_project_context=False,
         )
-        assert learning_type.explicit_signals == []
-        assert learning_type.implicit_signals == []
-        assert learning_type.examples == []
         assert learning_type.model is None
         assert learning_type.supported_clients is None
+        assert learning_type.document_bundle is None
 
 
 class TestAgentToolConfig:

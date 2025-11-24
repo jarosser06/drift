@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -124,3 +125,38 @@ class CompleteAnalysisResult(BaseModel):
     results: List[AnalysisResult] = Field(
         default_factory=list, description="Per-conversation results"
     )
+
+
+# Document analysis types
+
+
+class DocumentFile(BaseModel):
+    """Represents a single document file."""
+
+    relative_path: str = Field(..., description="Path relative to project root")
+    content: str = Field(..., description="File content")
+    file_path: Path = Field(..., description="Absolute path to file")
+
+
+class DocumentBundle(BaseModel):
+    """Represents a bundle of documents for analysis."""
+
+    bundle_id: str = Field(..., description="Unique identifier for this bundle")
+    bundle_type: str = Field(..., description="Type of bundle (skill, command, agent, mixed, etc.)")
+    bundle_strategy: str = Field(..., description="Strategy used (individual or collection)")
+    files: List[DocumentFile] = Field(default_factory=list, description="Files in this bundle")
+    project_path: Path = Field(..., description="Project root path")
+
+
+class DocumentLearning(BaseModel):
+    """A learning identified from document analysis."""
+
+    bundle_id: str = Field(..., description="Bundle where issue was found")
+    bundle_type: str = Field(..., description="Type of bundle")
+    file_paths: List[str] = Field(
+        default_factory=list, description="Files involved in this learning"
+    )
+    observed_issue: str = Field(..., description="What issue was observed")
+    expected_quality: str = Field(..., description="What the expected quality/behavior should be")
+    learning_type: str = Field(..., description="Type of drift learning")
+    context: str = Field("", description="Additional context about the issue")

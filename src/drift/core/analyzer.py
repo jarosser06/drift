@@ -14,10 +14,13 @@ from drift.core.types import (
     AnalysisSummary,
     CompleteAnalysisResult,
     Conversation,
+    DocumentBundle,
+    DocumentLearning,
     FrequencyType,
     Learning,
     WorkflowElement,
 )
+from drift.documents.loader import DocumentLoader
 from drift.providers.base import Provider
 from drift.providers.bedrock import BedrockProvider
 from drift.utils.temp import TempManager
@@ -345,12 +348,6 @@ class DriftAnalyzer:
 {project_context_section}**Detection Instructions:**
 {detection_prompt}
 
-**Explicit Signals to Look For:**
-{chr(10).join(f"- {signal}" for signal in getattr(type_config, "explicit_signals", []))}
-
-**Implicit Signals to Look For:**
-{chr(10).join(f"- {signal}" for signal in getattr(type_config, "implicit_signals", []))}
-
 **Conversation to Analyze:**
 {conversation_text}
 
@@ -499,6 +496,313 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         summary.by_frequency = by_frequency
 
         return summary
+
+    def analyze_documents(
+        self,
+        learning_types: Optional[List[str]] = None,
+        model_override: Optional[str] = None,
+    ) -> CompleteAnalysisResult:
+        """Run drift analysis on project documents.
+
+        Args:
+            learning_types: Optional list of specific learning types to check
+            model_override: Optional model to use (overrides all config settings)
+
+        Returns:
+            Complete analysis results with document learnings
+        """
+        if not self.project_path:
+            raise ValueError("Project path required for document analysis")
+
+        # Filter to learning types that have document_bundle config
+        all_types = (
+            {lt: self.config.drift_learning_types[lt] for lt in learning_types}
+            if learning_types
+            else self.config.drift_learning_types
+        )
+
+        # Only keep types with document_bundle configuration
+        document_types = {
+            name: config
+            for name, config in all_types.items()
+            if hasattr(config, "document_bundle") and config.document_bundle is not None
+        }
+
+        if not document_types:
+            # No document learning types configured
+            return CompleteAnalysisResult(
+                metadata={"generated_at": datetime.now().isoformat()},
+                summary=AnalysisSummary(),
+                results=[],
+            )
+
+        # Initialize document loader
+        doc_loader = DocumentLoader(self.project_path)
+
+        # Analyze each document learning type
+        all_document_learnings: List[DocumentLearning] = []
+
+        for type_name, type_config in document_types.items():
+            try:
+                # Load bundles for this type
+                bundles = doc_loader.load_bundles(type_config.document_bundle)
+
+                if not bundles:
+                    continue
+
+                # Handle scope-based analysis
+                scope = getattr(type_config, "scope", "document_level")
+
+                if scope == "document_level":
+                    # Analyze each bundle independently
+                    for bundle in bundles:
+                        learnings = self._analyze_document_bundle(
+                            bundle, type_name, type_config, model_override
+                        )
+                        all_document_learnings.extend(learnings)
+
+                elif scope == "project_level":
+                    # Combine all bundles for cross-document analysis
+                    if bundles:
+                        combined_bundle = self._combine_bundles(bundles, type_config)
+                        learnings = self._analyze_document_bundle(
+                            combined_bundle, type_name, type_config, model_override
+                        )
+                        # Limit to 1 per type for project-level
+                        if learnings:
+                            all_document_learnings.append(learnings[0])
+
+            except Exception as e:
+                print(f"Warning: Failed to analyze documents for {type_name}: {e}")
+                continue
+
+        # Convert document learnings to AnalysisResult format for compatibility
+        # For now, create a synthetic result
+        result = AnalysisResult(
+            session_id="document_analysis",
+            agent_tool="documents",
+            conversation_file="N/A",
+            project_path=str(self.project_path),
+            learnings=[],  # Document learnings are separate
+            analysis_timestamp=datetime.now(),
+        )
+
+        # Generate summary (adapt for document learnings)
+        summary = AnalysisSummary(
+            total_conversations=0,
+            total_learnings=len(all_document_learnings),
+            conversations_with_drift=0,
+            conversations_without_drift=0,
+        )
+
+        # Count by type
+        by_type: Dict[str, int] = {}
+        for learning in all_document_learnings:
+            by_type[learning.learning_type] = by_type.get(learning.learning_type, 0) + 1
+        summary.by_type = by_type
+
+        return CompleteAnalysisResult(
+            metadata={
+                "generated_at": datetime.now().isoformat(),
+                "analysis_type": "documents",
+                "project_path": str(self.project_path),
+                "document_learnings": [
+                    learning.model_dump() for learning in all_document_learnings
+                ],
+            },
+            summary=summary,
+            results=[result] if all_document_learnings else [],
+        )
+
+    def _analyze_document_bundle(
+        self,
+        bundle: DocumentBundle,
+        learning_type: str,
+        type_config: Any,
+        model_override: Optional[str],
+    ) -> List[DocumentLearning]:
+        """Analyze a single document bundle.
+
+        Args:
+            bundle: Document bundle to analyze
+            learning_type: Name of learning type
+            type_config: Configuration for this learning type
+            model_override: Optional model override
+
+        Returns:
+            List of document learnings found
+        """
+        # Build prompt
+        prompt = self._build_document_analysis_prompt(bundle, learning_type, type_config)
+
+        # Determine model to use
+        model_name = (
+            model_override
+            or (type_config.model if hasattr(type_config, "model") else None)
+            or self.config.get_model_for_learning_type(learning_type)
+        )
+
+        # Get provider
+        provider = self.providers.get(model_name)
+        if not provider:
+            raise ValueError(f"Model '{model_name}' not found in configured providers")
+
+        # Generate analysis
+        response = provider.generate(prompt)
+
+        # Parse response
+        learnings = self._parse_document_analysis_response(response, bundle, learning_type)
+
+        return learnings
+
+    def _build_document_analysis_prompt(
+        self,
+        bundle: DocumentBundle,
+        learning_type: str,
+        type_config: Any,
+    ) -> str:
+        """Build prompt for document analysis.
+
+        Args:
+            bundle: Document bundle to analyze
+            learning_type: Name of learning type
+            type_config: Configuration for this learning type
+
+        Returns:
+            Formatted prompt string
+        """
+        description = getattr(type_config, "description", "")
+        detection_prompt = getattr(type_config, "detection_prompt", "")
+
+        # Format bundle content
+        doc_loader = DocumentLoader(bundle.project_path)
+        formatted_files = doc_loader.format_bundle_for_llm(bundle)
+
+        # Build prompt with template variable substitution
+        prompt = f"""You are analyzing project documentation to identify quality issues.
+
+**Analysis Type:** {learning_type}
+**Description:** {description}
+
+**Project Root:** {bundle.project_path}
+
+**Bundle Type:** {bundle.bundle_type}
+
+**Files Being Analyzed:**
+{formatted_files}
+
+**Detection Instructions:**
+{detection_prompt}
+
+**Task:**
+Analyze the above documentation and identify any instances of the "{learning_type}" pattern.
+
+For each issue found, extract:
+1. Which file(s) are involved (use relative paths from the Files Being Analyzed section)
+2. What issue was observed
+3. What the expected quality/behavior should be
+4. Brief explanation
+
+Return your analysis as a JSON array:
+[
+  {{
+    "file_paths": ["path/to/file1.md", "path/to/file2.md"],
+    "observed_issue": "<description of the problem>",
+    "expected_quality": "<what should be present/correct>",
+    "context": "<brief explanation>"
+  }}
+]
+
+If no issues are found, return an empty array: []
+
+IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
+
+        return prompt
+
+    def _parse_document_analysis_response(
+        self,
+        response: str,
+        bundle: DocumentBundle,
+        learning_type: str,
+    ) -> List[DocumentLearning]:
+        """Parse document analysis response from LLM.
+
+        Args:
+            response: Raw response from LLM
+            bundle: Document bundle that was analyzed
+            learning_type: Type of learning
+
+        Returns:
+            List of parsed document learnings
+        """
+        import json
+        import re
+
+        # Extract JSON from response
+        json_match = re.search(r"\[[\s\S]*\]", response)
+        if not json_match:
+            return []
+
+        try:
+            items = json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            return []
+
+        if not isinstance(items, list):
+            return []
+
+        # Convert to DocumentLearning objects
+        learnings = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            learning = DocumentLearning(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=item.get("file_paths", []),
+                observed_issue=item.get("observed_issue", ""),
+                expected_quality=item.get("expected_quality", ""),
+                learning_type=learning_type,
+                context=item.get("context", ""),
+            )
+            learnings.append(learning)
+
+        return learnings
+
+    def _combine_bundles(
+        self,
+        bundles: List[DocumentBundle],
+        type_config: Any,
+    ) -> DocumentBundle:
+        """Combine multiple bundles into a single mega-bundle for project-level analysis.
+
+        Args:
+            bundles: List of bundles to combine
+            type_config: Learning type configuration
+
+        Returns:
+            Combined document bundle
+        """
+        all_files = []
+        for bundle in bundles:
+            all_files.extend(bundle.files)
+
+        # Remove duplicates based on file path
+        seen_paths = set()
+        unique_files = []
+        for file in all_files:
+            if file.file_path not in seen_paths:
+                seen_paths.add(file.file_path)
+                unique_files.append(file)
+
+        return DocumentBundle(
+            bundle_id="combined_project_level",
+            bundle_type=type_config.document_bundle.bundle_type,
+            bundle_strategy="collection",
+            files=unique_files,
+            project_path=bundles[0].project_path,
+        )
 
     def cleanup(self) -> None:
         """Clean up temporary files."""

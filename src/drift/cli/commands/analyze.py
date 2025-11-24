@@ -12,6 +12,44 @@ from drift.cli.output.markdown import MarkdownFormatter
 from drift.config.loader import ConfigLoader
 from drift.config.models import ConversationMode
 from drift.core.analyzer import DriftAnalyzer
+from drift.core.types import CompleteAnalysisResult
+
+
+def _merge_results(
+    conv_result: CompleteAnalysisResult, doc_result: CompleteAnalysisResult
+) -> CompleteAnalysisResult:
+    """Merge conversation and document analysis results.
+
+    Args:
+        conv_result: Conversation analysis results
+        doc_result: Document analysis results
+
+    Returns:
+        Merged results
+    """
+    # Merge metadata
+    merged_metadata = {
+        **conv_result.metadata,
+        "analysis_scopes": ["conversations", "documents"],
+        "document_learnings": doc_result.metadata.get("document_learnings", []),
+    }
+
+    # Merge summaries
+    merged_summary = conv_result.summary.copy()
+    merged_summary.total_learnings += doc_result.summary.total_learnings
+
+    # Merge by_type counts
+    for type_name, count in doc_result.summary.by_type.items():
+        merged_summary.by_type[type_name] = merged_summary.by_type.get(type_name, 0) + count
+
+    # Merge results lists
+    merged_results = conv_result.results + doc_result.results
+
+    return CompleteAnalysisResult(
+        metadata=merged_metadata,
+        summary=merged_summary,
+        results=merged_results,
+    )
 
 
 def analyze_command(
@@ -20,6 +58,12 @@ def analyze_command(
         "--format",
         "-f",
         help="Output format (markdown or json)",
+    ),
+    scope: str = typer.Option(
+        "conversations",
+        "--scope",
+        "-s",
+        help="Analysis scope: conversations, documents, or all",
     ),
     agent_tool: Optional[str] = typer.Option(
         None,
@@ -178,16 +222,44 @@ def analyze_command(
             )
             raise typer.Exit(1)
 
+        # Validate scope
+        if scope not in ["conversations", "documents", "all"]:
+            typer.secho(
+                f"Error: Invalid scope: {scope}. Use 'conversations', 'documents', or 'all'",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            raise typer.Exit(1)
+
         # Create analyzer
         analyzer = DriftAnalyzer(config=config, project_path=project_path)
 
-        # Run analysis
+        # Run analysis based on scope
         try:
-            result = analyzer.analyze(
-                agent_tool=agent_tool,
-                learning_types=learning_types_list,
-                model_override=model,
-            )
+            if scope == "conversations":
+                result = analyzer.analyze(
+                    agent_tool=agent_tool,
+                    learning_types=learning_types_list,
+                    model_override=model,
+                )
+            elif scope == "documents":
+                result = analyzer.analyze_documents(
+                    learning_types=learning_types_list,
+                    model_override=model,
+                )
+            elif scope == "all":
+                # Run both analyses
+                conv_result = analyzer.analyze(
+                    agent_tool=agent_tool,
+                    learning_types=learning_types_list,
+                    model_override=model,
+                )
+                doc_result = analyzer.analyze_documents(
+                    learning_types=learning_types_list,
+                    model_override=model,
+                )
+                # Merge results
+                result = _merge_results(conv_result, doc_result)
         except FileNotFoundError as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
             typer.secho(
