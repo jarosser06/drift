@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from drift.agents.base import AgentLoader
-from drift.agents.claude_code import ClaudeCodeLoader
+from drift.agent_tools.base import AgentLoader
+from drift.agent_tools.claude_code import ClaudeCodeLoader
 from drift.config.loader import ConfigLoader
 from drift.config.models import DriftConfig, ProviderType
 from drift.core.types import (
@@ -522,17 +522,30 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         )
 
         # Only keep types with document_bundle configuration
-        document_types = {
-            name: config
-            for name, config in all_types.items()
-            if hasattr(config, "document_bundle") and config.document_bundle is not None
-        }
+        # (either directly or via validation_rules)
+        document_types = {}
+        for name, config in all_types.items():
+            # Check if it has document_bundle directly
+            if hasattr(config, "document_bundle") and config.document_bundle is not None:
+                document_types[name] = config
+            # Or if it has validation_rules with document_bundle
+            elif (
+                hasattr(config, "validation_rules")
+                and config.validation_rules is not None
+                and hasattr(config.validation_rules, "document_bundle")
+            ):
+                document_types[name] = config
 
         if not document_types:
             # No document learning types configured
             return CompleteAnalysisResult(
                 metadata={"generated_at": datetime.now().isoformat()},
-                summary=AnalysisSummary(),
+                summary=AnalysisSummary(
+                    total_conversations=0,
+                    total_learnings=0,
+                    conversations_with_drift=0,
+                    conversations_without_drift=0,
+                ),
                 results=[],
             )
 
@@ -544,10 +557,36 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         for type_name, type_config in document_types.items():
             try:
-                # Load bundles for this type
-                bundles = doc_loader.load_bundles(type_config.document_bundle)
+                # Get document bundle config (either directly or from validation_rules)
+                bundle_config = type_config.document_bundle
+                if bundle_config is None and hasattr(type_config, "validation_rules"):
+                    if type_config.validation_rules is not None:
+                        bundle_config = type_config.validation_rules.document_bundle
 
+                # Load bundles for this type
+                if bundle_config is None:
+                    continue
+                bundles = doc_loader.load_bundles(bundle_config)
+
+                # For programmatic validation, we still need to validate even if no bundles
+                # are found (e.g., file existence checks)
+                analysis_method = getattr(type_config, "analysis_method", "ai_analyzed")
                 if not bundles:
+                    if analysis_method == "programmatic":
+                        # Create empty bundle for validation
+                        from drift.core.types import DocumentBundle
+
+                        empty_bundle = DocumentBundle(
+                            bundle_id="empty",
+                            bundle_type=bundle_config.bundle_type,
+                            bundle_strategy=bundle_config.bundle_strategy.value,
+                            files=[],
+                            project_path=self.project_path,
+                        )
+                        learnings = self._analyze_document_bundle(
+                            empty_bundle, type_name, type_config, model_override
+                        )
+                        all_document_learnings.extend(learnings)
                     continue
 
                 # Handle scope-based analysis
@@ -585,6 +624,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             project_path=str(self.project_path),
             learnings=[],  # Document learnings are separate
             analysis_timestamp=datetime.now(),
+            error=None,
         )
 
         # Generate summary (adapt for document learnings)
@@ -632,6 +672,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         Returns:
             List of document learnings found
         """
+        # Check if this is programmatic validation
+        analysis_method = getattr(type_config, "analysis_method", "ai_analyzed")
+
+        if analysis_method == "programmatic":
+            # Route to rule-based validation
+            return self._execute_validation_rules(bundle, learning_type, type_config)
+
+        # AI-based analysis
         # Build prompt
         prompt = self._build_document_analysis_prompt(bundle, learning_type, type_config)
 
@@ -652,6 +700,48 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         # Parse response
         learnings = self._parse_document_analysis_response(response, bundle, learning_type)
+
+        return learnings
+
+    def _execute_validation_rules(
+        self,
+        bundle: DocumentBundle,
+        learning_type: str,
+        type_config: Any,
+    ) -> List[DocumentLearning]:
+        """Execute rule-based validation on a bundle.
+
+        Args:
+            bundle: Document bundle to validate
+            learning_type: Name of learning type
+            type_config: Configuration for this learning type
+
+        Returns:
+            List of document learnings from failed validations
+        """
+        from drift.validation.validators import ValidatorRegistry
+
+        validation_config = getattr(type_config, "validation_rules", None)
+        if not validation_config:
+            raise ValueError(
+                f"Learning type '{learning_type}' has analysis_method='programmatic' "
+                "but no validation_rules configured"
+            )
+
+        registry = ValidatorRegistry()
+        learnings = []
+
+        for rule in validation_config.rules:
+            try:
+                result = registry.execute_rule(rule, bundle)
+                if result is not None:
+                    # Validation failed - set the learning type name
+                    result.learning_type = learning_type
+                    learnings.append(result)
+            except Exception as e:
+                # Log error but continue with other rules
+                print(f"Warning: Validation rule '{rule.description}' failed: {e}")
+                continue
 
         return learnings
 
@@ -796,9 +886,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 seen_paths.add(file.file_path)
                 unique_files.append(file)
 
+        # Get document bundle config (either directly or from validation_rules)
+        bundle_config = type_config.document_bundle
+        if bundle_config is None and hasattr(type_config, "validation_rules"):
+            bundle_config = type_config.validation_rules.document_bundle
+
         return DocumentBundle(
             bundle_id="combined_project_level",
-            bundle_type=type_config.document_bundle.bundle_type,
+            bundle_type=bundle_config.bundle_type,
             bundle_strategy="collection",
             files=unique_files,
             project_path=bundles[0].project_path,

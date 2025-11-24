@@ -521,11 +521,7 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents filters to only document learning types."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
 
         # Add mixed learning types
         sample_drift_config.drift_learning_types = {
@@ -574,11 +570,7 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with document_level scope."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create document learning type
@@ -660,11 +652,7 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with project_level scope."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create project-level learning type
@@ -739,11 +727,7 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with specific learning type filter."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
 
         # Create two document learning types
         sample_drift_config.drift_learning_types = {
@@ -799,11 +783,7 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents handles no matching files gracefully."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
 
         doc_type = DriftLearningType(
             description="Test",
@@ -839,11 +819,7 @@ class TestDriftAnalyzer:
 
     def test_build_document_analysis_prompt(self, sample_drift_config, temp_dir):
         """Test building document analysis prompt."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
         from drift.core.types import DocumentBundle, DocumentFile
 
         learning_type = DriftLearningType(
@@ -877,9 +853,7 @@ class TestDriftAnalyzer:
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
-        prompt = analyzer._build_document_analysis_prompt(
-            bundle, "test_type", learning_type
-        )
+        prompt = analyzer._build_document_analysis_prompt(bundle, "test_type", learning_type)
 
         assert "test_type" in prompt
         assert learning_type.description in prompt
@@ -912,9 +886,7 @@ class TestDriftAnalyzer:
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(
-            response, bundle, "test_type"
-        )
+        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
         assert len(learnings) == 1
         assert learnings[0].bundle_id == "test_bundle"
@@ -936,9 +908,7 @@ class TestDriftAnalyzer:
         response = "[]"
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(
-            response, bundle, "test_type"
-        )
+        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
         assert learnings == []
 
@@ -957,19 +927,13 @@ class TestDriftAnalyzer:
         response = "This is not valid JSON"
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(
-            response, bundle, "test_type"
-        )
+        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
         assert learnings == []
 
     def test_combine_bundles(self, sample_drift_config, temp_dir):
         """Test combining multiple bundles into collection."""
-        from drift.config.models import (
-            BundleStrategy,
-            DocumentBundleConfig,
-            DriftLearningType,
-        )
+        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
         from drift.core.types import DocumentBundle, DocumentFile
 
         bundle1 = DocumentBundle(

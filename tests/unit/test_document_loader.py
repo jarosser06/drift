@@ -1,9 +1,7 @@
 """Unit tests for document loader."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
-
-import pytest
+from unittest.mock import patch
 
 from drift.config.models import BundleStrategy, DocumentBundleConfig
 from drift.core.types import DocumentBundle, DocumentFile

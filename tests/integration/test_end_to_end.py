@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from drift.agents.claude_code import ClaudeCodeLoader
+from drift.agent_tools.claude_code import ClaudeCodeLoader
 from drift.config.loader import ConfigLoader
 from drift.config.models import (
     AgentToolConfig,

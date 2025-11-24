@@ -77,6 +77,8 @@ logout and session handling?"
         ),
         requires_project_context=False,
         supported_clients=None,
+        document_bundle=None,
+        validation_rules=None,
         model=None,
     ),
     "agent_delegation_miss": DriftLearningType(
@@ -115,6 +117,8 @@ then user says "just use the testing agent"
         requires_project_context=True,
         supported_clients=["claude-code"],
         model=None,
+        document_bundle=None,
+        validation_rules=None,
     ),
     "skill_ignored": DriftLearningType(
         description="AI reinvented solutions when documented skills existed",
@@ -151,6 +155,8 @@ User asks "add API endpoint", AI writes custom code, then user says \
         requires_project_context=True,
         supported_clients=["claude-code"],
         model=None,
+        document_bundle=None,
+        validation_rules=None,
     ),
     "workflow_bypass": DriftLearningType(
         description="User manually prompted instead of using documented workflows",
@@ -189,6 +195,8 @@ Note: Maximum 1 learning per conversation for this type.
         requires_project_context=False,
         supported_clients=None,
         model=None,
+        document_bundle=None,
+        validation_rules=None,
     ),
     "prescriptive_deviation": DriftLearningType(
         description="AI interpreted or improvised when literal adherence was required",
@@ -224,6 +232,8 @@ then user says "no, use the exact wording from the spec"
         requires_project_context=False,
         supported_clients=None,
         model=None,
+        document_bundle=None,
+        validation_rules=None,
     ),
     "no_agents_configured": DriftLearningType(
         description="Project has no agents configured, missing automation opportunities",
@@ -252,6 +262,8 @@ Note: Maximum 1 learning per conversation for this type.
         requires_project_context=True,
         supported_clients=["claude-code"],
         model=None,
+        document_bundle=None,
+        validation_rules=None,
     ),
     "skill_completeness": DriftLearningType(
         description="Claude Code skills missing essential components or clarity",
@@ -289,6 +301,7 @@ Example issues:
             bundle_strategy=BundleStrategy.INDIVIDUAL,
             resource_patterns=["**/*.py", "**/*.js", "**/*.md", "**/*.ts"],
         ),
+        validation_rules=None,
     ),
     "command_consistency": DriftLearningType(
         description="Commands contradict project guidelines or each other",
@@ -325,6 +338,7 @@ Example contradictions:
             bundle_strategy=BundleStrategy.COLLECTION,
             resource_patterns=[],
         ),
+        validation_rules=None,
     ),
 }
 

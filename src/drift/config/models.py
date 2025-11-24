@@ -1,10 +1,11 @@
 """Configuration models for drift."""
 
+import re
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ProviderType(str, Enum):
@@ -45,18 +46,95 @@ class BundleStrategy(str, Enum):
 class DocumentBundleConfig(BaseModel):
     """Configuration for document bundle loading."""
 
-    bundle_type: str = Field(
-        ..., description="Type of bundle (skill, command, agent, mixed, etc.)"
-    )
+    bundle_type: str = Field(..., description="Type of bundle (skill, command, agent, mixed, etc.)")
     file_patterns: List[str] = Field(
         ..., description="Glob patterns for files to include (e.g., '.claude/skills/*/SKILL.md')"
     )
-    bundle_strategy: BundleStrategy = Field(
-        ..., description="How to group matching files"
-    )
+    bundle_strategy: BundleStrategy = Field(..., description="How to group matching files")
     resource_patterns: List[str] = Field(
         default_factory=list,
         description="Optional glob patterns for supporting files within bundle directories",
+    )
+
+
+class ValidationType(str, Enum):
+    """Types of validation rules."""
+
+    FILE_EXISTS = "file_exists"
+    FILE_NOT_EXISTS = "file_not_exists"
+    REGEX_MATCH = "regex_match"
+    REGEX_NOT_MATCH = "regex_not_match"
+    FILE_COUNT = "file_count"
+    FILE_SIZE = "file_size"
+    CROSS_FILE_REFERENCE = "cross_file_reference"
+
+
+class ValidationRule(BaseModel):
+    """A single validation rule."""
+
+    rule_type: ValidationType = Field(..., description="Type of validation to perform")
+    description: str = Field(..., description="Human-readable description of what this rule checks")
+
+    # File existence/pattern rules
+    file_path: Optional[str] = Field(None, description="File path or glob pattern to validate")
+
+    # Regex rules
+    pattern: Optional[str] = Field(None, description="Regular expression pattern to match")
+    flags: Optional[int] = Field(None, description="Regex flags (e.g., re.MULTILINE=8)")
+
+    # Count/size constraints
+    min_count: Optional[int] = Field(None, description="Minimum number of files/matches")
+    max_count: Optional[int] = Field(None, description="Maximum number of files/matches")
+    min_size: Optional[int] = Field(None, description="Minimum file size in bytes")
+    max_size: Optional[int] = Field(None, description="Maximum file size in bytes")
+
+    # Cross-file validation
+    source_pattern: Optional[str] = Field(
+        None, description="Glob pattern for source files to check"
+    )
+    reference_pattern: Optional[str] = Field(
+        None, description="Regex pattern to extract references from source files"
+    )
+    target_pattern: Optional[str] = Field(
+        None, description="Glob pattern for target files that should exist"
+    )
+
+    # Error messaging
+    failure_message: str = Field(..., description="Message to display when validation fails")
+    expected_behavior: str = Field(..., description="Description of expected/correct behavior")
+
+    @field_validator("pattern")
+    @classmethod
+    def validate_regex_pattern(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that regex pattern is valid."""
+        if v is not None:
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f"Invalid regex pattern: {e}")
+        return v
+
+    @field_validator("reference_pattern")
+    @classmethod
+    def validate_reference_pattern(cls, v: Optional[str]) -> Optional[str]:
+        """Validate that reference regex pattern is valid."""
+        if v is not None:
+            try:
+                re.compile(v)
+            except re.error as e:
+                raise ValueError(f"Invalid reference regex pattern: {e}")
+        return v
+
+
+class ValidationRulesConfig(BaseModel):
+    """Configuration for rule-based validation."""
+
+    rules: List[ValidationRule] = Field(..., description="List of validation rules to execute")
+    scope: Literal["document_level", "project_level"] = Field(
+        "document_level", description="Scope at which to execute validation"
+    )
+    document_bundle: DocumentBundleConfig = Field(
+        ..., description="Document bundle configuration for loading files"
     )
 
 
@@ -84,6 +162,24 @@ class DriftLearningType(BaseModel):
     document_bundle: Optional[DocumentBundleConfig] = Field(
         None, description="Optional document bundle configuration for document/project scope"
     )
+    validation_rules: Optional[ValidationRulesConfig] = Field(
+        None, description="Optional validation rules configuration for programmatic analysis"
+    )
+
+    @model_validator(mode="after")
+    def validate_analysis_method_consistency(self) -> "DriftLearningType":
+        """Validate that validation_rules is consistent with analysis_method."""
+        if self.analysis_method == "programmatic" and self.validation_rules is None:
+            raise ValueError(
+                "validation_rules must be provided when " "analysis_method is 'programmatic'"
+            )
+
+        if self.analysis_method == "ai_analyzed" and self.validation_rules is not None:
+            raise ValueError(
+                "validation_rules should not be provided when " "analysis_method is 'ai_analyzed'"
+            )
+
+        return self
 
 
 class AgentToolConfig(BaseModel):

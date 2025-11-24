@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from drift.agents.base import AgentLoader
-from drift.agents.claude_code import ClaudeCodeLoader
+from drift.agent_tools.base import AgentLoader
+from drift.agent_tools.claude_code import ClaudeCodeLoader
 from drift.core.types import Conversation
 
 
