@@ -42,6 +42,8 @@ drift analyze --days 7 --format json
 
 ### incomplete_work
 
+*AI stopping before completing full scope wastes user time and breaks workflow momentum. Clear completion expectations improve efficiency.*
+
 **Session:** abc-123 (my-project)
 **Agent Tool:** claude-code
 **Turn:** 3
@@ -51,6 +53,8 @@ drift analyze --days 7 --format json
 **Context:** User had to explicitly request validation in next turn
 
 ### agent_delegation_miss
+
+*When agents are available to handle specialized work, using them reduces errors and maintains consistent workflow patterns.*
 
 **Session:** def-456 (api-service)
 **Agent Tool:** claude-code
@@ -63,6 +67,8 @@ drift analyze --days 7 --format json
 ## Conversation-Level Issues
 
 ### workflow_bypass
+
+*Defined workflows and commands exist to streamline common operations. Using them improves consistency and reduces user effort.*
 
 **Session:** ghi-789 (web-app)
 **Agent Tool:** claude-code

@@ -1,13 +1,22 @@
 """Markdown output formatter for drift analysis results."""
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from drift.cli.output.formatter import OutputFormatter
+from drift.config.models import DriftConfig
 from drift.core.types import AnalysisResult, CompleteAnalysisResult, Learning
 
 
 class MarkdownFormatter(OutputFormatter):
     """Formats drift analysis results as Markdown."""
+
+    def __init__(self, config: Optional[DriftConfig] = None):
+        """Initialize formatter.
+
+        Args:
+            config: Optional drift configuration for accessing learning type metadata
+        """
+        self.config = config
 
     def get_format_name(self) -> str:
         """Get the name of this format.
@@ -120,6 +129,12 @@ class MarkdownFormatter(OutputFormatter):
             # Type header
             lines.append(f"### {learning_type}")
             lines.append("")
+
+            # Add learning type context/description if available
+            if self.config and learning_type in self.config.drift_learning_types:
+                type_config = self.config.drift_learning_types[learning_type]
+                lines.append(f"*{type_config.context}*")
+                lines.append("")
 
             # Format each violation of this type
             for analysis_result, learning in items:

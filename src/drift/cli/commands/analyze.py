@@ -203,7 +203,7 @@ def analyze_command(
         # Format and output results
         formatter: OutputFormatter
         if format == "markdown":
-            formatter = MarkdownFormatter()
+            formatter = MarkdownFormatter(config=config)
         else:
             formatter = JsonFormatter()
 
