@@ -21,3 +21,5 @@ Use this to check your current work items and prioritize tasks.
 ```
 /my-issues
 ```
+
+**IMPORTANT:** The assistant MUST activate the `github-operations` skill before proceeding. DO NOT use the `gh` CLI command - always use the GitHub MCP server tools (mcp__github__*).

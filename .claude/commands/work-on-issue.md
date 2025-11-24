@@ -52,4 +52,6 @@ Implement a complete workflow for a GitHub issue from start to finish.
 /work-on-issue 42
 ```
 
+**IMPORTANT:** The assistant MUST activate the `github-operations`, `python-docs`, `testing`, and `definition-of-done` skills before proceeding. DO NOT use the `gh` CLI command - always use the GitHub MCP server tools (mcp__github__*).
+
 This will guide you through the complete workflow from issue assignment to implementation ready for PR.

@@ -33,4 +33,9 @@ Create a well-structured GitHub issue with clear requirements.
 /create-issue
 ```
 
-The assistant will gather information and create a properly formatted issue using `mcp__github__create_issue`.
+**IMPORTANT:** The assistant MUST activate the `github-operations` and `issue-writing` skills before proceeding. DO NOT use the `gh` CLI command directly - always use the GitHub MCP server tools (mcp__github__*).
+
+The assistant will:
+1. Activate the required skills listed in the frontmatter
+2. Gather information about the issue from the user
+3. Create a properly formatted issue using `mcp__github__create_issue` from the GitHub MCP server
