@@ -101,13 +101,8 @@ class MarkdownFormatter(OutputFormatter):
         lines.append("## Summary")
         lines.append(f"- Total conversations: {result.summary.total_conversations}")
 
-        # Color the number based on whether drift was found
-        if result.summary.total_learnings > 0:
-            colored_count = self._colorize(str(result.summary.total_learnings), self.RED)
-            lines.append(f"- Total learnings: {colored_count}")
-        else:
-            colored_count = self._colorize(str(result.summary.total_learnings), self.GREEN)
-            lines.append(f"- Total learnings: {colored_count}")
+        # Don't color the total learnings count
+        lines.append(f"- Total learnings: {result.summary.total_learnings}")
 
         # Rules checked - show even if 0
         if result.summary.rules_checked is not None:
@@ -334,9 +329,45 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(self._colorize("### Passed Rules ✓", self.GREEN))
             lines.append("")
             for detail in passed:
-                lines.append(
-                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
+                lines.append(f"- **{detail['rule_name']}**")
+
+                # Show rule description
+                rule_desc = detail.get(
+                    "rule_description", detail.get("description", "No description")
                 )
+                lines.append(f"  - Description: {rule_desc}")
+
+                # Show rule context (why it's important)
+                rule_context = detail.get("rule_context")
+                if rule_context:
+                    lines.append(f"  - Context: {rule_context}")
+
+                # Show execution context if available
+                exec_context = detail.get("execution_context")
+                if exec_context:
+                    bundle_type = exec_context.get("bundle_type", "unknown")
+                    bundle_id = exec_context.get("bundle_id", "unknown")
+                    lines.append(f"  - Bundle: {bundle_type} ({bundle_id})")
+
+                    files = exec_context.get("files", [])
+                    if files:
+                        files_str = ", ".join(files[:5])  # Show first 5 files
+                        if len(files) > 5:
+                            files_str += f" ... ({len(files)} total)"
+                        lines.append(f"  - Files checked: {files_str}")
+
+                # Show validation details if available
+                validation = detail.get("validation_results")
+                if validation:
+                    rule_type = validation.get("rule_type", "unknown")
+                    lines.append(f"  - Validation: {rule_type}")
+
+                    params = validation.get("params", {})
+                    if params:
+                        # Show key validation parameters
+                        for key, value in params.items():
+                            lines.append(f"    - {key}: {value}")
+
             lines.append("")
 
         # Show failed rules with details
@@ -344,9 +375,47 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(self._colorize("### Failed Rules ✗", self.RED))
             lines.append("")
             for detail in failed:
-                lines.append(
-                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
+                lines.append(f"- **{detail['rule_name']}**")
+
+                # Show rule description
+                rule_desc = detail.get(
+                    "rule_description", detail.get("description", "No description")
                 )
+                lines.append(f"  - Description: {rule_desc}")
+
+                # Show rule context (why it's important)
+                rule_context = detail.get("rule_context")
+                if rule_context:
+                    lines.append(f"  - Context: {rule_context}")
+
+                # Show execution context if available
+                exec_context = detail.get("execution_context")
+                if exec_context:
+                    bundle_type = exec_context.get("bundle_type", "unknown")
+                    bundle_id = exec_context.get("bundle_id", "unknown")
+                    lines.append(f"  - Bundle: {bundle_type} ({bundle_id})")
+
+                    files = exec_context.get("files", [])
+                    if files:
+                        files_str = ", ".join(files[:5])  # Show first 5 files
+                        if len(files) > 5:
+                            files_str += f" ... ({len(files)} total)"
+                        lines.append(f"  - Files checked: {files_str}")
+                    else:
+                        lines.append("  - Files checked: none")
+
+                # Show validation details if available
+                validation = detail.get("validation_results")
+                if validation:
+                    rule_type = validation.get("rule_type", "unknown")
+                    lines.append(f"  - Validation: {rule_type}")
+
+                    params = validation.get("params", {})
+                    if params:
+                        # Show key validation parameters
+                        for key, value in params.items():
+                            lines.append(f"    - {key}: {value}")
+
                 # Show phase results if available
                 if "phase_results" in detail:
                     for phase in detail["phase_results"]:

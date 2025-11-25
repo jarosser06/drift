@@ -202,3 +202,43 @@ class TestMarkdownFormatterExecutionDetails:
         # Should not crash, may or may not show section
         assert output is not None
         assert len(output) > 0
+
+    def test_markdown_shows_execution_context_for_passed_rules(self):
+        """Test that markdown shows WHY a rule passed with execution context."""
+        result = CompleteAnalysisResult(
+            metadata={
+                "generated_at": "2025-01-01T00:00:00",
+                "session_id": "test-session",
+                "execution_details": [
+                    {
+                        "rule_name": "claude_md_missing",
+                        "rule_description": "Validates .claude.md files exist",
+                        "status": "passed",
+                        "execution_context": {
+                            "bundle_id": "test-bundle",
+                            "bundle_type": "project_config",
+                            "files": [".claude.md", "README.md"],
+                        },
+                        "validation_results": {
+                            "rule_type": "file_exists",
+                            "params": {"file_pattern": ".claude.md"},
+                        },
+                    }
+                ],
+            },
+            summary=AnalysisSummary(rules_passed=["claude_md_missing"]),
+            results=[],
+        )
+
+        formatter = MarkdownFormatter(detailed=True)
+        output = formatter.format(result)
+
+        # Should show the rule name
+        assert "claude_md_missing" in output
+
+        # Should show execution context explaining what was checked
+        assert "bundle" in output.lower() or "Bundle" in output
+        assert ".claude.md" in output
+
+        # Should show validation details
+        assert "file_exists" in output or "Validated" in output or "Checked" in output

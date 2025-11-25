@@ -165,7 +165,7 @@ class PhaseDefinition(BaseModel):
 
     name: str = Field(..., description="Name of this phase")
     type: str = Field(
-        "prompt",
+        ...,
         description=(
             "Analysis type: 'prompt' for LLM-based, "
             "or validation type like 'file_exists', 'regex_match', etc."

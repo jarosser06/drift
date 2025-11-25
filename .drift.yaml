@@ -37,6 +37,7 @@ drift_learning_types:
     requires_project_context: false
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Look for instances where the AI claimed to be done but the user had to ask for completion, finishing touches, or missing parts.
@@ -68,6 +69,7 @@ drift_learning_types:
       - claude-code
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Identify when AI performs tasks that available agents could handle better, leading to slower workflows and inconsistent results.
@@ -102,6 +104,7 @@ drift_learning_types:
       - claude-code
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Find cases where AI implemented functionality from scratch when project skills already documented the approach.
@@ -134,6 +137,7 @@ drift_learning_types:
     requires_project_context: false
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Detect when user bypassed documented workflows, commands, or processes by manually prompting the AI. This indicates workflows may need improvement or the user isn't aware of them.
@@ -167,6 +171,7 @@ drift_learning_types:
     requires_project_context: false
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Identify when AI added creativity or interpretation to tasks requiring exact adherence to documented patterns, specifications, or requirements.
@@ -200,6 +205,7 @@ drift_learning_types:
       - claude-code
     phases:
       - name: initial_analysis
+        type: prompt
         model: sonnet
         prompt: |
           Analyze the conversation to identify if any slash commands were executed.
@@ -210,6 +216,7 @@ drift_learning_types:
           - skill
           - main_config
       - name: verify_dependencies
+        type: prompt
         model: sonnet
         prompt: |
           Check if the identified command has "Required skills:" specified.
@@ -219,6 +226,7 @@ drift_learning_types:
           - skill
           - main_config
       - name: final_determination
+        type: prompt
         model: sonnet
         prompt: |
           Make final determination: Did the AI activate all required skills before executing the command steps?
@@ -237,6 +245,7 @@ drift_learning_types:
       - claude-code
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Determine if the project has zero agents configured. This is a project-level issue indicating missed opportunities for task delegation and workflow automation.
@@ -273,6 +282,7 @@ drift_learning_types:
         - "**/*.ts"
     phases:
       - name: basic_structure
+        type: prompt
         model: sonnet
         prompt: |
           Check if the skill has basic structure: clear title, purpose, examples.
@@ -280,6 +290,7 @@ drift_learning_types:
         available_resources:
           - skill
       - name: verify_dependencies
+        type: prompt
         model: sonnet
         prompt: |
           If the skill references other skills, verify they exist by requesting them.
@@ -287,6 +298,7 @@ drift_learning_types:
         available_resources:
           - skill
       - name: final_quality_check
+        type: prompt
         model: sonnet
         prompt: |
           Make final determination on skill quality.
@@ -309,6 +321,7 @@ drift_learning_types:
       resource_patterns: []
     phases:
       - name: basic_structure
+        type: prompt
         model: sonnet
         prompt: |
           Check if the agent has basic structure: clear purpose, tool declarations, examples.
@@ -316,12 +329,14 @@ drift_learning_types:
         available_resources:
           - agent
       - name: verify_references
+        type: prompt
         model: sonnet
         prompt: |
           If the agent references other agents, verify they exist by requesting them.
         available_resources:
           - agent
       - name: final_quality_check
+        type: prompt
         model: sonnet
         prompt: |
           Make final determination on agent quality.
@@ -344,6 +359,7 @@ drift_learning_types:
       resource_patterns: []
     phases:
       - name: basic_structure
+        type: prompt
         model: sonnet
         prompt: |
           Check if the command has basic structure: clear purpose, execution steps, examples.
@@ -353,6 +369,7 @@ drift_learning_types:
           - skill
           - agent
       - name: verify_dependencies
+        type: prompt
         model: sonnet
         prompt: |
           If the command references other commands, skills, or agents, verify they exist.
@@ -362,6 +379,7 @@ drift_learning_types:
           - skill
           - agent
       - name: final_quality_check
+        type: prompt
         model: sonnet
         prompt: |
           Make final determination on command quality and completeness.
@@ -387,6 +405,7 @@ drift_learning_types:
       resource_patterns: []
     phases:
       - name: detection
+        type: prompt
         model: haiku
         prompt: |
           Analyze these command documents for consistency and contradictions.

@@ -1,5 +1,6 @@
 """Analyze command for drift CLI."""
 
+import logging
 import sys
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,8 @@ from drift.config.loader import ConfigLoader
 from drift.config.models import ConversationMode
 from drift.core.analyzer import DriftAnalyzer
 from drift.core.types import CompleteAnalysisResult
+
+logger = logging.getLogger(__name__)
 
 
 def _merge_results(
@@ -34,6 +37,17 @@ def _merge_results(
         "analysis_scopes": ["conversations", "documents"],
         "document_learnings": doc_result.metadata.get("document_learnings", []),
     }
+
+    # Merge execution_details from both results
+    conv_exec_details = conv_result.metadata.get("execution_details", [])
+    doc_exec_details = doc_result.metadata.get("execution_details", [])
+    merged_metadata["execution_details"] = conv_exec_details + doc_exec_details
+
+    logger.debug(
+        f"Merging results: conversation has {len(conv_exec_details)} execution details, "
+        f"document has {len(doc_exec_details)} execution details"
+    )
+    logger.debug(f"Merged result has {len(merged_metadata['execution_details'])} execution details")
 
     # Merge skipped_rules from both results
     conv_skipped = conv_result.metadata.get("skipped_rules", [])
@@ -332,7 +346,7 @@ def analyze_command(
 
                 # Check if this is an LLM-based rule by inspecting phases
                 # A rule uses LLM if ANY phase has type="prompt"
-                phases = getattr(type_config, "phases", [])
+                phases = getattr(type_config, "phases", []) or []
                 validation_rules = getattr(type_config, "validation_rules", None)
 
                 # Rule uses LLM if any phase has type="prompt"

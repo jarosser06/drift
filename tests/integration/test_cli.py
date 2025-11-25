@@ -647,6 +647,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
+                        type="prompt",
                         prompt="Find issues",
                         available_resources=[],
                     )
@@ -716,6 +717,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
+                        type="prompt",
                         prompt="Find issues",
                         available_resources=[],
                     )
@@ -800,6 +802,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
+                        type="prompt",
                         prompt="Find issues",
                         available_resources=[],
                     )
@@ -872,6 +875,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test1",
+                        type="prompt",
                         prompt="Find issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -887,6 +891,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test2",
+                        type="prompt",
                         prompt="Find more issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -944,6 +949,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
+                        type="prompt",
                         prompt="Find issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -977,6 +983,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
+                        type="prompt",
                         prompt="Find issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -1056,6 +1063,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test1",
+                        type="prompt",
                         prompt="Find issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -1071,6 +1079,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test2",
+                        type="prompt",
                         prompt="Find more issues",
                         expected_behavior="Should work",
                         failure_message="Failed",
@@ -1139,6 +1148,7 @@ class TestAnalyzeCommand:
                 "phases": [
                     {
                         "name": "test",
+                        "type": "prompt",
                         "prompt": "Find issues",
                         "available_resources": [],
                     }
@@ -1200,7 +1210,9 @@ class TestAnalyzeCommand:
                     "scope": "conversation_level",
                     "context": "Test",
                     "requires_project_context": False,
-                    "phases": [{"name": "test", "model": "haiku", "prompt": "test"}],
+                    "phases": [
+                        {"name": "test", "type": "prompt", "model": "haiku", "prompt": "test"}
+                    ],
                 },
                 "project_rule": {
                     "description": "Project rule",
@@ -1253,7 +1265,9 @@ class TestAnalyzeCommand:
                         "file_patterns": [".claude/skills/*/SKILL.md"],
                         "bundle_strategy": "individual",
                     },
-                    "phases": [{"name": "test", "model": "sonnet", "prompt": "analyze"}],
+                    "phases": [
+                        {"name": "test", "type": "prompt", "model": "sonnet", "prompt": "analyze"}
+                    ],
                 },
                 "programmatic_rule": {
                     "description": "Programmatic rule",
@@ -1318,7 +1332,9 @@ class TestAnalyzeCommand:
                     "scope": "conversation_level",
                     "context": "Test",
                     "requires_project_context": False,
-                    "phases": [{"name": "test", "model": "haiku", "prompt": "test"}],
+                    "phases": [
+                        {"name": "test", "type": "prompt", "model": "haiku", "prompt": "test"}
+                    ],
                 },
                 "project_programmatic": {
                     "description": "Project programmatic",
@@ -1374,7 +1390,9 @@ class TestAnalyzeCommand:
                     "scope": "conversation_level",
                     "context": "Test",
                     "requires_project_context": False,
-                    "phases": [{"name": "test", "model": "haiku", "prompt": "test"}],
+                    "phases": [
+                        {"name": "test", "type": "prompt", "model": "haiku", "prompt": "test"}
+                    ],
                 },
                 "project_programmatic": {
                     "description": "Project programmatic",
@@ -1462,8 +1480,9 @@ class TestAnalyzeCommand:
         config_path = claude_code_project_dir / ".drift.yaml"
         config_path.write_text(config_content)
 
-        # Create README but not LICENSE
+        # Create README and LICENSE so both rules pass
         (claude_code_project_dir / "README.md").write_text("# Test")
+        (claude_code_project_dir / "LICENSE").write_text("MIT License")
 
         with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
             mock_generate.side_effect = AssertionError("No LLM calls expected!")
@@ -1473,9 +1492,7 @@ class TestAnalyzeCommand:
                 ["--no-llm", "--scope", "project", "--project", str(claude_code_project_dir)],
             )
 
-            # NOTE: Programmatic file_exists validators don't actually validate yet
-            # They always pass. This is existing behavior, not a regression.
-            # Just verify that the rules were checked and reported.
+            # Both rules should pass (README and LICENSE exist)
             assert result.exit_code == 0
             assert mock_generate.call_count == 0
 

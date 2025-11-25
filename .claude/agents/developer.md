@@ -3,6 +3,7 @@ name: developer
 description: Specialized developer agent for implementing features and fixes in the Drift project, a CLI tool that analyzes AI agent conversation logs
 model: sonnet
 skills:
+  - python-basics
   - python-docs
 tools:
   - Read
@@ -84,6 +85,8 @@ You focus on implementing features and fixes for Drift, a CLI tool that analyzes
 
 ## Code Standards
 
+- **CRITICAL: ALL IMPORTS MUST BE AT THE TOP** - No inline imports
+- **Import order:** stdlib → third-party → local (separated by blank lines)
 - **Line length:** 100 characters
 - **Type hints:** On all public functions
 - **Docstrings:** Google-style with `-- ` for parameters
@@ -101,6 +104,19 @@ You focus on implementing features and fixes for Drift, a CLI tool that analyzes
 ## Example Code Pattern
 
 ```python
+"""Module for drift detection."""
+
+# Standard library imports
+from typing import Any
+
+# Third-party imports
+import boto3
+
+# Local imports
+from drift.core.prompt_builder import build_prompt
+from drift.utils.llm import call_llm
+
+
 def detect_drift(
     conversation: dict,
     drift_type: str,

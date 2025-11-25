@@ -1,6 +1,7 @@
 ---
 description: Comprehensive code review
 skills:
+  - python-basics
   - code-review
 ---
 

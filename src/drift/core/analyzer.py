@@ -12,7 +12,14 @@ from typing import Any, Dict, List, Optional
 from drift.agent_tools.base import AgentLoader
 from drift.agent_tools.claude_code import ClaudeCodeLoader
 from drift.config.loader import ConfigLoader
-from drift.config.models import DriftConfig, ProviderType, ValidationRule, ValidationType
+from drift.config.models import (
+    BundleStrategy,
+    DriftConfig,
+    ProviderType,
+    SeverityLevel,
+    ValidationRule,
+    ValidationType,
+)
 from drift.core.types import (
     AnalysisResult,
     AnalysisSummary,
@@ -34,6 +41,34 @@ from drift.utils.temp import TempManager
 from drift.validation.validators import ValidatorRegistry
 
 logger = logging.getLogger(__name__)
+
+# Centralized list of programmatic phase types
+PROGRAMMATIC_PHASE_TYPES = [
+    "file_exists",
+    "file_not_exists",
+    "regex_match",
+    "regex_not_match",
+    "file_count",
+    "file_size",
+    "cross_file_reference",
+    "list_match",
+    "list_regex_match",
+]
+
+
+def _has_programmatic_phases(phases: List[Any]) -> bool:
+    """Check if any phases are programmatic (non-LLM) types.
+
+    Args:
+        phases: List of phase definitions
+
+    Returns:
+        True if any phase has a programmatic type
+    """
+    if not phases:
+        return False
+
+    return any(getattr(p, "type", "prompt") in PROGRAMMATIC_PHASE_TYPES for p in phases)
 
 
 class DriftAnalyzer:
@@ -668,8 +703,6 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         # Track which rules were checked, passed, warned, failed, and errored
         if types_checked:
-            from drift.config.models import SeverityLevel
-
             summary.rules_checked = list(types_checked.keys())
             summary.rules_errored = list(all_rule_errors.keys())  # Rules with errors
             summary.rule_errors = all_rule_errors
@@ -745,24 +778,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             # Also include project-level rules with programmatic phases (no document bundle needed)
             elif config.scope in ("project_level", "document_level"):
                 phases = getattr(config, "phases", [])
-                if phases:
-                    # Check if any phase is programmatic
-                    programmatic_types = [
-                        "file_exists",
-                        "file_not_exists",
-                        "regex_match",
-                        "regex_not_match",
-                        "file_count",
-                        "file_size",
-                        "cross_file_reference",
-                        "list_match",
-                        "list_regex_match",
-                    ]
-                    has_programmatic = any(
-                        getattr(p, "type", "prompt") in programmatic_types for p in phases
-                    )
-                    if has_programmatic:
-                        document_types[name] = config
+                if _has_programmatic_phases(phases):
+                    document_types[name] = config
 
         if not document_types:
             return CompleteAnalysisResult(
@@ -784,42 +801,58 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         all_document_learnings: List[DocumentLearning] = []
         all_execution_details: List[dict] = []
 
+        logger.debug(
+            f"analyze_documents: Processing {len(document_types)} document types: "
+            f"{list(document_types.keys())}"
+        )
+
         for type_name, type_config in document_types.items():
+            logger.debug(f"analyze_documents: Processing type {type_name}")
             try:
                 bundle_config = type_config.document_bundle
+                logger.debug(f"analyze_documents: {type_name} document_bundle={bundle_config}")
                 if bundle_config is None and hasattr(type_config, "validation_rules"):
+                    logger.debug(
+                        f"analyze_documents: {type_name} has validation_rules, "
+                        "checking document_bundle"
+                    )
                     if type_config.validation_rules is not None:
                         bundle_config = type_config.validation_rules.document_bundle
+                        logger.debug(
+                            f"analyze_documents: {type_name} got bundle_config "
+                            f"from validation_rules: {bundle_config}"
+                        )
 
-                if bundle_config is None:
-                    continue
-                bundles = doc_loader.load_bundles(bundle_config)
-
+                # Check if we can proceed without bundle_config (old phases format)
+                phases = getattr(type_config, "phases", []) or []
+                has_programmatic_phases = _has_programmatic_phases(phases)
                 has_validation_rules = getattr(type_config, "validation_rules", None) is not None
 
-                phases = getattr(type_config, "phases", []) or []
-                has_programmatic_phases = any(
-                    p.type
-                    in [
-                        "file_exists",
-                        "file_not_exists",
-                        "regex_match",
-                        "regex_not_match",
-                        "file_count",
-                        "file_size",
-                        "cross_file_reference",
-                        "list_match",
-                        "list_regex_match",
-                    ]
-                    for p in phases
-                )
+                if bundle_config is None and not has_programmatic_phases:
+                    logger.debug(
+                        f"analyze_documents: {type_name} has no bundle_config and "
+                        "no programmatic phases, skipping"
+                    )
+                    continue
+
+                bundles = doc_loader.load_bundles(bundle_config) if bundle_config else []
 
                 if not bundles:
                     if has_validation_rules or has_programmatic_phases:
+                        # For old phases format without bundle_config, use default values
+                        bundle_type = (
+                            bundle_config.bundle_type if bundle_config else "project_files"
+                        )
+                        bundle_strategy = (
+                            bundle_config.bundle_strategy.value
+                            if bundle_config
+                            else BundleStrategy.COLLECTION.value
+                        )
+
                         empty_bundle = DocumentBundle(
                             bundle_id="empty",
-                            bundle_type=bundle_config.bundle_type,
-                            bundle_strategy=bundle_config.bundle_strategy.value,
+                            bundle_type=bundle_type,
+                            bundle_strategy=bundle_strategy,
                             files=[],
                             project_path=self.project_path,
                         )
@@ -830,7 +863,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                         all_execution_details.extend(exec_details)
                     continue
 
-                from drift.config.models import BundleStrategy
+                # At this point bundle_config must exist (bundles were loaded from it)
+                assert bundle_config is not None
 
                 if bundle_config.bundle_strategy == BundleStrategy.INDIVIDUAL:
                     for bundle in bundles:
@@ -889,8 +923,6 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             by_type[learning.learning_type] = by_type.get(learning.learning_type, 0) + 1
         summary.by_type = by_type
 
-        from drift.config.models import SeverityLevel
-
         summary.rules_checked = list(document_types.keys())
 
         # Separate warnings from failures based on severity
@@ -921,6 +953,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             for rule in summary.rules_checked
             if rule not in rules_warned and rule not in rules_failed
         ]
+
+        logger.info(f"analyze_documents: Returning {len(all_execution_details)} execution details")
+        logger.debug(f"analyze_documents: execution_details = {all_execution_details}")
 
         return CompleteAnalysisResult(
             metadata={
@@ -957,28 +992,21 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             Tuple of (learnings, execution_details)
         """
         validation_rules = getattr(type_config, "validation_rules", None)
+        logger.debug(
+            f"_analyze_document_bundle for {learning_type}: validation_rules={validation_rules}"
+        )
 
         if validation_rules is not None:
+            logger.debug(
+                f"_analyze_document_bundle: Calling _execute_validation_rules for {learning_type}"
+            )
             return self._execute_validation_rules(bundle, learning_type, type_config, loader)
 
         phases = getattr(type_config, "phases", [])
 
         if phases:
             programmatic_phases = [
-                p
-                for p in phases
-                if p.type
-                in [
-                    "file_exists",
-                    "file_not_exists",
-                    "regex_match",
-                    "regex_not_match",
-                    "file_count",
-                    "file_size",
-                    "cross_file_reference",
-                    "list_match",
-                    "list_regex_match",
-                ]
+                p for p in phases if getattr(p, "type", "prompt") in PROGRAMMATIC_PHASE_TYPES
             ]
 
             if programmatic_phases:
@@ -1002,10 +1030,18 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     exec_info = {
                         "rule_name": learning_type,
                         "rule_description": rule.description,
+                        "rule_context": type_config.context,
                         "status": "passed" if result is None else "failed",
                         "execution_context": {
                             "bundle_id": bundle.bundle_id,
                             "bundle_type": bundle.bundle_type,
+                            "files": [f.relative_path for f in bundle.files],
+                        },
+                        "validation_results": {
+                            "rule_type": rule.rule_type.value
+                            if hasattr(rule.rule_type, "value")
+                            else str(rule.rule_type),
+                            "params": getattr(rule, "params", {}),
                         },
                     }
                     execution_details.append(exec_info)
@@ -1097,6 +1133,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             learnings: List of document learnings from failed validations
             execution_details: List of dicts with execution info for ALL rules
         """
+        logger.debug(f"_execute_validation_rules called for {learning_type}")
         validation_config = getattr(type_config, "validation_rules", None)
         if not validation_config:
             raise ValueError(
@@ -1108,9 +1145,16 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         learnings = []
         execution_details = []
 
+        logger.debug(
+            f"_validate_document_bundle: Processing {len(validation_config.rules)} rules "
+            f"for {learning_type}"
+        )
+
         for rule in validation_config.rules:
             try:
+                logger.debug(f"_validate_document_bundle: Executing rule {rule.description}")
                 result = registry.execute_rule(rule, bundle)
+                logger.debug(f"_validate_document_bundle: Rule result: {result}")
 
                 # Track execution info for this rule
                 exec_info = {

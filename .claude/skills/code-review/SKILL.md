@@ -1,6 +1,8 @@
 ---
 name: code-review
 description: Expert in conducting thorough code reviews for quality, security, and best practices. Use when reviewing code or PRs.
+skills:
+  - python-basics
 ---
 
 # Code Review Skill
@@ -27,12 +29,15 @@ Expert in conducting thorough, constructive code reviews using the GitHub MCP se
 - Appropriate abstraction levels
 - Clean function/method boundaries
 - Consistent style with codebase
+- **CRITICAL: All imports at top of file (NO inline imports)**
+- Proper import organization (stdlib → third-party → local)
 
 **Questions to Ask:**
 - Is the code self-explanatory?
 - Are names descriptive and accurate?
 - Is there unnecessary complexity?
 - Could this be simpler?
+- Are there any inline imports that need to be moved to the top?
 
 ### 2. Architecture & Design
 
