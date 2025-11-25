@@ -160,11 +160,72 @@ class TestComprehensiveE2E:
 
         return project_dir
 
-    def _create_realistic_config(self, project_dir: Path) -> str:
+    @pytest.fixture
+    def e2e_project_dir_all_conversations(self, temp_dir):
+        """Create project directory with mode='all' for loading all conversations.
+
+        Use this fixture for tests that need to analyze multiple conversations.
+        """
+        # Build project structure directly (can't call fixture)
+        project_dir = temp_dir / "test_project_all"
+        project_dir.mkdir()
+
+        # Claude directory structure
+        claude_dir = project_dir / ".claude"
+        claude_dir.mkdir()
+
+        # Commands
+        commands_dir = claude_dir / "commands"
+        commands_dir.mkdir()
+        (commands_dir / "test.md").write_text("# Test Command\n\nRun tests.\n\nRequired skills: testing")
+        (commands_dir / "deploy.md").write_text("# Deploy Command\n\nDeploy the app.")
+
+        # Skills
+        skills_dir = claude_dir / "skills"
+        skills_dir.mkdir()
+        (skills_dir / "testing").mkdir()
+        (skills_dir / "testing" / "SKILL.md").write_text("# Testing Skill\n\nTest practices.")
+        (skills_dir / "api-design").mkdir()
+        (skills_dir / "api-design" / "SKILL.md").write_text("# API Design Skill\n\nAPI patterns.")
+
+        # Agents
+        agents_dir = claude_dir / "agents"
+        agents_dir.mkdir()
+        (agents_dir / "code-reviewer.md").write_text("# Code Reviewer Agent\n\nReviews code for quality and best practices.\n\n## Tools Available\n- Read\n- Grep")
+
+        # Project files
+        (project_dir / "CLAUDE.md").write_text("# Test Project\n\nThis is a test project for drift analysis.")
+        (project_dir / "README.md").write_text("# Test Project\n\nReadme content.")
+        (project_dir / "LICENSE").write_text("MIT License")
+
+        # Logs directory - Claude Code expects mangled path structure
+        logs_base = project_dir / ".logs"
+        logs_base.mkdir()
+        mangled_name = str(project_dir).replace("/", "-").replace("_", "-")
+        logs_dir = logs_base / mangled_name
+        logs_dir.mkdir()
+
+        # Create conversation files
+        self._create_conversation_jsonl(logs_dir / "session-incomplete.jsonl", "incomplete_work")
+        self._create_conversation_jsonl(logs_dir / "session-skill.jsonl", "skill_ignored")
+        self._create_conversation_jsonl(logs_dir / "session-clean.jsonl", "no_drift")
+        self._create_conversation_jsonl(logs_dir / "session-command.jsonl", "command_activation")
+
+        # Create config with mode='all'
+        config_content = self._create_realistic_config(project_dir, conversation_mode="all")
+        (project_dir / ".drift.yaml").write_text(config_content)
+
+        return project_dir
+
+    def _create_realistic_config(
+        self, project_dir: Path, conversation_mode: str = "latest", conversation_days: int = None
+    ) -> str:
         """Create realistic .drift.yaml configuration.
 
         Args:
             project_dir: Project directory path
+            conversation_mode: Mode for loading conversations ('latest', 'all', 'last_n_days')
+            conversation_days: Number of days for 'last_n_days' mode
 
         Returns:
             YAML configuration string
@@ -195,9 +256,6 @@ class TestComprehensiveE2E:
                     "conversation_path": str(project_dir / ".logs"),
                     "enabled": True,
                 }
-            },
-            "conversations": {
-                "mode": "all",  # Load ALL conversation files, not just latest
             },
             "drift_learning_types": {
                 # Conversation-level (single-phase LLM)
@@ -282,6 +340,13 @@ class TestComprehensiveE2E:
                 },
             },
         }
+
+        # Add conversations section if mode is specified
+        if conversation_mode:
+            conversations_config = {"mode": conversation_mode}
+            if conversation_mode == "last_n_days" and conversation_days:
+                conversations_config["days"] = conversation_days
+            config["conversations"] = conversations_config
 
         return yaml.dump(config, sort_keys=False)
 
@@ -675,13 +740,15 @@ class TestComprehensiveE2E:
     # Test methods start here
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_full_analysis_with_mixed_learning_types(
-        self, cli_runner, e2e_project_dir
+        self, cli_runner, e2e_project_dir_all_conversations
     ):
         """Test complete analysis with conversation + project rules.
 
         This is the comprehensive baseline test that validates the entire
         end-to-end workflow with realistic conversations and mixed rule types.
+        Uses mode='all' to analyze all 4 conversation files.
         """
+        e2e_project_dir = e2e_project_dir_all_conversations
         # Create mock provider with responses for incomplete_work and skill_ignored
         mock_provider = SequentialMockProvider(
             [
@@ -1671,6 +1738,117 @@ drift_learning_types:
 
         # Verify mock provider was called (if there were any LLM rules)
         # The test mainly ensures --model flag is accepted and passed through
+
+    def test_conversation_mode_latest(self, cli_runner, temp_dir):
+        """Test conversation mode 'latest' loads only the most recent file."""
+        # Create project with multiple conversations
+        project_dir = temp_dir / "mode_latest"
+        project_dir.mkdir()
+        (project_dir / "CLAUDE.md").write_text("# Test\n")
+
+        # Create conversation files with different modification times
+        logs_base = project_dir / ".logs"
+        logs_base.mkdir()
+        mangled_name = str(project_dir).replace("/", "-").replace("_", "-")
+        logs_dir = logs_base / mangled_name
+        logs_dir.mkdir()
+
+        # Create 3 files, ensure different mtimes
+        import time
+        self._create_conversation_jsonl(logs_dir / "old1.jsonl", "no_drift")
+        time.sleep(0.1)
+        self._create_conversation_jsonl(logs_dir / "old2.jsonl", "skill_ignored")
+        time.sleep(0.1)
+        self._create_conversation_jsonl(logs_dir / "newest.jsonl", "incomplete_work")
+
+        # Config with mode='latest' (default)
+        config_content = self._create_realistic_config(project_dir, conversation_mode="latest")
+        (project_dir / ".drift.yaml").write_text(config_content)
+
+        # Create mock provider - should only be called for the latest conversation
+        mock_provider = SequentialMockProvider([json.dumps([])])  # No drift
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            result = cli_runner.invoke(
+                app, ["--project", str(project_dir), "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+
+        # Should only analyze 1 conversation (the latest)
+        assert output["summary"]["conversations_analyzed"] == 1, (
+            f"mode='latest' should analyze 1 conversation, "
+            f"got {output['summary']['conversations_analyzed']}"
+        )
+
+    def test_conversation_mode_all(self, cli_runner, e2e_project_dir_all_conversations):
+        """Test conversation mode 'all' loads all conversation files."""
+        # Use fixture with mode='all'
+        mock_provider = SequentialMockProvider(
+            [json.dumps([]), json.dumps([]), json.dumps([]), json.dumps([])]
+        )
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            result = cli_runner.invoke(
+                app, ["--project", str(e2e_project_dir_all_conversations), "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+
+        # Should analyze all 4 conversations
+        assert output["summary"]["conversations_analyzed"] == 4, (
+            f"mode='all' should analyze 4 conversations, "
+            f"got {output['summary']['conversations_analyzed']}"
+        )
+
+    def test_conversation_mode_last_n_days(self, cli_runner, temp_dir):
+        """Test conversation mode 'last_n_days' filters by modification time."""
+        project_dir = temp_dir / "mode_days"
+        project_dir.mkdir()
+        (project_dir / "CLAUDE.md").write_text("# Test\n")
+
+        logs_base = project_dir / ".logs"
+        logs_base.mkdir()
+        mangled_name = str(project_dir).replace("/", "-").replace("_", "-")
+        logs_dir = logs_base / mangled_name
+        logs_dir.mkdir()
+
+        # Create conversation files
+        import time
+        from datetime import datetime, timedelta
+
+        # Create files
+        old_file = logs_dir / "old.jsonl"
+        recent_file = logs_dir / "recent.jsonl"
+
+        self._create_conversation_jsonl(old_file, "no_drift")
+        self._create_conversation_jsonl(recent_file, "incomplete_work")
+
+        # Set old file to 10 days ago
+        ten_days_ago = (datetime.now() - timedelta(days=10)).timestamp()
+        import os
+        os.utime(old_file, (ten_days_ago, ten_days_ago))
+
+        # Config with mode='last_n_days', days=7
+        config_content = self._create_realistic_config(
+            project_dir, conversation_mode="last_n_days", conversation_days=7
+        )
+        (project_dir / ".drift.yaml").write_text(config_content)
+
+        mock_provider = SequentialMockProvider([json.dumps([])])
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            result = cli_runner.invoke(
+                app, ["--project", str(project_dir), "--format", "json"]
+            )
+
+        output = json.loads(result.stdout)
+
+        # Should only analyze 1 conversation (recent one within 7 days)
+        assert output["summary"]["conversations_analyzed"] == 1, (
+            f"mode='last_n_days' with days=7 should analyze 1 conversation, "
+            f"got {output['summary']['conversations_analyzed']}"
+        )
 
     def test_exit_codes_comprehensive(self, cli_runner, temp_dir):
         """Test all exit code scenarios: 0 (no drift), 2 (drift found), 1 (error)."""
