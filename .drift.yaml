@@ -29,37 +29,6 @@ conversations:
 temp_dir: /tmp/drift
 
 drift_learning_types:
-  # Conversation-level behavioral patterns
-  incomplete_work:
-    description: "AI stopped before completing the full scope of work"
-    scope: conversation_level
-    context: "AI stopping before completing full scope wastes user time and breaks workflow momentum. Clear completion expectations improve efficiency."
-    requires_project_context: false
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Look for instances where the AI claimed to be done but the user had to ask for completion, finishing touches, or missing parts.
-
-          Focus on these patterns:
-          - AI marking tasks as complete when significant work remains
-          - User asking "what about..." or "you didn't finish..." after AI claims completion
-          - Missing deliverables that were part of the original request
-
-          Explicit phrases that indicate this drift:
-          - "Finish", "Complete", "You didn't finish"
-          - "What about", "You missed", "Still need"
-
-          Behavioral patterns to look for:
-          - User lists missing items after AI says done
-          - User asks for specific parts AI didn't do
-          - AI says 'done' but user continues with 'also need'
-
-          Example:
-          User requests "implement auth", AI adds login only, then user asks "what about logout and session handling?"
-        available_resources: []
-
   agent_delegation_miss:
     description: "AI performed tasks that available agents could handle better"
     scope: conversation_level
@@ -163,78 +132,6 @@ drift_learning_types:
 
           Note: Maximum 1 learning per conversation for this type.
         available_resources: []
-
-  prescriptive_deviation:
-    description: "AI interpreted or improvised when literal adherence was required"
-    scope: conversation_level
-    context: "AI creativity is valuable, but some contexts require exact adherence to documented patterns for consistency and compliance."
-    requires_project_context: false
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Identify when AI added creativity or interpretation to tasks requiring exact adherence to documented patterns, specifications, or requirements.
-
-          Focus on these patterns:
-          - User corrections: "exactly as shown", "don't change anything", "follow it literally"
-          - AI paraphrasing when quoting was required
-          - AI improving/optimizing when copying was needed
-          - Context requiring compliance (regulations, specs, established patterns)
-
-          Explicit phrases that indicate this drift:
-          - "Exactly as shown", "Literally"
-          - "Don't change anything", "Copy it exactly"
-          - "Follow it precisely"
-
-          Behavioral patterns to look for:
-          - User corrects AI's interpretation
-          - AI paraphrased when quoting needed
-          - AI optimized when copying required
-
-          Example:
-          User says "add the error message from the spec", AI writes similar message, then user says "no, use the exact wording from the spec"
-        available_resources: []
-
-  command_activation_required:
-    description: "AI failed to activate required skills before executing slash command steps"
-    scope: conversation_level
-    context: "Commands with required skills dependencies must have those skills activated first to ensure proper execution context and tooling availability."
-    requires_project_context: true
-    supported_clients:
-      - claude-code
-    phases:
-      - name: initial_analysis
-        type: prompt
-        model: sonnet
-        prompt: |
-          Analyze the conversation to identify if any slash commands were executed.
-          If you need more information about specific commands, request:
-          - command: The specific slash command that was executed
-        available_resources:
-          - command
-          - skill
-          - main_config
-      - name: verify_dependencies
-        type: prompt
-        model: sonnet
-        prompt: |
-          Check if the identified command has "Required skills:" specified.
-          Request command or skill resources if needed to verify dependencies.
-        available_resources:
-          - command
-          - skill
-          - main_config
-      - name: final_determination
-        type: prompt
-        model: sonnet
-        prompt: |
-          Make final determination: Did the AI activate all required skills before executing the command steps?
-          If yes, return no findings. If no, return a finding with observed and expected behavior.
-        available_resources:
-          - command
-          - skill
-          - main_config
 
   no_agents_configured:
     description: "Project has no agents configured, missing automation opportunities"

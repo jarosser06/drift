@@ -14,7 +14,7 @@ class TestAgentLoader:
     """Tests for AgentLoader base class."""
 
     def test_initialization(self):
-        """Test agent loader initialization."""  # noqa: D202
+        """Test agent loader initialization."""
 
         # Create a minimal concrete implementation for testing
         class TestLoader(AgentLoader):

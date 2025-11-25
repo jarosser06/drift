@@ -1706,7 +1706,7 @@ class TestAnalyzerEdgeCases:
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_analyze_with_conversation_load_error(self, sample_drift_config, temp_dir):
-        """Test analyze() when conversation loading fails."""  # noqa: D202
+        """Test analyze() when conversation loading fails."""
 
         # Create a mock agent loader that raises an error
         class FailingLoader:

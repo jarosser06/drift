@@ -396,6 +396,12 @@ class DriftAnalyzer:
                     for pr in phase_results
                 ]
 
+                # Add resources_consulted if any learnings have them
+                if learnings:
+                    resources = learnings[0].resources_consulted
+                    if resources:
+                        exec_detail["resources_consulted"] = resources
+
             execution_details.append(exec_detail)
 
             # Scope-based limiting for conversation-level rules
@@ -901,12 +907,34 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 logger.warning(f"Failed to analyze documents for {type_name}: {e}")
                 continue
 
+        # Convert DocumentLearnings to Learnings for compatibility with AnalysisResult
+        converted_learnings = []
+        for doc_learning in all_document_learnings:
+            # Map DocumentLearning fields to Learning fields
+            learning = Learning(
+                turn_number=1,  # Document learnings aren't tied to specific turns
+                turn_uuid=None,
+                agent_tool="documents",
+                conversation_file="N/A",
+                observed_behavior=doc_learning.observed_issue,
+                expected_behavior=doc_learning.expected_quality,
+                learning_type=doc_learning.learning_type,
+                frequency=FrequencyType.ONE_TIME,
+                workflow_element=WorkflowElement.UNKNOWN,
+                turns_to_resolve=1,
+                turns_involved=[],
+                context=doc_learning.context,
+                resources_consulted=[],
+                phases_count=1,
+            )
+            converted_learnings.append(learning)
+
         result = AnalysisResult(
             session_id="document_analysis",
             agent_tool="documents",
             conversation_file="N/A",
             project_path=str(self.project_path),
-            learnings=[],
+            learnings=converted_learnings,
             analysis_timestamp=datetime.now(),
             error=None,
         )
@@ -919,8 +947,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         )
 
         by_type: Dict[str, int] = {}
-        for learning in all_document_learnings:
-            by_type[learning.learning_type] = by_type.get(learning.learning_type, 0) + 1
+        for doc_learning in all_document_learnings:
+            by_type[doc_learning.learning_type] = by_type.get(doc_learning.learning_type, 0) + 1
         summary.by_type = by_type
 
         summary.rules_checked = list(document_types.keys())
@@ -1488,7 +1516,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     logger.debug(f"Resource not found: {req.resource_type}:{req.resource_id}")
 
             # Check if all requests failed
-            if all(not r.found for r in resources_loaded):
+            if resources_loaded and all(not r.found for r in resources_loaded):
                 # All resources missing - create missing resource learnings
                 return self._create_missing_resource_learnings(
                     conversation=conversation,

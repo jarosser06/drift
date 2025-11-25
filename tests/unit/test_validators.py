@@ -370,11 +370,10 @@ class TestValidatorRegistry:
 
     def test_unsupported_rule_type_raises_error(self, sample_bundle):
         """Test that unsupported rule types raise ValueError."""
-        # Create a rule with REGEX_MATCH which we haven't implemented yet
+        # Create a rule with FILE_COUNT which we haven't implemented yet
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
-            description="Test regex",
-            pattern="test",
+            rule_type=ValidationType.FILE_COUNT,
+            description="Test file count",
             failure_message="Test",
             expected_behavior="Test",
         )

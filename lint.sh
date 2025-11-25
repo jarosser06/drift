@@ -34,7 +34,7 @@ echo "=================================="
 # Run flake8 with uv
 echo ""
 echo "Running flake8..."
-if uv run flake8 src/drift/ tests/ --max-line-length=100 --extend-ignore=E203,W503; then
+if uv run flake8 src/drift/ tests/ --max-line-length=100 --extend-ignore=E203,W503,D202; then
     echo "✓ flake8 passed"
 else
     echo "✗ flake8 failed"

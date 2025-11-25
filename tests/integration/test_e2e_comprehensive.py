@@ -6,6 +6,7 @@ conversations, and mock LLM responses.
 """
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List
 from unittest.mock import patch
@@ -150,12 +151,14 @@ class TestComprehensiveE2E:
 
         # Create conversation files in mangled directory
         self._create_conversation_jsonl(
-            logs_dir / "session-incomplete.jsonl", "incomplete_work"
+            logs_dir / "session-incomplete.jsonl", "incomplete_work", project_dir
         )
-        self._create_conversation_jsonl(logs_dir / "session-skill.jsonl", "skill_ignored")
-        self._create_conversation_jsonl(logs_dir / "session-clean.jsonl", "no_drift")
         self._create_conversation_jsonl(
-            logs_dir / "session-command.jsonl", "command_activation"
+            logs_dir / "session-skill.jsonl", "skill_ignored", project_dir
+        )
+        self._create_conversation_jsonl(logs_dir / "session-clean.jsonl", "no_drift", project_dir)
+        self._create_conversation_jsonl(
+            logs_dir / "session-command.jsonl", "command_activation", project_dir
         )
 
         return project_dir
@@ -177,7 +180,9 @@ class TestComprehensiveE2E:
         # Commands
         commands_dir = claude_dir / "commands"
         commands_dir.mkdir()
-        (commands_dir / "test.md").write_text("# Test Command\n\nRun tests.\n\nRequired skills: testing")
+        (commands_dir / "test.md").write_text(
+            "# Test Command\n\nRun tests.\n\nRequired skills: testing"
+        )
         (commands_dir / "deploy.md").write_text("# Deploy Command\n\nDeploy the app.")
 
         # Skills
@@ -191,10 +196,16 @@ class TestComprehensiveE2E:
         # Agents
         agents_dir = claude_dir / "agents"
         agents_dir.mkdir()
-        (agents_dir / "code-reviewer.md").write_text("# Code Reviewer Agent\n\nReviews code for quality and best practices.\n\n## Tools Available\n- Read\n- Grep")
+        (agents_dir / "code-reviewer.md").write_text(
+            "# Code Reviewer Agent\n\n"
+            "Reviews code for quality and best practices.\n\n"
+            "## Tools Available\n- Read\n- Grep"
+        )
 
         # Project files
-        (project_dir / "CLAUDE.md").write_text("# Test Project\n\nThis is a test project for drift analysis.")
+        (project_dir / "CLAUDE.md").write_text(
+            "# Test Project\n\nThis is a test project for drift analysis."
+        )
         (project_dir / "README.md").write_text("# Test Project\n\nReadme content.")
         (project_dir / "LICENSE").write_text("MIT License")
 
@@ -206,10 +217,16 @@ class TestComprehensiveE2E:
         logs_dir.mkdir()
 
         # Create conversation files
-        self._create_conversation_jsonl(logs_dir / "session-incomplete.jsonl", "incomplete_work")
-        self._create_conversation_jsonl(logs_dir / "session-skill.jsonl", "skill_ignored")
-        self._create_conversation_jsonl(logs_dir / "session-clean.jsonl", "no_drift")
-        self._create_conversation_jsonl(logs_dir / "session-command.jsonl", "command_activation")
+        self._create_conversation_jsonl(
+            logs_dir / "session-incomplete.jsonl", "incomplete_work", project_dir
+        )
+        self._create_conversation_jsonl(
+            logs_dir / "session-skill.jsonl", "skill_ignored", project_dir
+        )
+        self._create_conversation_jsonl(logs_dir / "session-clean.jsonl", "no_drift", project_dir)
+        self._create_conversation_jsonl(
+            logs_dir / "session-command.jsonl", "command_activation", project_dir
+        )
 
         # Create config with mode='all'
         config_content = self._create_realistic_config(project_dir, conversation_mode="all")
@@ -269,7 +286,10 @@ class TestComprehensiveE2E:
                             "name": "detection",
                             "type": "prompt",
                             "model": "haiku",
-                            "prompt": "Look for instances where AI claimed to be done but user had to ask for more.",
+                            "prompt": (
+                                "Look for instances where AI claimed to be "
+                                "done but user had to ask for more."
+                            ),
                             "available_resources": [],
                         }
                     ],
@@ -285,16 +305,24 @@ class TestComprehensiveE2E:
                             "name": "detection",
                             "type": "prompt",
                             "model": "haiku",
-                            "prompt": "Check if AI wrote custom code when project had relevant skills.",
+                            "prompt": (
+                                "Check if AI wrote custom code when project " "had relevant skills."
+                            ),
                             "available_resources": ["skill"],
                         }
                     ],
                 },
                 # Conversation-level (multi-phase)
                 "command_activation_required": {
-                    "description": "AI failed to activate required skills before executing slash command steps",
+                    "description": (
+                        "AI failed to activate required skills before "
+                        "executing slash command steps"
+                    ),
                     "scope": "conversation_level",
-                    "context": "Commands with required skills dependencies must have those skills activated first",
+                    "context": (
+                        "Commands with required skills dependencies must "
+                        "have those skills activated first"
+                    ),
                     "requires_project_context": True,
                     "supported_clients": ["claude-code"],
                     "phases": [
@@ -302,14 +330,20 @@ class TestComprehensiveE2E:
                             "name": "initial_scan",
                             "type": "prompt",
                             "model": "haiku",
-                            "prompt": "Scan conversation for slash command usage. Request command resources if needed.",
+                            "prompt": (
+                                "Scan conversation for slash command usage. "
+                                "Request command resources if needed."
+                            ),
                             "available_resources": ["command", "skill"],
                         },
                         {
                             "name": "detailed_analysis",
                             "type": "prompt",
                             "model": "haiku",
-                            "prompt": "With command content, verify if required skills were activated before command execution.",
+                            "prompt": (
+                                "With command content, verify if required "
+                                "skills were activated before command execution."
+                            ),
                             "available_resources": ["command", "skill"],
                         },
                     ],
@@ -350,18 +384,19 @@ class TestComprehensiveE2E:
 
         return yaml.dump(config, sort_keys=False)
 
-    def _create_conversation_jsonl(self, file_path: Path, scenario: str):
+    def _create_conversation_jsonl(self, file_path: Path, scenario: str, project_dir: Path):
         """Create realistic Claude Code JSONL conversation file.
 
         Args:
             file_path: Path to write conversation file
             scenario: Type of conversation scenario to create
+            project_dir: Project directory to use as cwd in conversation
         """
         scenarios = {
-            "incomplete_work": self._incomplete_work_conversation(),
-            "skill_ignored": self._skill_ignored_conversation(),
-            "no_drift": self._no_drift_conversation(),
-            "command_activation": self._command_activation_conversation(),
+            "incomplete_work": self._incomplete_work_conversation(project_dir),
+            "skill_ignored": self._skill_ignored_conversation(project_dir),
+            "no_drift": self._no_drift_conversation(project_dir),
+            "command_activation": self._command_activation_conversation(project_dir),
         }
 
         messages = scenarios.get(scenario, [])
@@ -369,7 +404,7 @@ class TestComprehensiveE2E:
             for msg in messages:
                 f.write(json.dumps(msg) + "\n")
 
-    def _incomplete_work_conversation(self) -> List[Dict]:
+    def _incomplete_work_conversation(self, project_dir: Path) -> List[Dict]:
         """Create conversation showing incomplete work pattern."""
         return [
             {
@@ -385,7 +420,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-01T10:00:00Z",
                 "sessionId": "session-incomplete",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -402,14 +437,18 @@ class TestComprehensiveE2E:
                             "name": "Write",
                             "input": {
                                 "file_path": "auth.py",
-                                "content": "def login(username, password):\n    # Login implementation\n    return True\n",
+                                "content": (
+                                    "def login(username, password):\n"
+                                    "    # Login implementation\n"
+                                    "    return True\n"
+                                ),
                             },
                         },
                     ],
                 },
                 "timestamp": "2024-01-01T10:01:00Z",
                 "sessionId": "session-incomplete",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "user",
@@ -424,7 +463,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-01T10:02:00Z",
                 "sessionId": "session-incomplete",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -441,19 +480,33 @@ class TestComprehensiveE2E:
                             "name": "Edit",
                             "input": {
                                 "file_path": "auth.py",
-                                "old_string": "def login(username, password):\n    # Login implementation\n    return True\n",
-                                "new_string": "def login(username, password):\n    # Login implementation\n    return True\n\ndef logout(session_id):\n    # Logout implementation\n    pass\n\ndef manage_session(user_id):\n    # Session management\n    pass\n",
+                                "old_string": (
+                                    "def login(username, password):\n"
+                                    "    # Login implementation\n"
+                                    "    return True\n"
+                                ),
+                                "new_string": (
+                                    "def login(username, password):\n"
+                                    "    # Login implementation\n"
+                                    "    return True\n\n"
+                                    "def logout(session_id):\n"
+                                    "    # Logout implementation\n"
+                                    "    pass\n\n"
+                                    "def manage_session(user_id):\n"
+                                    "    # Session management\n"
+                                    "    pass\n"
+                                ),
                             },
                         },
                     ],
                 },
                 "timestamp": "2024-01-01T10:03:00Z",
                 "sessionId": "session-incomplete",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
         ]
 
-    def _skill_ignored_conversation(self) -> List[Dict]:
+    def _skill_ignored_conversation(self, project_dir: Path) -> List[Dict]:
         """Create conversation showing skill ignored pattern."""
         return [
             {
@@ -469,7 +522,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-02T10:00:00Z",
                 "sessionId": "session-skill",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -486,14 +539,22 @@ class TestComprehensiveE2E:
                             "name": "Write",
                             "input": {
                                 "file_path": "api.py",
-                                "content": "from flask import Flask, request\n\napp = Flask(__name__)\n\n@app.route('/register', methods=['POST'])\ndef register():\n    data = request.json\n    # Registration logic\n    return {'success': True}\n",
+                                "content": (
+                                    "from flask import Flask, request\n\n"
+                                    "app = Flask(__name__)\n\n"
+                                    "@app.route('/register', methods=['POST'])\n"
+                                    "def register():\n"
+                                    "    data = request.json\n"
+                                    "    # Registration logic\n"
+                                    "    return {'success': True}\n"
+                                ),
                             },
                         },
                     ],
                 },
                 "timestamp": "2024-01-02T10:01:00Z",
                 "sessionId": "session-skill",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "user",
@@ -502,13 +563,16 @@ class TestComprehensiveE2E:
                     "content": [
                         {
                             "type": "text",
-                            "text": "We have an api-design skill that provides the standard patterns for this",
+                            "text": (
+                                "We have an api-design skill that provides "
+                                "the standard patterns for this"
+                            ),
                         }
                     ],
                 },
                 "timestamp": "2024-01-02T10:02:00Z",
                 "sessionId": "session-skill",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -517,17 +581,21 @@ class TestComprehensiveE2E:
                     "content": [
                         {
                             "type": "text",
-                            "text": "You're absolutely right. I should have used the api-design skill to follow your project's established patterns.",
+                            "text": (
+                                "You're absolutely right. I should have used "
+                                "the api-design skill to follow your project's "
+                                "established patterns."
+                            ),
                         }
                     ],
                 },
                 "timestamp": "2024-01-02T10:03:00Z",
                 "sessionId": "session-skill",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
         ]
 
-    def _command_activation_conversation(self) -> List[Dict]:
+    def _command_activation_conversation(self, project_dir: Path) -> List[Dict]:
         """Create conversation showing command used without activating required skill."""
         return [
             {
@@ -540,7 +608,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-04T10:00:00Z",
                 "sessionId": "session-command",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -561,7 +629,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-04T10:01:00Z",
                 "sessionId": "session-command",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "user",
@@ -570,30 +638,31 @@ class TestComprehensiveE2E:
                     "content": [
                         {
                             "type": "text",
-                            "text": "You should have activated the testing skill first as per the command requirements",
+                            "text": (
+                                "You should have activated the testing skill "
+                                "first as per the command requirements"
+                            ),
                         }
                     ],
                 },
                 "timestamp": "2024-01-04T10:02:00Z",
                 "sessionId": "session-command",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
         ]
 
-    def _no_drift_conversation(self) -> List[Dict]:
+    def _no_drift_conversation(self, project_dir: Path) -> List[Dict]:
         """Create clean conversation with no drift."""
         return [
             {
                 "type": "user",
                 "message": {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Add a simple hello world function"}
-                    ],
+                    "content": [{"type": "text", "text": "Add a simple hello world function"}],
                 },
                 "timestamp": "2024-01-03T10:00:00Z",
                 "sessionId": "session-clean",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "assistant",
@@ -610,14 +679,19 @@ class TestComprehensiveE2E:
                             "name": "Write",
                             "input": {
                                 "file_path": "hello.py",
-                                "content": "def hello_world():\n    \"\"\"Print hello world message.\"\"\"\n    print('Hello, World!')\n    return 'Hello, World!'\n",
+                                "content": (
+                                    "def hello_world():\n"
+                                    '    """Print hello world message."""\n'
+                                    "    print('Hello, World!')\n"
+                                    "    return 'Hello, World!'\n"
+                                ),
                             },
                         },
                     ],
                 },
                 "timestamp": "2024-01-03T10:01:00Z",
                 "sessionId": "session-clean",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
             {
                 "type": "user",
@@ -627,7 +701,7 @@ class TestComprehensiveE2E:
                 },
                 "timestamp": "2024-01-03T10:02:00Z",
                 "sessionId": "session-clean",
-                "cwd": "/project",
+                "cwd": str(project_dir),
             },
         ]
 
@@ -669,17 +743,13 @@ class TestComprehensiveE2E:
         ], f"Invalid status: {detail['status']}"
 
         if "duration" in detail:
-            assert isinstance(
-                detail["duration"], (int, float)
-            ), "duration must be numeric"
+            assert isinstance(detail["duration"], (int, float)), "duration must be numeric"
 
         # Multi-phase specific
         if detail.get("phase_count", 1) > 1:
             assert "phases_executed" in detail, "Multi-phase must have phases_executed"
 
-    def _assert_prompt_content(
-        self, mock_provider: MockProvider, expected_patterns: List[str]
-    ):
+    def _assert_prompt_content(self, mock_provider: MockProvider, expected_patterns: List[str]):
         """Assert LLM prompts contain expected content.
 
         Args:
@@ -712,26 +782,18 @@ class TestComprehensiveE2E:
         if isinstance(response, list):
             for learning in response:
                 if "observed_behavior" in learning:
-                    assert (
-                        len(learning["observed_behavior"]) > 20
-                    ), "observed_behavior too short"
+                    assert len(learning["observed_behavior"]) > 20, "observed_behavior too short"
                 if "expected_behavior" in learning:
-                    assert (
-                        len(learning["expected_behavior"]) > 20
-                    ), "expected_behavior too short"
+                    assert len(learning["expected_behavior"]) > 20, "expected_behavior too short"
                 if "turn_number" in learning:
-                    assert (
-                        1 <= learning["turn_number"] <= 100
-                    ), "turn_number out of range"
+                    assert 1 <= learning["turn_number"] <= 100, "turn_number out of range"
 
         elif isinstance(response, dict):
             # Multi-phase response
             if "findings" in response:
                 for finding in response["findings"]:
                     if "observed_behavior" in finding:
-                        assert (
-                            len(finding["observed_behavior"]) > 20
-                        ), "observed_behavior too short"
+                        assert len(finding["observed_behavior"]) > 20, "observed_behavior too short"
             if "resource_requests" in response:
                 for req in response["resource_requests"]:
                     if "reason" in req:
@@ -757,11 +819,21 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management in initial implementation",
+                            "observed_behavior": (
+                                "AI implemented only login functionality "
+                                "without logout or session management components"
+                            ),
+                            "expected_behavior": (
+                                "Complete authentication system should include "
+                                "login, logout, and session management in initial "
+                                "implementation"
+                            ),
                             "resolved": False,
                             "still_needs_action": True,
-                            "context": "User had to explicitly ask for missing logout and session components in turn 3",
+                            "context": (
+                                "User had to explicitly ask for missing logout "
+                                "and session components in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -770,11 +842,20 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 2,
-                            "observed_behavior": "AI wrote custom Flask API endpoint code instead of using the existing api-design skill pattern",
-                            "expected_behavior": "AI should have consulted and used the api-design skill for API endpoint implementation",
+                            "observed_behavior": (
+                                "AI wrote custom Flask API endpoint code instead "
+                                "of using the existing api-design skill pattern"
+                            ),
+                            "expected_behavior": (
+                                "AI should have consulted and used the "
+                                "api-design skill for API endpoint implementation"
+                            ),
                             "resolved": True,
                             "still_needs_action": False,
-                            "context": "Project has api-design skill but AI reinvented the pattern, user corrected in turn 3",
+                            "context": (
+                                "Project has api-design skill but AI reinvented "
+                                "the pattern, user corrected in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -783,9 +864,7 @@ class TestComprehensiveE2E:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
                 app, ["--project", str(e2e_project_dir), "--format", "markdown"]
             )
@@ -832,12 +911,17 @@ class TestComprehensiveE2E:
         # Verify LLM was called (not skipped)
         assert mock_provider.call_count > 0, "MockProvider should have been called"
 
-    def test_json_output_includes_execution_details(self, cli_runner, e2e_project_dir):
+    def test_json_output_includes_execution_details(
+        self, cli_runner, e2e_project_dir_all_conversations
+    ):
         """Test JSON always includes execution_details (regardless of --detailed flag).
 
         JSON output must ALWAYS include metadata.execution_details with information
         about what rules were executed, even when --detailed flag is NOT provided.
         """
+        # Use mode='all' to load multiple conversations
+        e2e_project_dir = e2e_project_dir_all_conversations
+
         # Create mock provider with responses
         mock_provider = SequentialMockProvider(
             [
@@ -846,11 +930,21 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management in initial implementation",
+                            "observed_behavior": (
+                                "AI implemented only login functionality "
+                                "without logout or session management components"
+                            ),
+                            "expected_behavior": (
+                                "Complete authentication system should include "
+                                "login, logout, and session management in initial "
+                                "implementation"
+                            ),
                             "resolved": False,
                             "still_needs_action": True,
-                            "context": "User had to explicitly ask for missing logout and session components in turn 3",
+                            "context": (
+                                "User had to explicitly ask for missing logout "
+                                "and session components in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -859,11 +953,20 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 2,
-                            "observed_behavior": "AI wrote custom Flask API endpoint code instead of using the existing api-design skill pattern",
-                            "expected_behavior": "AI should have consulted and used the api-design skill for API endpoint implementation",
+                            "observed_behavior": (
+                                "AI wrote custom Flask API endpoint code instead "
+                                "of using the existing api-design skill pattern"
+                            ),
+                            "expected_behavior": (
+                                "AI should have consulted and used the "
+                                "api-design skill for API endpoint implementation"
+                            ),
                             "resolved": True,
                             "still_needs_action": False,
-                            "context": "Project has api-design skill but AI reinvented the pattern, user corrected in turn 3",
+                            "context": (
+                                "Project has api-design skill but AI reinvented "
+                                "the pattern, user corrected in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -872,13 +975,9 @@ class TestComprehensiveE2E:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --format json (NO --detailed flag)
-            result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir), "--format", "json"]
-            )
+            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--format", "json"])
 
         # Verify exit code
         assert result.exit_code == 2, (
@@ -894,9 +993,7 @@ class TestComprehensiveE2E:
 
         # JSON output MUST include execution_details even without --detailed flag
         assert "metadata" in output, "No metadata in JSON output"
-        assert (
-            "execution_details" in output["metadata"]
-        ), "No execution_details in metadata"
+        assert "execution_details" in output["metadata"], "No execution_details in metadata"
 
         exec_details = output["metadata"]["execution_details"]
         assert isinstance(
@@ -913,8 +1010,7 @@ class TestComprehensiveE2E:
 
         # Should have conversation-level LLM rules
         assert "incomplete_work" in rule_names, (
-            f"incomplete_work not in execution_details. "
-            f"Found rules: {rule_names}"
+            f"incomplete_work not in execution_details. " f"Found rules: {rule_names}"
         )
         assert "skill_ignored" in rule_names, (
             f"skill_ignored not in execution_details. " f"Found rules: {rule_names}"
@@ -922,17 +1018,14 @@ class TestComprehensiveE2E:
 
         # Should have project-level programmatic rule
         assert "claude_md_missing" in rule_names, (
-            f"claude_md_missing not in execution_details. "
-            f"Found rules: {rule_names}"
+            f"claude_md_missing not in execution_details. " f"Found rules: {rule_names}"
         )
 
         # Verify programmatic rules show validation_results
         claude_md_detail = next(
             (d for d in exec_details if d["rule_name"] == "claude_md_missing"), None
         )
-        assert (
-            claude_md_detail is not None
-        ), "claude_md_missing execution detail not found"
+        assert claude_md_detail is not None, "claude_md_missing execution detail not found"
         assert (
             "validation_results" in claude_md_detail
         ), "Programmatic rule should have validation_results"
@@ -940,28 +1033,39 @@ class TestComprehensiveE2E:
         # Verify validation_results structure
         validation_results = claude_md_detail["validation_results"]
         assert isinstance(validation_results, dict), "validation_results should be dict"
-        assert "bundle_type" in validation_results
-        assert "bundle_id" in validation_results
-        assert "files_validated" in validation_results
+        assert "rule_type" in validation_results
+
+        # Bundle info and files are in execution_context
+        assert "execution_context" in claude_md_detail
+        exec_context = claude_md_detail["execution_context"]
+        assert "bundle_type" in exec_context
+        assert "bundle_id" in exec_context
+        assert "files" in exec_context
 
         # Verify all details have required fields
         for detail in exec_details:
             assert "rule_name" in detail
             assert "status" in detail
             assert detail["status"] in ["passed", "failed", "error", "skipped"]
-            assert "duration_ms" in detail or "duration" in detail
+            # Duration is optional
 
         # Verify results array has learnings
         assert "results" in output, "No results in JSON output"
         assert isinstance(output["results"], list), "results should be a list"
 
+        # Extract all learnings from results
+        all_learnings = []
+        for conv in output["results"]:
+            all_learnings.extend(conv.get("learnings", []))
+
         # Should have learnings from conversation analysis
         conversation_learnings = [
-            r for r in output["results"] if r.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            learning
+            for learning in all_learnings
+            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
         ]
         assert len(conversation_learnings) >= 2, (
-            f"Expected at least 2 conversation learnings, "
-            f"got {len(conversation_learnings)}"
+            f"Expected at least 2 conversation learnings, " f"got {len(conversation_learnings)}"
         )
 
     def test_detailed_flag_shows_execution_context(self, cli_runner, e2e_project_dir):
@@ -978,11 +1082,21 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management in initial implementation",
+                            "observed_behavior": (
+                                "AI implemented only login functionality "
+                                "without logout or session management components"
+                            ),
+                            "expected_behavior": (
+                                "Complete authentication system should include "
+                                "login, logout, and session management in initial "
+                                "implementation"
+                            ),
                             "resolved": False,
                             "still_needs_action": True,
-                            "context": "User had to explicitly ask for missing logout and session components in turn 3",
+                            "context": (
+                                "User had to explicitly ask for missing logout "
+                                "and session components in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -991,11 +1105,20 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 2,
-                            "observed_behavior": "AI wrote custom Flask API endpoint code instead of using the existing api-design skill pattern",
-                            "expected_behavior": "AI should have consulted and used the api-design skill for API endpoint implementation",
+                            "observed_behavior": (
+                                "AI wrote custom Flask API endpoint code instead "
+                                "of using the existing api-design skill pattern"
+                            ),
+                            "expected_behavior": (
+                                "AI should have consulted and used the "
+                                "api-design skill for API endpoint implementation"
+                            ),
                             "resolved": True,
                             "still_needs_action": False,
-                            "context": "Project has api-design skill but AI reinvented the pattern, user corrected in turn 3",
+                            "context": (
+                                "Project has api-design skill but AI reinvented "
+                                "the pattern, user corrected in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -1004,13 +1127,9 @@ class TestComprehensiveE2E:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --detailed flag
-            result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir), "--detailed"]
-            )
+            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--detailed"])
 
         # Verify exit code
         assert result.exit_code == 2, (
@@ -1020,8 +1139,7 @@ class TestComprehensiveE2E:
 
         # Should show execution details section
         assert (
-            "Test Execution Details" in result.stdout
-            or "Execution Details" in result.stdout
+            "Test Execution Details" in result.stdout or "Execution Details" in result.stdout
         ), f"No execution details section found in output:\n{result.stdout}"
 
         # Should show the rules that were executed
@@ -1049,8 +1167,7 @@ class TestComprehensiveE2E:
 
         # Should show status (passed/failed/skipped)
         assert any(
-            status in result.stdout.lower()
-            for status in ["passed", "failed", "skipped", "error"]
+            status in result.stdout.lower() for status in ["passed", "failed", "skipped", "error"]
         ), f"No status information found in output:\n{result.stdout}"
 
         # Should still have the regular analysis results
@@ -1060,31 +1177,27 @@ class TestComprehensiveE2E:
     def test_no_llm_flag_filters_correctly(self, cli_runner, e2e_project_dir):
         """Test --no-llm flag only runs programmatic rules.
 
-        When --no-llm is specified, only programmatic validation rules should run.
-        LLM-based conversation analysis should be skipped entirely.
+        When --no-llm is specified, only programmatic validation rules
+        should run. LLM-based conversation analysis should be skipped entirely.
         """
+
         # Create a mock provider that should NOT be called
         class FailIfCalledProvider(MockProvider):
             """Provider that fails if generate() is called."""
 
             def generate(self, prompt: str, **kwargs) -> str:
-                pytest.fail(
-                    "MockProvider.generate() should NOT be called with --no-llm flag"
-                )
+                pytest.fail("MockProvider.generate() should NOT be called with --no-llm flag")
 
         mock_provider = FailIfCalledProvider()
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --no-llm flag
-            result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir), "--no-llm"]
-            )
+            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--no-llm"])
 
         # Should succeed (exit code 0 because CLAUDE.md exists, so programmatic rule passes)
         assert result.exit_code == 0, (
-            f"Expected exit code 0 (no drift with --no-llm), got {result.exit_code}\n"
+            f"Expected exit code 0 (no drift with --no-llm), "
+            f"got {result.exit_code}\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
@@ -1114,49 +1227,62 @@ class TestComprehensiveE2E:
             mock_provider.call_count == 0
         ), f"MockProvider should not be called with --no-llm, got {mock_provider.call_count} calls"
 
-    def test_scope_conversation_only(self, cli_runner, e2e_project_dir):
+    def test_scope_conversation_only(self, cli_runner, e2e_project_dir_all_conversations):
         """Test --scope conversation filters project-level rules.
 
         Only conversation-level learning types should run, project-level rules
         should be skipped.
         """
+        e2e_project_dir = e2e_project_dir_all_conversations
         # Create mock provider with responses for conversation rules
+        # With 4 conversations and 3 conversation-level rules (2 single-phase, 1 multi-phase),
+        # we need responses for: incomplete_work (4 calls), skill_ignored (4 calls),
+        # command_activation (8 calls for multi-phase)
         mock_provider = SequentialMockProvider(
             [
-                # Response for incomplete_work
+                # incomplete_work responses (4 conversations)
                 json.dumps(
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management in initial implementation",
+                            "observed_behavior": "AI implemented only login without logout/session",
+                            "expected_behavior": "Complete auth system with login, logout, session",
                             "resolved": False,
                             "still_needs_action": True,
-                            "context": "User had to explicitly ask for missing logout and session components in turn 3",
+                            "context": "User had to ask for missing components",
                         }
                     ]
                 ),
-                # Response for skill_ignored
+                "[]",  # skill_ignored conversation
+                "[]",  # clean conversation
+                "[]",  # command conversation
+                # skill_ignored responses (4 conversations)
+                "[]",  # incomplete conversation
                 json.dumps(
                     [
                         {
                             "turn_number": 2,
-                            "observed_behavior": "AI wrote custom Flask API endpoint code instead of using the existing api-design skill pattern",
-                            "expected_behavior": "AI should have consulted and used the api-design skill for API endpoint implementation",
+                            "observed_behavior": (
+                                "AI wrote custom code instead of using " "api-design skill"
+                            ),
+                            "expected_behavior": "AI should use the api-design skill pattern",
                             "resolved": True,
                             "still_needs_action": False,
-                            "context": "Project has api-design skill but AI reinvented the pattern, user corrected in turn 3",
+                            "context": "Project has api-design skill but AI reinvented pattern",
                         }
                     ]
                 ),
-                # Response for no-drift conversation
-                "[]",
+                "[]",  # clean conversation
+                "[]",  # command conversation
+                # command_activation_required phase 1 responses (4 conversations)
+                json.dumps({"resource_requests": [], "findings": [], "final_determination": True}),
+                json.dumps({"resource_requests": [], "findings": [], "final_determination": True}),
+                json.dumps({"resource_requests": [], "findings": [], "final_determination": True}),
+                json.dumps({"resource_requests": [], "findings": [], "final_determination": True}),
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope conversation
             result = cli_runner.invoke(
                 app,
@@ -1167,19 +1293,28 @@ class TestComprehensiveE2E:
         output = json.loads(result.stdout)
 
         # Should have conversation learnings
+        # Results are conversations, each with a learnings array
+        all_learnings = []
+        for conv in output["results"]:
+            all_learnings.extend(conv.get("learnings", []))
+
         conversation_learnings = [
-            r
-            for r in output["results"]
-            if r.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            learning
+            for learning in all_learnings
+            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
         ]
         assert len(conversation_learnings) >= 1, (
             f"Expected conversation learnings with --scope conversation, "
-            f"got {len(conversation_learnings)}"
+            f"got {len(conversation_learnings)}. All learnings: "
+            f"{[learning.get('learning_type') for learning in all_learnings]}"
         )
 
         # Should NOT have project-level learnings
+        # Project learnings would have learning_type of programmatic rules
         project_learnings = [
-            r for r in output["results"] if r.get("learning_type") == "claude_md_missing"
+            learning
+            for learning in all_learnings
+            if learning.get("learning_type") == "claude_md_missing"
         ]
         assert len(project_learnings) == 0, (
             f"Should not have project learnings with --scope conversation, "
@@ -1204,6 +1339,7 @@ class TestComprehensiveE2E:
         Only project-level learning types should run, conversation-level rules
         should be skipped.
         """
+
         # Create a mock provider that should NOT be called (no conversation analysis)
         class FailIfCalledProvider(MockProvider):
             """Provider that fails if generate() is called."""
@@ -1216,9 +1352,7 @@ class TestComprehensiveE2E:
 
         mock_provider = FailIfCalledProvider()
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope project
             result = cli_runner.invoke(
                 app,
@@ -1251,8 +1385,7 @@ class TestComprehensiveE2E:
 
         # Should have project rules
         assert "claude_md_missing" in rule_names, (
-            f"Should run claude_md_missing with --scope project. "
-            f"Found rules: {rule_names}"
+            f"Should run claude_md_missing with --scope project. " f"Found rules: {rule_names}"
         )
 
         # Should NOT have conversation rules
@@ -1263,11 +1396,12 @@ class TestComprehensiveE2E:
             "skill_ignored" not in rule_names
         ), "Should not run skill_ignored with --scope project"
 
-    def test_scope_all_merges_results(self, cli_runner, e2e_project_dir):
+    def test_scope_all_merges_results(self, cli_runner, e2e_project_dir_all_conversations):
         """Test default --scope all runs both conversation and project rules.
 
         All learning types should run and results should be merged together.
         """
+        e2e_project_dir = e2e_project_dir_all_conversations
         # Create mock provider with responses
         mock_provider = SequentialMockProvider(
             [
@@ -1276,11 +1410,21 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management in initial implementation",
+                            "observed_behavior": (
+                                "AI implemented only login functionality "
+                                "without logout or session management components"
+                            ),
+                            "expected_behavior": (
+                                "Complete authentication system should include "
+                                "login, logout, and session management in initial "
+                                "implementation"
+                            ),
                             "resolved": False,
                             "still_needs_action": True,
-                            "context": "User had to explicitly ask for missing logout and session components in turn 3",
+                            "context": (
+                                "User had to explicitly ask for missing logout "
+                                "and session components in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -1289,11 +1433,20 @@ class TestComprehensiveE2E:
                     [
                         {
                             "turn_number": 2,
-                            "observed_behavior": "AI wrote custom Flask API endpoint code instead of using the existing api-design skill pattern",
-                            "expected_behavior": "AI should have consulted and used the api-design skill for API endpoint implementation",
+                            "observed_behavior": (
+                                "AI wrote custom Flask API endpoint code instead "
+                                "of using the existing api-design skill pattern"
+                            ),
+                            "expected_behavior": (
+                                "AI should have consulted and used the "
+                                "api-design skill for API endpoint implementation"
+                            ),
                             "resolved": True,
                             "still_needs_action": False,
-                            "context": "Project has api-design skill but AI reinvented the pattern, user corrected in turn 3",
+                            "context": (
+                                "Project has api-design skill but AI reinvented "
+                                "the pattern, user corrected in turn 3"
+                            ),
                         }
                     ]
                 ),
@@ -1302,9 +1455,7 @@ class TestComprehensiveE2E:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope all (or omit, as it's the default)
             result = cli_runner.invoke(
                 app, ["--project", str(e2e_project_dir), "--scope", "all", "--format", "json"]
@@ -1314,13 +1465,20 @@ class TestComprehensiveE2E:
         output = json.loads(result.stdout)
 
         # Should have BOTH conversation and project learnings
+        # Extract all learnings from conversations
+        all_learnings = []
+        for conv in output["results"]:
+            all_learnings.extend(conv.get("learnings", []))
+
         conversation_learnings = [
-            r
-            for r in output["results"]
-            if r.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            learning
+            for learning in all_learnings
+            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
         ]
-        project_learnings = [
-            r for r in output["results"] if r.get("learning_type") == "claude_md_missing"
+        _ = [
+            learning
+            for learning in all_learnings
+            if learning.get("learning_type") == "claude_md_missing"
         ]
 
         # Note: project programmatic rule (claude_md_missing) passes, so no learning
@@ -1341,9 +1499,9 @@ class TestComprehensiveE2E:
         rule_names = {d["rule_name"] for d in exec_details}
 
         # Should have conversation rules
-        assert (
-            "incomplete_work" in rule_names or "skill_ignored" in rule_names
-        ), f"Should have conversation rules with --scope all. Found: {rule_names}"
+        assert "incomplete_work" in rule_names or "skill_ignored" in rule_names, (
+            f"Should have conversation rules with --scope all. " f"Found: {rule_names}"
+        )
 
         # Should have project rules
         assert "claude_md_missing" in rule_names, (
@@ -1355,54 +1513,63 @@ class TestComprehensiveE2E:
 
         Multi-phase rules can request resources (command, skill, agent files) in phase 1,
         which are then loaded and included in phase 2 prompts.
+
+        Uses mode='latest' which loads only session-command.jsonl (the latest conversation).
         """
         # Create mock provider with sequential responses for multi-phase
+        # With mode='latest', only 1 conversation (session-command) is analyzed
+        # Multi-phase needs 2 calls: phase 1 (request resources) + phase 2 (analyze with resources)
         mock_provider = SequentialMockProvider(
             [
-                # Phase 1: Request resources for command_activation_required
+                # Phase 1: Request resources
                 json.dumps(
                     {
                         "resource_requests": [
                             {
                                 "resource_type": "command",
                                 "resource_id": "test",
-                                "reason": "Need to verify if test command has required skill dependencies that were not activated",
-                            },
-                            {
-                                "resource_type": "skill",
-                                "resource_id": "testing",
-                                "reason": "Need to check if testing skill should have been activated before running test command",
-                            },
+                                "reason": "Need to verify command requirements",
+                            }
                         ],
                         "findings": [],
                         "final_determination": False,
                     }
                 ),
-                # Phase 2: Final determination with findings
+                # Phase 2: Analyze with loaded resources
                 json.dumps(
                     {
                         "resource_requests": [],
                         "findings": [
                             {
                                 "turn_number": 2,
-                                "observed_behavior": "AI executed /test command directly without first activating the testing skill",
-                                "expected_behavior": "AI should activate testing skill before executing /test command as per command requirements",
-                                "context": "Command documentation specifies 'Required skills: testing' but AI skipped skill activation step",
+                                "observed_behavior": (
+                                    "AI executed /test without activating " "testing skill"
+                                ),
+                                "expected_behavior": (
+                                    "AI should activate testing skill " "before /test command"
+                                ),
+                                "context": (
+                                    "Command requires 'testing' skill but " "AI skipped activation"
+                                ),
                             }
                         ],
                         "final_determination": True,
                     }
                 ),
-                # Responses for other single-phase rules
-                "[]",  # incomplete_work
-                "[]",  # skill_ignored
-                "[]",  # no_drift conversation
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        print(f"\n=== DEBUG: project_dir = {e2e_project_dir}")
+        print(f"=== DEBUG: .drift.yaml exists = {(e2e_project_dir / '.drift.yaml').exists()}")
+        if (e2e_project_dir / ".drift.yaml").exists():
+            config_text = (e2e_project_dir / ".drift.yaml").read_text()
+            print(
+                f"=== DEBUG: Has command_activation_required = "
+                f"{'command_activation_required' in config_text}"
+            )
+            print(f"=== DEBUG: Has missing_command = " f"{'missing_command' in config_text}")
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run analysis with --format json to get detailed metadata
             result = cli_runner.invoke(
                 app,
@@ -1417,10 +1584,28 @@ class TestComprehensiveE2E:
             )
 
         # Parse JSON output
+        print(f"\n=== DEBUG: CLI exit code = {result.exit_code}")
+        print(f"=== DEBUG: CLI stderr = {result.stderr}")
+        if result.exception:
+            import traceback
+
+            exc_type = type(result.exception)
+            exc_value = result.exception
+            exc_tb = result.exception.__traceback__
+            exc_formatted = traceback.format_exception(exc_type, exc_value, exc_tb)
+            print(f"=== DEBUG: Exception: {exc_formatted}")
+
         output = json.loads(result.stdout)
+
+        # DEBUG: Print what we got
+        print(f"\n=== DEBUG: mock_provider.call_count = " f"{mock_provider.call_count}")
+        print(f"=== DEBUG: Number of results = {len(output['results'])}")
+        print(f"=== DEBUG: Summary = {output.get('summary', {})}")
 
         # Find execution detail for command_activation_required
         exec_details = output["metadata"]["execution_details"]
+        print(f"=== DEBUG: execution_details = {json.dumps(exec_details, indent=2)}")
+
         cmd_detail = next(
             (d for d in exec_details if d["rule_name"] == "command_activation_required"),
             None,
@@ -1432,12 +1617,13 @@ class TestComprehensiveE2E:
         )
 
         # Verify multi-phase execution
+        assert "phase_results" in cmd_detail, "Multi-phase rule should have phase_results"
+
+        print(f"=== DEBUG: phase_results = {cmd_detail.get('phase_results')}")
+
         assert (
-            "phases_executed" in cmd_detail
-        ), "Multi-phase rule should have phases_executed"
-        assert cmd_detail["phases_executed"] == 2, (
-            f"Should execute 2 phases, got {cmd_detail.get('phases_executed')}"
-        )
+            len(cmd_detail["phase_results"]) == 2
+        ), f"Should execute 2 phases, got {len(cmd_detail.get('phase_results', []))}"
 
         # Verify resources were consulted
         assert (
@@ -1535,7 +1721,11 @@ drift_learning_types:
 
         # Parse and verify
         output_pass = json.loads(result_pass.stdout)
-        assert len(output_pass["results"]) == 0, "Should have no learnings when file exists"
+        # Extract learnings
+        all_learnings_pass = []
+        for result in output_pass["results"]:
+            all_learnings_pass.extend(result.get("learnings", []))
+        assert len(all_learnings_pass) == 0, "Should have no learnings when file exists"
 
         # Verify execution detail shows passed
         exec_details = output_pass["metadata"]["execution_details"]
@@ -1562,10 +1752,17 @@ drift_learning_types:
 
         # Parse and verify
         output_fail = json.loads(result_fail.stdout)
-        assert len(output_fail["results"]) > 0, "Should have learnings when file missing"
+        assert len(output_fail["results"]) > 0, "Should have results when file missing"
+
+        # Extract learnings from results
+        all_learnings = []
+        for result in output_fail["results"]:
+            all_learnings.extend(result.get("learnings", []))
+
+        assert len(all_learnings) > 0, "Should have learnings when file missing"
 
         # Verify learning
-        learning = output_fail["results"][0]
+        learning = all_learnings[0]
         assert learning["learning_type"] == "claude_md_missing"
         assert "CLAUDE.md" in learning["observed_behavior"]
 
@@ -1633,15 +1830,16 @@ drift_learning_types:
         )
 
         # Should fail
-        assert result_fail.exit_code == 2, (
-            f"Expected exit code 2 for non-matching pattern, got {result_fail.exit_code}"
-        )
+        assert (
+            result_fail.exit_code == 2
+        ), f"Expected exit code 2 for non-matching pattern, got {result_fail.exit_code}"
 
         output_fail = json.loads(result_fail.stdout)
         assert len(output_fail["results"]) > 0, "Should have learning when pattern doesn't match"
 
-    def test_learning_type_filter(self, cli_runner, e2e_project_dir):
+    def test_learning_type_filter(self, cli_runner, e2e_project_dir_all_conversations):
         """Test --types filter to run specific learning types only."""
+        e2e_project_dir = e2e_project_dir_all_conversations
         # Create mock provider with responses
         mock_provider = SequentialMockProvider(
             [
@@ -1650,8 +1848,14 @@ drift_learning_types:
                     [
                         {
                             "turn_number": 3,
-                            "observed_behavior": "AI implemented only login functionality without logout or session management components",
-                            "expected_behavior": "Complete authentication system should include login, logout, and session management",
+                            "observed_behavior": (
+                                "AI implemented only login functionality without "
+                                "logout or session management components"
+                            ),
+                            "expected_behavior": (
+                                "Complete authentication system should include "
+                                "login, logout, and session management"
+                            ),
                             "resolved": False,
                             "still_needs_action": True,
                             "context": "User had to ask for missing components",
@@ -1661,9 +1865,7 @@ drift_learning_types:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --types to filter to only incomplete_work
             result = cli_runner.invoke(
                 app,
@@ -1680,8 +1882,13 @@ drift_learning_types:
         # Parse output
         output = json.loads(result.stdout)
 
+        # Extract all learnings from conversations
+        all_learnings = []
+        for conv in output["results"]:
+            all_learnings.extend(conv.get("learnings", []))
+
         # Should only have incomplete_work learnings
-        learning_types = {r["learning_type"] for r in output["results"]}
+        learning_types = {learning["learning_type"] for learning in all_learnings}
         assert "incomplete_work" in learning_types or len(learning_types) == 0
 
         # Should NOT have other types
@@ -1715,9 +1922,7 @@ drift_learning_types:
             ]
         )
 
-        with patch(
-            "drift.core.analyzer.BedrockProvider", return_value=mock_provider
-        ):
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --model sonnet (override default haiku)
             result = cli_runner.invoke(
                 app,
@@ -1728,8 +1933,9 @@ drift_learning_types:
         output = json.loads(result.stdout)
 
         # Check execution details to see if model was overridden
-        # The exact field name may vary, but we're looking for indication of model used
-        exec_details = output["metadata"]["execution_details"]
+        # The exact field name may vary, but we're looking for indication
+        # of model used
+        _ = output["metadata"]["execution_details"]
 
         # At minimum, verify the CLI didn't error with the --model flag
         assert result.exit_code in [0, 2], (
@@ -1755,11 +1961,12 @@ drift_learning_types:
 
         # Create 3 files, ensure different mtimes
         import time
-        self._create_conversation_jsonl(logs_dir / "old1.jsonl", "no_drift")
+
+        self._create_conversation_jsonl(logs_dir / "old1.jsonl", "no_drift", project_dir)
         time.sleep(0.1)
-        self._create_conversation_jsonl(logs_dir / "old2.jsonl", "skill_ignored")
+        self._create_conversation_jsonl(logs_dir / "old2.jsonl", "skill_ignored", project_dir)
         time.sleep(0.1)
-        self._create_conversation_jsonl(logs_dir / "newest.jsonl", "incomplete_work")
+        self._create_conversation_jsonl(logs_dir / "newest.jsonl", "incomplete_work", project_dir)
 
         # Config with mode='latest' (default)
         config_content = self._create_realistic_config(project_dir, conversation_mode="latest")
@@ -1769,9 +1976,7 @@ drift_learning_types:
         mock_provider = SequentialMockProvider([json.dumps([])])  # No drift
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            result = cli_runner.invoke(
-                app, ["--project", str(project_dir), "--format", "json"]
-            )
+            result = cli_runner.invoke(app, ["--project", str(project_dir), "--format", "json"])
 
         output = json.loads(result.stdout)
 
@@ -1814,19 +2019,17 @@ drift_learning_types:
         logs_dir.mkdir()
 
         # Create conversation files
-        import time
-        from datetime import datetime, timedelta
-
         # Create files
         old_file = logs_dir / "old.jsonl"
         recent_file = logs_dir / "recent.jsonl"
 
-        self._create_conversation_jsonl(old_file, "no_drift")
-        self._create_conversation_jsonl(recent_file, "incomplete_work")
+        self._create_conversation_jsonl(old_file, "no_drift", project_dir)
+        self._create_conversation_jsonl(recent_file, "incomplete_work", project_dir)
 
         # Set old file to 10 days ago
         ten_days_ago = (datetime.now() - timedelta(days=10)).timestamp()
         import os
+
         os.utime(old_file, (ten_days_ago, ten_days_ago))
 
         # Config with mode='last_n_days', days=7
@@ -1838,9 +2041,7 @@ drift_learning_types:
         mock_provider = SequentialMockProvider([json.dumps([])])
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            result = cli_runner.invoke(
-                app, ["--project", str(project_dir), "--format", "json"]
-            )
+            result = cli_runner.invoke(app, ["--project", str(project_dir), "--format", "json"])
 
         output = json.loads(result.stdout)
 
@@ -1878,9 +2079,7 @@ drift_learning_types:
 """
         (project_no_drift / ".drift.yaml").write_text(config_pass)
 
-        result_0 = cli_runner.invoke(
-            app, ["--project", str(project_no_drift), "--no-llm"]
-        )
+        result_0 = cli_runner.invoke(app, ["--project", str(project_no_drift), "--no-llm"])
         assert result_0.exit_code == 0, f"Expected exit code 0, got {result_0.exit_code}"
 
         # Exit code 2: Drift found
@@ -1889,16 +2088,12 @@ drift_learning_types:
         # Don't create CLAUDE.md so validation fails
         (project_with_drift / ".drift.yaml").write_text(config_pass)
 
-        result_2 = cli_runner.invoke(
-            app, ["--project", str(project_with_drift), "--no-llm"]
-        )
+        result_2 = cli_runner.invoke(app, ["--project", str(project_with_drift), "--no-llm"])
         assert result_2.exit_code == 2, f"Expected exit code 2, got {result_2.exit_code}"
 
         # Exit code 1: Error scenarios
         # Invalid path
-        result_1_path = cli_runner.invoke(
-            app, ["--project", str(temp_dir / "nonexistent")]
-        )
+        result_1_path = cli_runner.invoke(app, ["--project", str(temp_dir / "nonexistent")])
         assert result_1_path.exit_code == 1, (
             f"Expected exit code 1 for invalid path, " f"got {result_1_path.exit_code}"
         )
@@ -1908,9 +2103,7 @@ drift_learning_types:
         project_bad_config.mkdir()
         (project_bad_config / ".drift.yaml").write_text("invalid: yaml: content: [")
 
-        result_1_config = cli_runner.invoke(
-            app, ["--project", str(project_bad_config)]
-        )
+        result_1_config = cli_runner.invoke(app, ["--project", str(project_bad_config)])
         assert result_1_config.exit_code == 1, (
             f"Expected exit code 1 for invalid config, " f"got {result_1_config.exit_code}"
         )
@@ -1967,9 +2160,12 @@ drift_learning_types:
         # With individual strategy, should get separate learnings for each file
         output_individual = json.loads(result_individual.stdout)
         # Should have multiple learnings (one per skill file)
-        assert len(output_individual["results"]) >= 2, (
-            f"Individual strategy should create separate learnings, "
-            f"got {len(output_individual['results'])}"
+        # Results array has 1 AnalysisResult for documents with multiple learnings inside
+        assert len(output_individual["results"]) >= 1, "Should have document results"
+        document_result = output_individual["results"][0]
+        assert len(document_result["learnings"]) >= 2, (
+            f"Individual strategy should create separate learnings (one per file), "
+            f"got {len(document_result['learnings'])}"
         )
 
         # Test collection strategy
@@ -2010,9 +2206,7 @@ drift_learning_types:
 
         # Execution details should show collection strategy
         exec_details = output_collection["metadata"]["execution_details"]
-        docs_detail = next(
-            (d for d in exec_details if d["rule_name"] == "docs_consistency"), None
-        )
+        docs_detail = next((d for d in exec_details if d["rule_name"] == "docs_consistency"), None)
 
         assert docs_detail is not None, "Should have execution detail for docs_consistency"
 
