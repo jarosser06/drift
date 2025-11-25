@@ -35,6 +35,7 @@ class JsonFormatter(OutputFormatter):
                 "total_conversations": result.summary.total_conversations,
                 "total_learnings": result.summary.total_learnings,
                 "config_used": result.metadata.get("config_used", {}),
+                "execution_details": result.metadata.get("execution_details", []),
             },
             "summary": {
                 "conversations_analyzed": result.summary.total_conversations,

@@ -289,7 +289,9 @@ class TestMarkdownFormatter:
                     scope="conversation_level",
                     context="Test context",
                     requires_project_context=False,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 )
             },
             agent_tools={},
@@ -343,7 +345,9 @@ class TestMarkdownFormatter:
                     scope="project_level",
                     context="Test context",
                     requires_project_context=False,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 )
             },
             agent_tools={},
@@ -447,7 +451,12 @@ class TestMarkdownFormatter:
 
     def test_severity_fail_creates_failures_section(self):
         """Test that FAIL severity creates Failures section."""
-        from drift.config.models import DriftConfig, DriftLearningType, SeverityLevel, PhaseDefinition
+        from drift.config.models import (
+            DriftConfig,
+            DriftLearningType,
+            PhaseDefinition,
+            SeverityLevel,
+        )
 
         config = DriftConfig(
             providers={},
@@ -460,7 +469,9 @@ class TestMarkdownFormatter:
                     context="Test context",
                     requires_project_context=False,
                     severity=SeverityLevel.FAIL,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 )
             },
             agent_tools={},
@@ -500,7 +511,12 @@ class TestMarkdownFormatter:
 
     def test_severity_warning_creates_warnings_section(self):
         """Test that WARNING severity creates Warnings section."""
-        from drift.config.models import DriftConfig, DriftLearningType, SeverityLevel, PhaseDefinition
+        from drift.config.models import (
+            DriftConfig,
+            DriftLearningType,
+            PhaseDefinition,
+            SeverityLevel,
+        )
 
         config = DriftConfig(
             providers={},
@@ -513,7 +529,9 @@ class TestMarkdownFormatter:
                     context="Test context",
                     requires_project_context=False,
                     severity=SeverityLevel.WARNING,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 )
             },
             agent_tools={},
@@ -565,14 +583,18 @@ class TestMarkdownFormatter:
                     scope="project_level",
                     context="Test context",
                     requires_project_context=False,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 ),
                 "conv_type": DriftLearningType(
                     description="Test",
                     scope="conversation_level",
                     context="Test context",
                     requires_project_context=False,
-                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                    phases=[
+                        PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
+                    ],
                 ),
             },
             agent_tools={},

@@ -6,8 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from drift.config.models import DriftLearningType, PhaseDefinition
 from drift.core.analyzer import DriftAnalyzer
 from drift.core.types import AnalysisResult, CompleteAnalysisResult, Learning
+from tests.mock_provider import MockProvider
 
 
 class TestDriftAnalyzer:
@@ -512,7 +514,7 @@ class TestDriftAnalyzer:
         analyzer = DriftAnalyzer(config=sample_drift_config)
         analyzer.providers = {"haiku": mock_provider}
 
-        learnings, error = analyzer._run_analysis_pass(
+        learnings, error, phase_results = analyzer._run_analysis_pass(
             sample_conversation,
             "incomplete_work",
             sample_learning_type,
@@ -1156,3 +1158,609 @@ class TestDriftAnalyzer:
             # With empty list, _analyze_conversation should not be called
             # because no conversations match or no rules to check
             assert result_empty.summary.total_learnings == 0
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_analyze_documents_with_programmatic_phases(self, sample_drift_config, temp_dir):
+        """Test analyzing documents with programmatic validation phases."""
+        from drift.config.models import PhaseDefinition
+
+        # Add a learning type with programmatic phases
+        programmatic_type = DriftLearningType(
+            description="Programmatic validation",
+            scope="project_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=None,
+            phases=[
+                PhaseDefinition(
+                    name="check",
+                    type="file_exists",
+                    prompt="",
+                    model="haiku",
+                    available_resources=[],
+                )
+            ],
+        )
+
+        config = sample_drift_config
+        config.drift_learning_types["programmatic"] = programmatic_type
+
+        mock_provider = MockProvider()
+        mock_provider.set_response(json.dumps([]))
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            analyzer = DriftAnalyzer(config=config, project_path=str(temp_dir))
+
+            result = analyzer.analyze_documents(
+                learning_types=["programmatic"],
+            )
+
+            assert result is not None
+            # Should have run with programmatic phases
+            assert result.summary.total_conversations == 0  # No conversations analyzed
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_init_with_invalid_model_provider(self, sample_drift_config):
+        """Test analyzer initialization with model referencing unknown provider."""
+        # Create a model config with invalid provider
+        from drift.config.models import ModelConfig
+
+        sample_drift_config.models["bad_model"] = ModelConfig(
+            provider="nonexistent_provider",
+            model_id="test-model",
+            params={},
+        )
+
+        with pytest.raises(ValueError, match="references unknown provider"):
+            DriftAnalyzer(config=sample_drift_config)
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_analyze_documents_with_provider_error(self, sample_drift_config, temp_dir):
+        """Test analyze_documents when provider raises API error."""
+        from drift.config.models import BundleStrategy, DocumentBundleConfig
+
+        doc_type = DriftLearningType(
+            description="Test",
+            scope="project_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="skill",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+            ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Test",
+                    model="haiku",
+                )
+            ],
+        )
+
+        sample_drift_config.drift_learning_types["test"] = doc_type
+
+        # Create a file to analyze
+        (temp_dir / "test.md").write_text("test")
+
+        mock_provider = MockProvider()
+
+        def raise_api_error(prompt, **kwargs):
+            raise Exception("Bedrock API error: throttled")
+
+        mock_provider.generate = raise_api_error
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+            with pytest.raises(Exception, match="Bedrock API error"):
+                analyzer.analyze_documents()
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_analyze_documents_with_non_api_error(self, sample_drift_config, temp_dir):
+        """Test analyze_documents handles non-API errors gracefully."""
+        from drift.config.models import BundleStrategy, DocumentBundleConfig
+
+        doc_type = DriftLearningType(
+            description="Test",
+            scope="project_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="skill",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+            ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Test",
+                    model="haiku",
+                )
+            ],
+        )
+
+        sample_drift_config.drift_learning_types["test"] = doc_type
+
+        # Create a file
+        (temp_dir / "test.md").write_text("test")
+
+        mock_provider = MockProvider()
+
+        def raise_other_error(prompt, **kwargs):
+            raise ValueError("Some other error")
+
+        mock_provider.generate = raise_other_error
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+            # Should not raise, logs warning and continues
+            result = analyzer.analyze_documents()
+            assert result is not None
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_run_multi_phase_document_analysis_no_phases(self, sample_drift_config, temp_dir):
+        """Test multi-phase document analysis with no phases configured."""
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        bad_type = DriftLearningType(
+            description="No phases",
+            scope="project_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=None,
+            phases=[],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test.md", content="test", file_path=temp_dir / "test.md"
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+
+        with pytest.raises(ValueError, match="no phases configured"):
+            analyzer._run_multi_phase_document_analysis(bundle, "bad", bad_type, None)
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_run_multi_phase_document_analysis_model_not_found(self, sample_drift_config, temp_dir):
+        """Test multi-phase document analysis when model not found."""
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        doc_type = DriftLearningType(
+            description="Test",
+            scope="project_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=None,
+            phases=[
+                PhaseDefinition(
+                    name="test",
+                    type="prompt",
+                    prompt="Test",
+                    model="nonexistent_model",
+                )
+            ],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test.md", content="test", file_path=temp_dir / "test.md"
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+
+        with pytest.raises(ValueError, match="not found in configured providers"):
+            analyzer._run_multi_phase_document_analysis(bundle, "test", doc_type, None)
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_execute_validation_rules_with_error(self, sample_drift_config, temp_dir):
+        """Test validation rule execution when rule throws error."""
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            ValidationRule,
+            ValidationRulesConfig,
+            ValidationType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create validation config with a rule
+        validation_config = ValidationRulesConfig(
+            rules=[
+                ValidationRule(
+                    rule_type=ValidationType.FILE_EXISTS,
+                    description="Test rule",
+                    file_path="nonexistent.txt",
+                    failure_message="Failed",
+                    expected_behavior="Should exist",
+                )
+            ],
+            scope="document_level",
+            document_bundle=DocumentBundleConfig(
+                bundle_type="skill",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+            ),
+        )
+
+        type_config = DriftLearningType(
+            description="Test",
+            scope="project_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=None,
+            validation_rules=validation_config,
+            phases=[],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test.md", content="test", file_path=temp_dir / "test.md"
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+        learnings, exec_details = analyzer._execute_validation_rules(
+            bundle, "test", type_config, None
+        )
+
+        # Should handle errors gracefully
+        assert isinstance(learnings, list)
+        assert isinstance(exec_details, list)
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_execute_validation_rules_with_programmatic_phases(self, sample_drift_config, temp_dir):
+        """Test validation rule execution with programmatic phases."""
+        from drift.config.models import PhaseDefinition
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create a test file
+        test_file = temp_dir / "test.md"
+        test_file.write_text("# Test")
+
+        # Create a type config with programmatic phases (no validation_rules)
+        type_config = DriftLearningType(
+            description="Test with programmatic validation",
+            scope="project_level",
+            context="Test context",
+            requires_project_context=False,
+            supported_clients=None,
+            validation_rules=None,
+            phases=[
+                PhaseDefinition(
+                    name="check_file",
+                    type="file_exists",
+                    file_path="test.md",
+                    failure_message="Test file not found",
+                    expected_behavior="Test file should exist",
+                )
+            ],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=str(temp_dir),
+            files=[
+                DocumentFile(relative_path="test.md", content="# Test", file_path=str(test_file))
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+        learnings, exec_details = analyzer._analyze_document_bundle(
+            bundle, "test", type_config, None, None
+        )
+
+        # Should execute programmatic phases
+        assert isinstance(learnings, list)
+        assert isinstance(exec_details, list)
+        assert len(exec_details) > 0
+        assert exec_details[0]["rule_name"] == "test"
+        assert exec_details[0]["status"] in ["passed", "failed"]
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_execute_validation_rules_programmatic_phase_failure(
+        self, sample_drift_config, temp_dir
+    ):
+        """Test programmatic phase that fails validation."""
+        from drift.config.models import PhaseDefinition
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create a type config with programmatic phase that checks nonexistent file
+        type_config = DriftLearningType(
+            description="Test with failing validation",
+            scope="project_level",
+            context="Test context",
+            requires_project_context=False,
+            supported_clients=None,
+            validation_rules=None,
+            phases=[
+                PhaseDefinition(
+                    name="check_missing_file",
+                    type="file_exists",
+                    file_path="nonexistent.md",
+                    failure_message="File not found",
+                    expected_behavior="File should exist",
+                )
+            ],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=str(temp_dir),
+            files=[
+                DocumentFile(
+                    relative_path="test.md", content="# Test", file_path=str(temp_dir / "test.md")
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+        learnings, exec_details = analyzer._analyze_document_bundle(
+            bundle, "test", type_config, None, None
+        )
+
+        # Should create learning for failed validation
+        assert isinstance(learnings, list)
+        assert len(learnings) > 0
+        assert learnings[0].learning_type == "test"
+        assert isinstance(exec_details, list)
+        assert len(exec_details) > 0
+        assert exec_details[0]["status"] == "failed"
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_run_multi_phase_document_analysis(self, sample_drift_config, temp_dir):
+        """Test running multi-phase document analysis with prompt phases."""
+        from drift.config.models import PhaseDefinition
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Set up mock response
+        mock_provider = MockProvider()
+        mock_provider.set_response("[]")
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+            # Create test file
+            test_file = temp_dir / "test.md"
+            test_file.write_text("# Test Content")
+
+            # Create type config with prompt phase
+            type_config = DriftLearningType(
+                description="Test document analysis",
+                scope="project_level",
+                context="Test context",
+                requires_project_context=False,
+                supported_clients=None,
+                validation_rules=None,
+                phases=[
+                    PhaseDefinition(
+                        name="analysis",
+                        type="prompt",
+                        prompt="Analyze the document",
+                        model="haiku",
+                    )
+                ],
+            )
+
+            bundle = DocumentBundle(
+                bundle_id="test",
+                bundle_type="skill",
+                bundle_strategy="individual",
+                project_path=str(temp_dir),
+                files=[
+                    DocumentFile(
+                        relative_path="test.md", content="# Test", file_path=str(test_file)
+                    )
+                ],
+            )
+
+            learnings, exec_details = analyzer._run_multi_phase_document_analysis(
+                bundle, "test", type_config, None, None
+            )
+
+            # Should execute LLM-based document analysis
+            assert isinstance(learnings, list)
+            assert isinstance(exec_details, list)
+            assert mock_provider.call_count == 1
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_execute_validation_rules_with_exception(self, sample_drift_config, temp_dir):
+        """Test validation rule execution handles exceptions."""
+        from unittest.mock import MagicMock
+
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            ValidationRule,
+            ValidationRulesConfig,
+            ValidationType,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create validation config with a rule that will fail
+        validation_config = ValidationRulesConfig(
+            rules=[
+                ValidationRule(
+                    rule_type=ValidationType.REGEX_MATCH,
+                    description="Test rule",
+                    file_path="test.md",
+                    pattern=".*",  # Valid pattern
+                    failure_message="Failed",
+                    expected_behavior="Should exist",
+                )
+            ],
+            scope="project_level",
+            document_bundle=DocumentBundleConfig(
+                bundle_type="skill",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+            ),
+        )
+
+        type_config = DriftLearningType(
+            description="Test",
+            scope="project_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=None,
+            validation_rules=validation_config,
+            phases=[],
+        )
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=str(temp_dir),
+            files=[
+                DocumentFile(
+                    relative_path="test.md", content="test", file_path=str(temp_dir / "test.md")
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
+
+        # Mock the validator registry to raise an exception
+        with patch("drift.core.analyzer.ValidatorRegistry") as mock_registry:
+            mock_instance = MagicMock()
+            mock_instance.execute_rule.side_effect = Exception("Test error")
+            mock_registry.return_value = mock_instance
+
+            learnings, exec_details = analyzer._execute_validation_rules(
+                bundle, "test", type_config, None
+            )
+
+            # Should handle error gracefully
+            assert isinstance(learnings, list)
+            assert isinstance(exec_details, list)
+            assert len(exec_details) > 0
+            assert exec_details[0]["status"] == "errored"
+            assert "Test error" in exec_details[0]["error_message"]
+
+
+class TestAnalyzerEdgeCases:
+    """Test edge cases and error paths in DriftAnalyzer."""
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_analyze_conversation_with_client_filtering(
+        self, sample_drift_config, sample_conversation
+    ):
+        """Test that rules with supported_clients filter correctly."""
+        # Create learning type that only supports "other-tool" (not claude-code)
+        filtered_type = DriftLearningType(
+            description="Filtered by client",
+            scope="conversation_level",
+            context="Test",
+            requires_project_context=False,
+            supported_clients=["other-tool"],  # conversation is claude-code
+        )
+
+        config = sample_drift_config
+        config.drift_learning_types["filtered"] = filtered_type
+
+        analyzer = DriftAnalyzer(config=config)
+
+        # Run analysis - should skip the filtered type
+        result, exec_details = analyzer._analyze_conversation(
+            conversation=sample_conversation,
+            learning_types={"filtered": filtered_type},
+            model_override=None,
+        )
+
+        # Should return empty since rule was filtered
+        assert len(result.learnings) == 0
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_analyze_with_conversation_load_error(self, sample_drift_config, temp_dir):
+        """Test analyze() when conversation loading fails."""
+
+        # Create a mock agent loader that raises an error
+        class FailingLoader:
+            def load_conversations(self, project_path=None, since=None):
+                raise RuntimeError("Failed to load conversations")
+
+        config = sample_drift_config
+        analyzer = DriftAnalyzer(config=config)
+        analyzer.agent_loaders["claude-code"] = FailingLoader()
+
+        # Should handle error gracefully and continue
+        result = analyzer.analyze()
+
+        # Should return empty result (conversation loading failed)
+        assert isinstance(result, CompleteAnalysisResult)
+
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_build_multi_phase_prompt_with_resources(
+        self, sample_drift_config, sample_conversation, temp_dir
+    ):
+        """Test _build_multi_phase_prompt includes loaded resources."""
+        sample_conversation.project_path = str(temp_dir)
+
+        multi_type = DriftLearningType(
+            description="Multi-phase",
+            scope="conversation_level",
+            context="Test",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            phases=[
+                PhaseDefinition(
+                    name="phase1",
+                    type="prompt",
+                    prompt="Test",
+                    model="haiku",
+                    available_resources=[],
+                )
+            ],
+        )
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+
+        # Add loaded resources
+        resources_loaded = [{"type": "command", "id": "test", "content": "Test command content"}]
+
+        prompt = analyzer._build_multi_phase_prompt(
+            conversation=sample_conversation,
+            learning_type="test",
+            type_config=multi_type,
+            phase_idx=0,
+            phase_def=multi_type.phases[0],
+            resources_loaded=resources_loaded,
+            previous_findings=[],
+        )
+
+        # Should include resource content in prompt
+        assert "Test command content" in prompt or "command" in prompt.lower()

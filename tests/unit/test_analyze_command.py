@@ -1,9 +1,7 @@
 """Unit tests for analyze command functions."""
 
-import pytest
-
 from drift.cli.commands.analyze import _merge_results
-from drift.core.types import AnalysisSummary, CompleteAnalysisResult, Learning
+from drift.core.types import AnalysisSummary, CompleteAnalysisResult
 
 
 class TestMergeResults:
@@ -101,9 +99,7 @@ class TestMergeResults:
         doc_result = CompleteAnalysisResult(
             metadata={
                 "generated_at": "2024-01-01T10:00:00",
-                "document_learnings": [
-                    {"type": "claude_md_missing", "count": 1}
-                ],
+                "document_learnings": [{"type": "claude_md_missing", "count": 1}],
             },
             summary=AnalysisSummary(
                 total_conversations=0,
@@ -115,9 +111,7 @@ class TestMergeResults:
         merged = _merge_results(conv_result, doc_result)
 
         assert "document_learnings" in merged.metadata
-        assert merged.metadata["document_learnings"] == [
-            {"type": "claude_md_missing", "count": 1}
-        ]
+        assert merged.metadata["document_learnings"] == [{"type": "claude_md_missing", "count": 1}]
 
     def test_merge_skipped_rules_both_empty(self):
         """Test merging when neither result has skipped rules."""

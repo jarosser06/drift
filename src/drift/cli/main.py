@@ -40,7 +40,7 @@ def main(
         help="Output format (markdown or json)",
     ),
     scope: str = typer.Option(
-        "conversation",
+        "all",
         "--scope",
         "-s",
         help="Analysis scope: conversation, project, or all",
@@ -97,6 +97,11 @@ def main(
         count=True,
         help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
     ),
+    detailed: bool = typer.Option(
+        False,
+        "--detailed",
+        help="Show detailed test execution information (markdown format only)",
+    ),
 ) -> None:
     """Analyze AI agent conversations to identify drift patterns.
 
@@ -138,6 +143,7 @@ def main(
         no_llm=no_llm,
         project=project,
         verbose=verbose,
+        detailed=detailed,
     )
 
 

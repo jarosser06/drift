@@ -23,13 +23,15 @@ class MarkdownFormatter(OutputFormatter):
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
-    def __init__(self, config: Optional[DriftConfig] = None):
+    def __init__(self, config: Optional[DriftConfig] = None, detailed: bool = False):
         """Initialize formatter.
 
         Args:
             config: Optional drift configuration for accessing learning type metadata
+            detailed: Whether to include detailed execution information
         """
         self.config = config
+        self.detailed = detailed
         # Check if stdout supports colors
         self.use_colors = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
@@ -112,7 +114,9 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(f"- Rules checked: {len(result.summary.rules_checked)}")
             # Always show counts, even if 0
             passed_count = len(result.summary.rules_passed) if result.summary.rules_passed else 0
-            count_str = self._colorize(str(passed_count), self.GREEN if passed_count > 0 else self.RESET)
+            count_str = self._colorize(
+                str(passed_count), self.GREEN if passed_count > 0 else self.RESET
+            )
             lines.append(f"- Rules passed: {count_str}")
 
             warned_count = len(result.summary.rules_warned) if result.summary.rules_warned else 0
@@ -166,7 +170,7 @@ class MarkdownFormatter(OutputFormatter):
                 lines.append(f"- **{rule}**: {error_msg}")
             lines.append("")
 
-        # If no learnings found, show message and return
+        # If no learnings found, show message
         if result.summary.total_learnings == 0:
             header = self._colorize("## No Drift Detected", self.GREEN)
             lines.append(header)
@@ -174,6 +178,15 @@ class MarkdownFormatter(OutputFormatter):
             lines.append("No drift patterns were found in the analyzed data.")
             lines.append("This means the AI agent behavior aligned well with user expectations.")
             lines.append("")
+
+            # Still show execution details if detailed flag is set
+            if self.detailed:
+                execution_details = result.metadata.get("execution_details", [])
+                if execution_details:
+                    lines.append("## Test Execution Details")
+                    lines.append("")
+                    lines.extend(self._format_execution_details(execution_details))
+
             return "\n".join(lines)
 
         # Collect all learnings and categorize by severity
@@ -220,6 +233,14 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(self._colorize("## Unexpected Passes", self.GREEN))
             lines.append("")
             lines.extend(self._format_by_type(all_passes, color=self.GREEN))
+
+        # Add execution details if detailed flag is set
+        if self.detailed:
+            execution_details = result.metadata.get("execution_details", [])
+            if execution_details:
+                lines.append("## Test Execution Details")
+                lines.append("")
+                lines.extend(self._format_execution_details(execution_details))
 
         return "\n".join(lines)
 
@@ -289,5 +310,60 @@ class MarkdownFormatter(OutputFormatter):
                     lines.append(f"**Context:** {learning.context}")
 
                 lines.append("")
+
+        return lines
+
+    def _format_execution_details(self, execution_details: List[dict]) -> List[str]:
+        """Format execution details for markdown output.
+
+        Args:
+            execution_details: List of execution detail dictionaries
+
+        Returns:
+            List of formatted lines
+        """
+        lines = []
+
+        # Group by status
+        passed = [d for d in execution_details if d.get("status") == "passed"]
+        failed = [d for d in execution_details if d.get("status") == "failed"]
+        errored = [d for d in execution_details if d.get("status") == "errored"]
+
+        # Show passed rules
+        if passed:
+            lines.append(self._colorize("### Passed Rules ✓", self.GREEN))
+            lines.append("")
+            for detail in passed:
+                lines.append(
+                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
+                )
+            lines.append("")
+
+        # Show failed rules with details
+        if failed:
+            lines.append(self._colorize("### Failed Rules ✗", self.RED))
+            lines.append("")
+            for detail in failed:
+                lines.append(
+                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
+                )
+                # Show phase results if available
+                if "phase_results" in detail:
+                    for phase in detail["phase_results"]:
+                        findings_count = phase.get("findings_count", 0)
+                        lines.append(
+                            f"  - Phase {phase['phase_number']}: {findings_count} findings"
+                        )
+            lines.append("")
+
+        # Show errored rules
+        if errored:
+            lines.append(self._colorize("### Errored Rules ⚠", self.YELLOW))
+            lines.append("")
+            for detail in errored:
+                lines.append(
+                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
+                )
+            lines.append("")
 
         return lines

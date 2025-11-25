@@ -144,6 +144,7 @@ class DriftAnalyzer:
                         "session_id": session_id,
                         "message": "No conversation-based learning types configured",
                         "skipped_rules": filtered_rules,
+                        "execution_details": [],
                     },
                     summary=AnalysisSummary(
                         total_conversations=0,
@@ -216,6 +217,7 @@ class DriftAnalyzer:
                         "session_id": session_id,
                         "message": "No conversations available for analysis",
                         "skipped_rules": skipped_rules,
+                        "execution_details": [],
                     },
                     summary=AnalysisSummary(
                         total_conversations=0,
@@ -233,16 +235,18 @@ class DriftAnalyzer:
 
             # Analyze each conversation
             results: List[AnalysisResult] = []
+            all_execution_details: List[dict] = []
             logger.info(f"Analyzing {len(all_conversations)} conversation(s)")
             for conversation in all_conversations:
                 try:
                     logger.info(f"Analyzing conversation {conversation.session_id}")
-                    result = self._analyze_conversation(
+                    result, exec_details = self._analyze_conversation(
                         conversation,
                         types_to_check,
                         model_override,
                     )
                     results.append(result)
+                    all_execution_details.extend(exec_details)
                 except Exception as e:
                     # Re-raise critical errors (API errors, config issues, etc)
                     error_msg = str(e)
@@ -287,6 +291,7 @@ class DriftAnalyzer:
                         "default_model": self.config.default_model,
                         "conversation_mode": self.config.conversations.mode.value,
                     },
+                    "execution_details": all_execution_details,
                 },
                 summary=summary,
                 results=results,
@@ -302,7 +307,7 @@ class DriftAnalyzer:
         conversation: Conversation,
         learning_types: Dict[str, Any],
         model_override: Optional[str],
-    ) -> AnalysisResult:
+    ) -> tuple[AnalysisResult, List[dict]]:
         """Analyze a single conversation using multi-pass approach.
 
         Args:
@@ -311,12 +316,13 @@ class DriftAnalyzer:
             model_override: Optional model override
 
         Returns:
-            Analysis result for this conversation
+            Tuple of (AnalysisResult, execution_details)
         """
         all_learnings: List[Learning] = []
         conversation_level_learnings: Dict[str, Learning] = {}
         skipped_due_to_client: List[str] = []
         rule_errors: Dict[str, str] = {}
+        execution_details: List[dict] = []  # Track all rule executions
 
         # Perform one pass per learning type
         for type_name, type_config in learning_types.items():
@@ -326,7 +332,7 @@ class DriftAnalyzer:
                 skipped_due_to_client.append(type_name)
                 continue
 
-            learnings, error = self._run_analysis_pass(
+            learnings, error, phase_results = self._run_analysis_pass(
                 conversation,
                 type_name,
                 type_config,
@@ -336,6 +342,26 @@ class DriftAnalyzer:
             # Track errors
             if error:
                 rule_errors[type_name] = error
+
+            # Build execution detail entry
+            exec_detail = {
+                "rule_name": type_name,
+                "description": type_config.description,
+                "status": "errored" if error else ("failed" if learnings else "passed"),
+            }
+
+            # Add phase_results if this was multi-phase
+            if phase_results:
+                exec_detail["phase_results"] = [
+                    {
+                        "phase_number": pr.phase_number,
+                        "final_determination": pr.final_determination,
+                        "findings_count": len(pr.findings),
+                    }
+                    for pr in phase_results
+                ]
+
+            execution_details.append(exec_detail)
 
             # Scope-based limiting for conversation-level rules
             scope = getattr(type_config, "scope", "turn_level")
@@ -364,15 +390,18 @@ class DriftAnalyzer:
                 f"(not supported by client): {', '.join(skipped_due_to_client)}"
             )
 
-        return AnalysisResult(
-            session_id=conversation.session_id,
-            agent_tool=conversation.agent_tool,
-            conversation_file=conversation.file_path,
-            project_path=conversation.project_path,
-            learnings=all_learnings,
-            analysis_timestamp=datetime.now(),
-            error=None,
-            rule_errors=rule_errors,
+        return (
+            AnalysisResult(
+                session_id=conversation.session_id,
+                agent_tool=conversation.agent_tool,
+                conversation_file=conversation.file_path,
+                project_path=conversation.project_path,
+                learnings=all_learnings,
+                analysis_timestamp=datetime.now(),
+                error=None,
+                rule_errors=rule_errors,
+            ),
+            execution_details,
         )
 
     def _run_analysis_pass(
@@ -381,7 +410,7 @@ class DriftAnalyzer:
         learning_type: str,
         type_config: Any,
         model_override: Optional[str],
-    ) -> tuple[List[Learning], Optional[str]]:
+    ) -> tuple[List[Learning], Optional[str], Optional[List[PhaseAnalysisResult]]]:
         """Run a single analysis pass for one learning type.
 
         Args:
@@ -391,12 +420,15 @@ class DriftAnalyzer:
             model_override: Optional model override
 
         Returns:
-            Tuple of (learnings, error_message). error_message is None if successful.
+            Tuple of (learnings, error_message, phase_results).
+            error_message is None if successful.
+            phase_results is None for single-phase analysis,
+            List[PhaseAnalysisResult] for multi-phase.
         """
         # Check if multi-phase (>1 phase) or single-phase (1 phase)
         phases = getattr(type_config, "phases", [])
         if len(phases) > 1:
-            # Route to multi-phase analysis
+            # Route to multi-phase analysis - returns phase_results
             return self._run_multi_phase_analysis(
                 conversation, learning_type, type_config, model_override
             )
@@ -432,7 +464,8 @@ class DriftAnalyzer:
             learning_type,
         )
 
-        return learnings, None
+        # Single-phase analysis - no phase_results to return
+        return learnings, None, None
 
     def _build_analysis_prompt(
         self,
@@ -733,7 +766,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         if not document_types:
             return CompleteAnalysisResult(
-                metadata={"generated_at": datetime.now().isoformat()},
+                metadata={
+                    "generated_at": datetime.now().isoformat(),
+                    "execution_details": [],
+                },
                 summary=AnalysisSummary(
                     total_conversations=0,
                     total_learnings=0,
@@ -746,6 +782,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         doc_loader = DocumentLoader(self.project_path)
 
         all_document_learnings: List[DocumentLearning] = []
+        all_execution_details: List[dict] = []
 
         for type_name, type_config in document_types.items():
             try:
@@ -786,28 +823,31 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                             files=[],
                             project_path=self.project_path,
                         )
-                        learnings = self._analyze_document_bundle(
+                        learnings, exec_details = self._analyze_document_bundle(
                             empty_bundle, type_name, type_config, model_override, doc_loader
                         )
                         all_document_learnings.extend(learnings)
+                        all_execution_details.extend(exec_details)
                     continue
 
                 from drift.config.models import BundleStrategy
 
                 if bundle_config.bundle_strategy == BundleStrategy.INDIVIDUAL:
                     for bundle in bundles:
-                        learnings = self._analyze_document_bundle(
+                        learnings, exec_details = self._analyze_document_bundle(
                             bundle, type_name, type_config, model_override, doc_loader
                         )
                         all_document_learnings.extend(learnings)
+                        all_execution_details.extend(exec_details)
                 else:
                     if bundles:
                         combined_bundle = self._combine_bundles(bundles, type_config)
-                        learnings = self._analyze_document_bundle(
+                        learnings, exec_details = self._analyze_document_bundle(
                             combined_bundle, type_name, type_config, model_override, doc_loader
                         )
                         if learnings:
                             all_document_learnings.append(learnings[0])
+                        all_execution_details.extend(exec_details)
 
             except Exception as e:
                 error_msg = str(e)
@@ -890,6 +930,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 "document_learnings": [
                     learning.model_dump() for learning in all_document_learnings
                 ],
+                "execution_details": all_execution_details,
             },
             summary=summary,
             results=[result] if all_document_learnings else [],
@@ -902,7 +943,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         type_config: Any,
         model_override: Optional[str],
         loader: Optional[Any] = None,
-    ) -> List[DocumentLearning]:
+    ) -> tuple[List[DocumentLearning], List[dict]]:
         """Analyze a single document bundle.
 
         Args:
@@ -913,7 +954,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             loader: Optional document loader for resource access
 
         Returns:
-            List of document learnings found
+            Tuple of (learnings, execution_details)
         """
         validation_rules = getattr(type_config, "validation_rules", None)
 
@@ -943,6 +984,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             if programmatic_phases:
                 registry = ValidatorRegistry()
                 learnings = []
+                execution_details = []
 
                 for phase in programmatic_phases:
                     rule = ValidationRule(
@@ -955,11 +997,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     )
 
                     result = registry.execute_rule(rule, bundle)
+
+                    # Track execution
+                    exec_info = {
+                        "rule_name": learning_type,
+                        "rule_description": rule.description,
+                        "status": "passed" if result is None else "failed",
+                        "execution_context": {
+                            "bundle_id": bundle.bundle_id,
+                            "bundle_type": bundle.bundle_type,
+                        },
+                    }
+                    execution_details.append(exec_info)
+
                     if result is not None:
                         result.learning_type = learning_type
                         learnings.append(result)
 
-                return learnings
+                return learnings, execution_details
 
         if len(phases) > 1:
             return self._run_multi_phase_document_analysis(
@@ -983,7 +1038,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         learnings = self._parse_document_analysis_response(response, bundle, learning_type)
 
-        return learnings
+        # No programmatic execution details for LLM-based analysis
+        return learnings, []
 
     def _run_multi_phase_document_analysis(
         self,
@@ -992,7 +1048,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         type_config: Any,
         model_override: Optional[str] = None,
         loader: Optional[Any] = None,
-    ) -> List[DocumentLearning]:
+    ) -> tuple[List[DocumentLearning], List[dict]]:
         """Run multi-phase analysis on a document bundle."""
         phases = getattr(type_config, "phases", [])
         if not phases:
@@ -1018,7 +1074,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         logger.debug(f"Raw response from {model_name}:\n{response}")
         learnings = self._parse_document_analysis_response(response, bundle, learning_type)
 
-        return learnings
+        # No programmatic execution details for LLM-based document analysis
+        return learnings, []
 
     def _execute_validation_rules(
         self,
@@ -1026,7 +1083,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         learning_type: str,
         type_config: Any,
         loader: Optional[Any] = None,
-    ) -> List[DocumentLearning]:
+    ) -> tuple[List[DocumentLearning], List[dict]]:
         """Execute rule-based validation on a bundle.
 
         Args:
@@ -1036,7 +1093,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             loader: Optional document loader for resource access
 
         Returns:
-            List of document learnings from failed validations
+            Tuple of (learnings, execution_details).
+            learnings: List of document learnings from failed validations
+            execution_details: List of dicts with execution info for ALL rules
         """
         validation_config = getattr(type_config, "validation_rules", None)
         if not validation_config:
@@ -1047,20 +1106,51 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         registry = ValidatorRegistry(loader)
         learnings = []
+        execution_details = []
 
         for rule in validation_config.rules:
             try:
                 result = registry.execute_rule(rule, bundle)
+
+                # Track execution info for this rule
+                exec_info = {
+                    "rule_name": learning_type,
+                    "rule_description": rule.description,
+                    "status": "passed" if result is None else "failed",
+                    "execution_context": {
+                        "bundle_id": bundle.bundle_id,
+                        "bundle_type": bundle.bundle_type,
+                        "files": [f.relative_path for f in bundle.files],
+                    },
+                    "validation_results": {
+                        "rule_type": rule.rule_type.value
+                        if hasattr(rule.rule_type, "value")
+                        else str(rule.rule_type),
+                        "params": rule.params if hasattr(rule, "params") else {},
+                    },
+                }
+                execution_details.append(exec_info)
+
                 if result is not None:
                     # Validation failed - set the learning type name
                     result.learning_type = learning_type
                     learnings.append(result)
+
             except Exception as e:
                 # Log error but continue with other rules
                 logger.warning(f"Validation rule '{rule.description}' failed: {e}")
+
+                # Track error in execution details
+                exec_info = {
+                    "rule_name": learning_type,
+                    "rule_description": rule.description,
+                    "status": "errored",
+                    "error_message": str(e),
+                }
+                execution_details.append(exec_info)
                 continue
 
-        return learnings
+        return learnings, execution_details
 
     def _build_document_analysis_prompt(
         self,
@@ -1223,11 +1313,13 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         learning_type: str,
         type_config: Any,
         model_override: Optional[str],
-    ) -> tuple[List[Learning], Optional[str]]:
+    ) -> tuple[List[Learning], Optional[str], List[PhaseAnalysisResult]]:
         """Execute multi-phase analysis with resource requests.
 
         Returns:
-            Tuple of (learnings, error_message). error_message is None if successful.
+            Tuple of (learnings, error_message, phase_results).
+            error_message is None if successful.
+            phase_results contains all PhaseAnalysisResult objects from execution.
         """
         # Get phases from config
         phases = getattr(type_config, "phases", [])
@@ -1241,7 +1333,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         agent_loader = self.agent_loaders.get(conversation.agent_tool)
         if not agent_loader:
             error_msg = f"No agent loader available for {conversation.agent_tool}"
-            return [], error_msg
+            return [], error_msg, []
 
         # Track resources consulted
         resources_consulted: List[str] = []
@@ -1325,8 +1417,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             logger.info(f"Phase {phase_idx + 1} requesting {num_requests} resource(s)")
             resources_loaded: List[ResourceResponse] = []
             for req in phase_result.resource_requests:
-                # Validate resource type
-                if req.resource_type not in phase_def.available_resources:
+                # Validate resource is in available_resources
+                # Check for exact match "type:id" or type-only match "type"
+                resource_spec = f"{req.resource_type}:{req.resource_id}"
+                if (
+                    resource_spec not in phase_def.available_resources
+                    and req.resource_type not in phase_def.available_resources
+                ):
+                    logger.debug(f"Resource {resource_spec} not in available_resources, skipping")
                     continue
 
                 # Load resource
@@ -1371,12 +1469,15 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 )
 
         # Finalize learnings from all phases
-        return self._finalize_multi_phase_learnings(
+        learnings, error = self._finalize_multi_phase_learnings(
             conversation=conversation,
             learning_type=learning_type,
             phase_results=phase_results,
             resources_consulted=resources_consulted,
         )
+
+        # Return learnings, error, AND phase_results (stop throwing them away!)
+        return learnings, error, phase_results
 
     def _build_multi_phase_prompt(
         self,
@@ -1591,7 +1692,7 @@ Return JSON with the same format:
         learning_type: str,
         resources_loaded: List[ResourceResponse],
         phase_results: List[PhaseAnalysisResult],
-    ) -> tuple[List[Learning], Optional[str]]:
+    ) -> tuple[List[Learning], Optional[str], List[PhaseAnalysisResult]]:
         """Create learnings when requested resources are missing.
 
         Returns:
@@ -1630,7 +1731,7 @@ Return JSON with the same format:
                 )
                 learnings.append(learning)
 
-        return learnings, None
+        return learnings, None, phase_results
 
     def _finalize_multi_phase_learnings(
         self,

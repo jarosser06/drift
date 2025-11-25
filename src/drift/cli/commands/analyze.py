@@ -160,6 +160,11 @@ def analyze_command(
         count=True,
         help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
     ),
+    detailed: bool = typer.Option(
+        False,
+        "--detailed",
+        help="Show detailed test execution information (markdown format only)",
+    ),
 ) -> None:
     """Analyze AI agent conversations to identify drift patterns.
 
@@ -389,12 +394,14 @@ def analyze_command(
                 if no_llm and learning_types_list is not None:
                     # Split the filtered programmatic rules by scope
                     conv_types_list = [
-                        name for name in learning_types_list
+                        name
+                        for name in learning_types_list
                         if getattr(config.drift_learning_types[name], "scope", "turn_level")
                         in ("turn_level", "conversation_level")
                     ]
                     doc_types_list = [
-                        name for name in learning_types_list
+                        name
+                        for name in learning_types_list
                         if getattr(config.drift_learning_types[name], "scope", "turn_level")
                         in ("document_level", "project_level")
                     ]
@@ -472,7 +479,7 @@ def analyze_command(
         # Format and output results
         formatter: OutputFormatter
         if format == "markdown":
-            formatter = MarkdownFormatter(config=config)
+            formatter = MarkdownFormatter(config=config, detailed=detailed)
         else:
             formatter = JsonFormatter()
 

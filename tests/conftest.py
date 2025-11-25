@@ -17,7 +17,7 @@ from drift.config.models import (
     ProviderConfig,
     ProviderType,
 )
-from drift.core.types import Conversation, Learning, Turn
+from drift.core.types import AnalysisSummary, CompleteAnalysisResult, Conversation, Learning, Turn
 
 
 @pytest.fixture
@@ -144,6 +144,30 @@ def sample_learning():
         ),
         learning_type="incomplete_work",
         context="User had to ask for logout and session handling separately",
+    )
+
+
+@pytest.fixture
+def mock_complete_result():
+    """Create a mock complete analysis result with no learnings."""
+    return CompleteAnalysisResult(
+        metadata={
+            "generated_at": "2024-01-01T10:00:00",
+            "session_id": "test-123",
+            "config_used": {"default_model": "haiku"},
+        },
+        summary=AnalysisSummary(
+            total_conversations=1,
+            total_learnings=0,
+            conversations_without_drift=1,
+            rules_checked=[],
+            rules_passed=[],
+            rules_warned=[],
+            rules_failed=[],
+            rules_errored=[],
+            rule_errors={},
+        ),
+        results=[],
     )
 
 
@@ -336,7 +360,7 @@ temp_dir: /tmp/drift
 
 @pytest.fixture
 def make_config_yaml():
-    """Factory fixture to create custom config YAML content."""
+    """Create custom config YAML content."""
 
     def _make_config(learning_types=None):
         """Generate config YAML with custom learning types.
@@ -359,7 +383,9 @@ def make_config_yaml():
                 }
             },
             "default_model": "haiku",
-            "agent_tools": {"claude-code": {"conversation_path": "~/.claude/projects/", "enabled": True}},
+            "agent_tools": {
+                "claude-code": {"conversation_path": "~/.claude/projects/", "enabled": True}
+            },
             "conversations": {"mode": "latest", "days": 7},
             "temp_dir": "/tmp/drift",
         }

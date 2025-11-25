@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from drift.cli.main import app
 from drift.core.types import AnalysisSummary, CompleteAnalysisResult
+from tests.mock_provider import MockProvider
 
 
 @pytest.fixture
@@ -51,31 +52,23 @@ class TestAnalyzeCommand:
         assert "drift" in result.stdout.lower()
         assert "analyzer" in result.stdout.lower()
 
-    @patch("drift.cli.commands.analyze.DriftAnalyzer")
-    @patch("drift.cli.commands.analyze.ConfigLoader")
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    @patch("drift.config.loader.ConfigLoader.load_config")
     def test_analyze_default_options(
         self,
-        mock_config_loader,
-        mock_analyzer_class,
+        mock_load_config,
         cli_runner,
         sample_drift_config,
-        mock_complete_result,
         temp_dir,
     ):
         """Test analyze command with default options."""
-        # Setup mocks
-        mock_config_loader.load_config.return_value = sample_drift_config
-        mock_config_loader.ensure_global_config_exists.return_value = None
-
-        mock_analyzer = MagicMock()
-        mock_analyzer.analyze.return_value = mock_complete_result
-        mock_analyzer_class.return_value = mock_analyzer
+        mock_load_config.return_value = sample_drift_config
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
 
         assert result.exit_code == 0
         assert "# Drift Analysis Results" in result.stdout
-        mock_analyzer.analyze.assert_called_once()
+        assert "Total conversations: 0" in result.stdout  # No actual conversations loaded
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -94,6 +87,8 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--format", "json", "--project", str(temp_dir)])
@@ -119,6 +114,8 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
@@ -147,6 +144,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
@@ -175,6 +173,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
@@ -203,6 +202,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--latest", "--project", str(temp_dir)])
@@ -229,6 +229,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--days", "5", "--project", str(temp_dir)])
@@ -255,6 +256,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--all", "--project", str(temp_dir)])
@@ -302,6 +304,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
@@ -488,6 +491,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = result_with_learnings
+        mock_analyzer.analyze_documents.return_value = result_with_learnings
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
@@ -512,6 +516,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
@@ -670,6 +675,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
@@ -751,6 +757,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = result_empty
+        mock_analyzer.analyze_documents.return_value = result_empty
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
@@ -759,8 +766,9 @@ class TestAnalyzeCommand:
         assert "Skipping 1 LLM-based rule(s)" in result.stderr
         assert "llm_conversation_rule" in result.stderr
 
-        # Should show 0 programmatic rules running (project rule filtered by scope)
-        assert "running 0 programmatic rule(s)" in result.stderr
+        # Programmatic project rule still runs via analyze_documents
+        assert "running 1 programmatic rule(s)" in result.stderr
+        assert "programmatic_project_rule" in result.stderr
 
         # Analyzer should be called with empty list (no conversation-level programmatic rules)
         mock_analyzer.analyze.assert_called_once()
@@ -892,6 +900,7 @@ class TestAnalyzeCommand:
 
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
@@ -999,6 +1008,7 @@ class TestAnalyzeCommand:
         mock_analyzer = MagicMock()
         mock_analyzer.analyze.return_value = mock_complete_result
         mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--no-llm", "--scope", "all", "--project", str(temp_dir)])
@@ -1029,7 +1039,8 @@ class TestAnalyzeCommand:
         sample_drift_config,
     ):
         """Test that --no-llm actually prevents LLM calls from being made."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from drift.config.models import DriftLearningType, PhaseDefinition
 
         config = sample_drift_config
@@ -1091,7 +1102,7 @@ class TestAnalyzeCommand:
 
                 # Mock the provider's generate method to ensure it's NEVER called
                 with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
-                    result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
+                    cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
 
                     # CRITICAL: LLM generate should NEVER be called with --no-llm
                     assert mock_generate.call_count == 0, (
@@ -1113,6 +1124,7 @@ class TestAnalyzeCommand:
     ):
         """Integration test that --no-llm prevents REAL LLM calls (no analyzer mocking)."""
         from unittest.mock import patch
+
         import yaml
 
         # Create config with LLM rule + programmatic rule
