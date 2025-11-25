@@ -206,20 +206,22 @@ class ConfigLoader:
                 f"Available models: {list(config.models.keys())}"
             )
 
-        # Validate learning type model overrides
+        # Validate phase model overrides
         for type_name, learning_type in config.drift_learning_types.items():
-            if learning_type.model and learning_type.model not in config.models:
-                raise ValueError(
-                    f"Learning type '{type_name}' references unknown model "
-                    f"'{learning_type.model}'. Available models: "
-                    f"{list(config.models.keys())}"
-                )
+            if learning_type.phases:
+                for phase in learning_type.phases:
+                    if phase.model and phase.model not in config.models:
+                        available = list(config.models.keys())
+                        raise ValueError(
+                            f"Learning type '{type_name}' phase '{phase.name}' "
+                            f"references unknown model '{phase.model}'. "
+                            f"Available models: {available}"
+                        )
 
         # Validate at least one enabled agent tool
         enabled_tools = config.get_enabled_agent_tools()
         if not enabled_tools:
             raise ValueError("At least one agent tool must be enabled")
 
-        # Validate at least one learning type defined
-        if not config.drift_learning_types:
-            raise ValueError("At least one drift learning type must be defined")
+        # Note: We don't require learning types to be defined since users might
+        # only want to use drift for document analysis or have project-specific configs

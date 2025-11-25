@@ -1,4 +1,6 @@
 ---
+name: developer
+description: Specialized developer agent for implementing features and fixes in the Drift project, a CLI tool that analyzes AI agent conversation logs
 model: sonnet
 skills:
   - python-docs

@@ -1,3 +1,8 @@
+---
+name: definition-of-done
+description: Expert in validating work meets all requirements, acceptance criteria, testing, and quality standards. Use when verifying task completion.
+---
+
 # Definition of Done Skill
 
 Expert in validating that work meets all requirements and quality standards.

@@ -1,3 +1,8 @@
+---
+name: pr-writing
+description: Expert in creating well-structured pull requests with clear summaries and test plans. Use when writing or structuring PRs.
+---
+
 # PR Writing Skill
 
 Expert in creating well-structured, reviewable pull requests using the GitHub MCP server.

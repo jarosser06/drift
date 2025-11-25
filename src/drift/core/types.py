@@ -26,6 +26,43 @@ class WorkflowElement(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ResourceRequest(BaseModel):
+    """Request for a specific project resource."""
+
+    resource_type: str = Field(
+        ...,
+        description="Type of resource (command, skill, agent, main_config)",
+    )
+    resource_id: str = Field(
+        ...,
+        description="Identifier for the resource (e.g., 'deploy', 'api-design')",
+    )
+    reason: str = Field(..., description="Why AI needs this resource")
+
+
+class ResourceResponse(BaseModel):
+    """Response with loaded resource."""
+
+    request: ResourceRequest = Field(..., description="The original request")
+    found: bool = Field(..., description="Whether the resource was found")
+    content: Optional[str] = Field(None, description="Content of the resource if found")
+    file_path: Optional[str] = Field(None, description="Path to the resource file if found")
+    error: Optional[str] = Field(None, description="Error message if not found")
+
+
+class PhaseAnalysisResult(BaseModel):
+    """Result from a single analysis phase."""
+
+    phase_number: int = Field(..., description="Phase number (1-indexed)")
+    resource_requests: List[ResourceRequest] = Field(
+        default_factory=list, description="Resources requested by AI for next phase"
+    )
+    findings: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Preliminary findings from this phase"
+    )
+    final_determination: bool = Field(False, description="True if this is the final phase")
+
+
 class Turn(BaseModel):
     """A single turn in a conversation."""
 
@@ -77,6 +114,10 @@ class Learning(BaseModel):
         default_factory=list, description="All turns involved in this drift"
     )
     context: str = Field("", description="Additional context about the drift")
+    resources_consulted: List[str] = Field(
+        default_factory=list, description="Resources checked during multi-phase analysis"
+    )
+    phases_count: int = Field(1, description="Number of analysis phases")
 
 
 class AnalysisResult(BaseModel):
@@ -91,6 +132,10 @@ class AnalysisResult(BaseModel):
         default_factory=datetime.now, description="When this analysis was performed"
     )
     error: Optional[str] = Field(None, description="Error message if analysis failed")
+    rule_errors: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of rule names to error messages for this conversation",
+    )
 
 
 class AnalysisSummary(BaseModel):
@@ -107,6 +152,25 @@ class AnalysisSummary(BaseModel):
     )
     conversations_with_drift: int = Field(0, description="Number of conversations containing drift")
     conversations_without_drift: int = Field(0, description="Number of conversations without drift")
+    rules_checked: List[str] = Field(
+        default_factory=list, description="List of rule names that were checked"
+    )
+    rules_passed: List[str] = Field(
+        default_factory=list, description="List of rule names that passed (no issues found)"
+    )
+    rules_warned: List[str] = Field(
+        default_factory=list, description="List of rule names that produced warnings"
+    )
+    rules_failed: List[str] = Field(
+        default_factory=list, description="List of rule names that failed (produced failures)"
+    )
+    rules_errored: List[str] = Field(
+        default_factory=list,
+        description="List of rule names that encountered errors during analysis",
+    )
+    rule_errors: Dict[str, str] = Field(
+        default_factory=dict, description="Map of rule names to error messages"
+    )
 
 
 class CompleteAnalysisResult(BaseModel):

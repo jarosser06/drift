@@ -94,8 +94,8 @@ class TestMarkdownFormatter:
         assert "claude-code (1)" in output
 
         # Check learnings section (grouped by learning type)
-        # incomplete_work is turn_level by default
-        assert "## Turn-Level Issues" in output
+        # incomplete_work is conversation_level scope by default, which maps to WARNING severity
+        assert "## Warnings" in output
         assert "### incomplete_work" in output
         assert "**Session:** session-123" in output
         assert "**Agent Tool:** claude-code" in output
@@ -274,6 +274,381 @@ class TestMarkdownFormatter:
         output = formatter.format(result)
 
         assert "(my-project)" in output
+
+    def test_format_with_rules_warned(self):
+        """Test formatting with rules that have warnings."""
+        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={
+                "test_type": DriftLearningType(
+                    description="Test",
+                    scope="conversation_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                )
+            },
+            agent_tools={},
+        )
+
+        learning = Learning(
+            turn_number=1,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action",
+            expected_behavior="Intent",
+            learning_type="test_type",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="session",
+            agent_tool="claude-code",
+            conversation_file="/path",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=1,
+                rules_checked=["rule1", "rule2"],
+                rules_passed=["rule1"],
+                rules_warned=["rule2"],
+            ),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        output = formatter.format(result)
+
+        assert "Rules warned:" in output or "- Rules warned:" in output
+
+    def test_format_with_rules_failed(self):
+        """Test formatting with rules that have failures."""
+        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={
+                "test_type": DriftLearningType(
+                    description="Test",
+                    scope="project_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                )
+            },
+            agent_tools={},
+        )
+
+        learning = Learning(
+            turn_number=1,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action",
+            expected_behavior="Intent",
+            learning_type="test_type",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="session",
+            agent_tool="claude-code",
+            conversation_file="/path",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=1,
+                rules_checked=["rule1", "rule2"],
+                rules_passed=["rule1"],
+                rules_failed=["rule2"],
+            ),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        output = formatter.format(result)
+
+        assert "Rules failed:" in output or "- Rules failed:" in output
+
+    def test_format_with_rules_errored(self):
+        """Test formatting with rules that errored."""
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=0,
+                rules_checked=["rule1", "rule2"],
+                rules_passed=["rule1"],
+                rules_errored=["rule2"],
+                rule_errors={"rule2": "Some error message"},
+            ),
+            results=[],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        assert "Rules errored:" in output or "- Rules errored:" in output
+
+    def test_format_with_rules_passed_section(self):
+        """Test formatting shows rules passed section."""
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=0,
+                rules_checked=["rule1", "rule2"],
+                rules_passed=["rule1", "rule2"],
+            ),
+            results=[],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        assert "## Rules Passed" in output
+        assert "rule1" in output
+        assert "rule2" in output
+
+    def test_format_with_rules_errored_section(self):
+        """Test formatting shows rules errored section."""
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=0,
+                rules_checked=["rule1", "rule2"],
+                rules_passed=["rule1"],
+                rules_errored=["rule2"],
+                rule_errors={"rule2": "Test error"},
+            ),
+            results=[],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        assert "## Rules Errored" in output
+        assert "rule2" in output
+        assert "Test error" in output
+
+    def test_severity_fail_creates_failures_section(self):
+        """Test that FAIL severity creates Failures section."""
+        from drift.config.models import DriftConfig, DriftLearningType, SeverityLevel, PhaseDefinition
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={
+                "test_fail": DriftLearningType(
+                    description="Test",
+                    scope="conversation_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    severity=SeverityLevel.FAIL,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                )
+            },
+            agent_tools={},
+        )
+
+        learning = Learning(
+            turn_number=1,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action",
+            expected_behavior="Intent",
+            learning_type="test_fail",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="session",
+            agent_tool="claude-code",
+            conversation_file="/path",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=1,
+            ),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        output = formatter.format(result)
+
+        assert "## Failures" in output
+        assert "### test_fail" in output
+
+    def test_severity_warning_creates_warnings_section(self):
+        """Test that WARNING severity creates Warnings section."""
+        from drift.config.models import DriftConfig, DriftLearningType, SeverityLevel, PhaseDefinition
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={
+                "test_warn": DriftLearningType(
+                    description="Test",
+                    scope="conversation_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    severity=SeverityLevel.WARNING,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                )
+            },
+            agent_tools={},
+        )
+
+        learning = Learning(
+            turn_number=1,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action",
+            expected_behavior="Intent",
+            learning_type="test_warn",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="session",
+            agent_tool="claude-code",
+            conversation_file="/path",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=1,
+            ),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        output = formatter.format(result)
+
+        assert "## Warnings" in output
+        assert "### test_warn" in output
+
+    def test_severity_defaults_by_scope(self):
+        """Test that severity defaults based on scope."""
+        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={
+                "project_type": DriftLearningType(
+                    description="Test",
+                    scope="project_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                ),
+                "conv_type": DriftLearningType(
+                    description="Test",
+                    scope="conversation_level",
+                    context="Test context",
+                    requires_project_context=False,
+                    phases=[PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")],
+                ),
+            },
+            agent_tools={},
+        )
+
+        learning1 = Learning(
+            turn_number=1,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action",
+            expected_behavior="Intent",
+            learning_type="project_type",
+        )
+
+        learning2 = Learning(
+            turn_number=2,
+            agent_tool="claude-code",
+            conversation_file="/path",
+            observed_behavior="Action2",
+            expected_behavior="Intent2",
+            learning_type="conv_type",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="session",
+            agent_tool="claude-code",
+            conversation_file="/path",
+            learnings=[learning1, learning2],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_learnings=2,
+            ),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        output = formatter.format(result)
+
+        # project_level defaults to FAIL
+        assert "## Failures" in output
+        assert "### project_type" in output
+
+        # conversation_level defaults to WARNING
+        assert "## Warnings" in output
+        assert "### conv_type" in output
+
+    def test_get_severity_no_config(self):
+        """Test _get_severity with no config defaults to WARNING."""
+        from drift.config.models import SeverityLevel
+
+        formatter = MarkdownFormatter(config=None)
+        severity = formatter._get_severity("any_type")
+
+        assert severity == SeverityLevel.WARNING
+
+    def test_get_severity_unknown_type(self):
+        """Test _get_severity with unknown type defaults to WARNING."""
+        from drift.config.models import DriftConfig, SeverityLevel
+
+        config = DriftConfig(
+            providers={},
+            models={},
+            default_model="haiku",
+            drift_learning_types={},
+            agent_tools={},
+        )
+
+        formatter = MarkdownFormatter(config=config)
+        severity = formatter._get_severity("unknown_type")
+
+        assert severity == SeverityLevel.WARNING
 
 
 class TestJsonFormatter:

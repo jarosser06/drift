@@ -1,3 +1,8 @@
+---
+name: testing
+description: Expert in creating comprehensive pytest test suites for Drift with 90%+ coverage. Use when writing tests, test fixtures, or validating test coverage.
+---
+
 # Testing Skill
 
 Expert in creating comprehensive test suites for the Drift CLI tool.

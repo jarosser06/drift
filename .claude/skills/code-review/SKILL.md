@@ -1,3 +1,8 @@
+---
+name: code-review
+description: Expert in conducting thorough code reviews for quality, security, and best practices. Use when reviewing code or PRs.
+---
+
 # Code Review Skill
 
 Expert in conducting thorough, constructive code reviews using the GitHub MCP server.

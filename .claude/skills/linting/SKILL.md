@@ -1,3 +1,8 @@
+---
+name: linting
+description: Expert in maintaining code quality standards using flake8, black, isort, and mypy. Use when fixing linting errors or enforcing code style.
+---
+
 # Linting Skill
 
 Expert in maintaining code quality standards for Drift.

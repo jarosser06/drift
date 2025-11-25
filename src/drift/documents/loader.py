@@ -19,6 +19,41 @@ class DocumentLoader:
         """
         self.project_path = Path(project_path)
 
+    def list_resources(self, resource_type: str) -> List[str]:
+        """List available resources of a given type.
+
+        Args:
+            resource_type: Type of resource (skill, command, agent, etc.)
+
+        Returns:
+            List of resource identifiers (e.g., skill names, command names)
+        """
+        # Map resource types to common patterns
+        patterns_map = {
+            "skill": [".claude/skills/*/SKILL.md", ".claude/skills/*/skill.md"],
+            "command": [".claude/commands/*.md"],
+            "agent": [".claude/agents/*/AGENT.md", ".claude/agents/*/agent.md"],
+        }
+
+        patterns = patterns_map.get(resource_type, [])
+        if not patterns:
+            return []
+
+        resource_names = []
+        for pattern in patterns:
+            matches = self.project_path.glob(pattern)
+            for match in matches:
+                if match.is_file():
+                    # Extract resource name from path
+                    if resource_type in ["skill", "agent"]:
+                        # For skills/agents, use parent directory name
+                        resource_names.append(match.parent.name)
+                    elif resource_type == "command":
+                        # For commands, use filename without extension
+                        resource_names.append(match.stem)
+
+        return sorted(set(resource_names))
+
     def load_bundles(self, bundle_config: DocumentBundleConfig) -> List[DocumentBundle]:
         """Load document bundles based on configuration.
 

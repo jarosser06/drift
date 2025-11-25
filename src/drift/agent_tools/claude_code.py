@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from drift.agent_tools.base import AgentLoader
-from drift.core.types import Conversation
+from drift.core.types import Conversation, ResourceRequest, ResourceResponse
 
 
 class ClaudeCodeContextExtractor:
@@ -326,3 +326,187 @@ class ClaudeCodeLoader(AgentLoader):
             )
 
         return conversation
+
+    def get_resource(
+        self,
+        resource_type: str,
+        resource_id: str,
+        project_path: Optional[str] = None,
+    ) -> ResourceResponse:
+        """Get Claude Code project resource."""
+        if not project_path:
+            return ResourceResponse(
+                request=ResourceRequest(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    reason="No project path",
+                ),
+                found=False,
+                content=None,
+                file_path=None,
+                error="No project path provided",
+            )
+
+        project_root = Path(project_path)
+        request = ResourceRequest(
+            resource_type=resource_type,
+            resource_id=resource_id,
+            reason="Multi-phase analysis",
+        )
+
+        try:
+            if resource_type == "command":
+                return self._get_command(project_root, resource_id, request)
+            elif resource_type == "skill":
+                return self._get_skill(project_root, resource_id, request)
+            elif resource_type == "agent":
+                return self._get_agent(project_root, resource_id, request)
+            elif resource_type == "main_config":
+                return self._get_main_config(project_root, request)
+            else:
+                return ResourceResponse(
+                    request=request,
+                    found=False,
+                    content=None,
+                    file_path=None,
+                    error=f"Unknown resource type: {resource_type}",
+                )
+        except Exception as e:
+            return ResourceResponse(
+                request=request,
+                found=False,
+                content=None,
+                file_path=None,
+                error=str(e),
+            )
+
+    def _get_command(
+        self,
+        project_root: Path,
+        resource_id: str,
+        request: ResourceRequest,
+    ) -> ResourceResponse:
+        """Get a slash command file."""
+        # Try with and without leading slash
+        clean_id = resource_id.lstrip("/")
+        cmd_path = project_root / ".claude" / "commands" / f"{clean_id}.md"
+
+        if not cmd_path.exists():
+            return ResourceResponse(
+                request=request,
+                found=False,
+                content=None,
+                file_path=None,
+                error=f"Command /{clean_id} not found at {cmd_path}",
+            )
+
+        content = cmd_path.read_text(encoding="utf-8")
+        return ResourceResponse(
+            request=request,
+            found=True,
+            error=None,
+            content=content,
+            file_path=str(cmd_path),
+        )
+
+    def _get_skill(
+        self,
+        project_root: Path,
+        resource_id: str,
+        request: ResourceRequest,
+    ) -> ResourceResponse:
+        """Get a skill file."""
+        # Try both patterns: .claude/skills/foo.md and .claude/skills/foo/SKILL.md
+        skill_file = project_root / ".claude" / "skills" / f"{resource_id}.md"
+        skill_dir = project_root / ".claude" / "skills" / resource_id / "SKILL.md"
+
+        if skill_file.exists():
+            content = skill_file.read_text(encoding="utf-8")
+            return ResourceResponse(
+                request=request,
+                found=True,
+                error=None,
+                content=content,
+                file_path=str(skill_file),
+            )
+        elif skill_dir.exists():
+            content = skill_dir.read_text(encoding="utf-8")
+            return ResourceResponse(
+                request=request,
+                found=True,
+                error=None,
+                content=content,
+                file_path=str(skill_dir),
+            )
+        else:
+            return ResourceResponse(
+                request=request,
+                found=False,
+                content=None,
+                file_path=None,
+                error=f"Skill {resource_id} not found at {skill_file} or {skill_dir}",
+            )
+
+    def _get_agent(
+        self,
+        project_root: Path,
+        resource_id: str,
+        request: ResourceRequest,
+    ) -> ResourceResponse:
+        """Get a custom agent file."""
+        agent_path = project_root / ".claude" / "agents" / f"{resource_id}.md"
+
+        if not agent_path.exists():
+            return ResourceResponse(
+                request=request,
+                found=False,
+                content=None,
+                file_path=None,
+                error=f"Agent {resource_id} not found at {agent_path}",
+            )
+
+        content = agent_path.read_text(encoding="utf-8")
+        return ResourceResponse(
+            request=request,
+            found=True,
+            error=None,
+            content=content,
+            file_path=str(agent_path),
+        )
+
+    def _get_main_config(
+        self,
+        project_root: Path,
+        request: ResourceRequest,
+    ) -> ResourceResponse:
+        """Get main configuration file (CLAUDE.md or .mcp.json)."""
+        # Try CLAUDE.md first, then .mcp.json
+        claude_md = project_root / "CLAUDE.md"
+        mcp_json = project_root / ".mcp.json"
+
+        if claude_md.exists():
+            content = claude_md.read_text(encoding="utf-8")
+            return ResourceResponse(
+                request=request,
+                found=True,
+                error=None,
+                content=content,
+                file_path=str(claude_md),
+            )
+        elif mcp_json.exists():
+            content = mcp_json.read_text(encoding="utf-8")
+            return ResourceResponse(
+                request=request,
+                found=True,
+                error=None,
+                content=content,
+                file_path=str(mcp_json),
+            )
+        else:
+            return ResourceResponse(
+                request=request,
+                found=False,
+                content=None,
+                file_path=None,
+                error="No main config file (CLAUDE.md or .mcp.json) found",
+            )

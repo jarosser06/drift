@@ -1,3 +1,8 @@
+---
+name: github-operations
+description: Expert in GitHub workflows including issue management, PR operations, and branch conventions. Use when working with GitHub via MCP.
+---
+
 # GitHub Operations Skill
 
 Expert in GitHub workflows and operations using the GitHub MCP server for Drift project.

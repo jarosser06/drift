@@ -1,3 +1,8 @@
+---
+name: issue-writing
+description: Expert in creating well-structured GitHub issues with clear problem statements and acceptance criteria. Use when writing or structuring issues.
+---
+
 # Issue Writing Skill
 
 Expert in creating well-structured, actionable GitHub issues using the GitHub MCP server.

@@ -323,17 +323,24 @@ class TestConfigLoader:
 
     def test_validate_config_default_model_not_found(self):
         """Test validation fails when default model doesn't exist."""
+        from drift.config.models import PhaseDefinition
+
         config = DriftConfig(
             models={},  # No models defined
             default_model="nonexistent",
             drift_learning_types={
                 "test": DriftLearningType(
                     description="test",
-                    detection_prompt="test",
-                    analysis_method="ai_analyzed",
-                    scope="turn_level",
+                    scope="conversation_level",
                     context="test",
                     requires_project_context=False,
+                    phases=[
+                        PhaseDefinition(
+                            name="detection",
+                            type="prompt",
+                            prompt="test",
+                        )
+                    ],
                 )
             },
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp")},
@@ -347,6 +354,8 @@ class TestConfigLoader:
         self, sample_provider_config, sample_model_config
     ):
         """Test validation fails when learning type references unknown model."""
+        from drift.config.models import PhaseDefinition
+
         config = DriftConfig(
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
@@ -354,12 +363,17 @@ class TestConfigLoader:
             drift_learning_types={
                 "test": DriftLearningType(
                     description="test",
-                    detection_prompt="test",
-                    analysis_method="ai_analyzed",
-                    scope="turn_level",
+                    scope="conversation_level",
                     context="test",
                     requires_project_context=False,
-                    model="nonexistent",
+                    phases=[
+                        PhaseDefinition(
+                            name="detection",
+                            type="prompt",
+                            prompt="test",
+                            model="nonexistent",
+                        )
+                    ],
                 )
             },
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp")},
@@ -373,6 +387,8 @@ class TestConfigLoader:
         self, sample_provider_config, sample_model_config
     ):
         """Test validation fails when no agent tools are enabled."""
+        from drift.config.models import PhaseDefinition
+
         config = DriftConfig(
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
@@ -380,11 +396,16 @@ class TestConfigLoader:
             drift_learning_types={
                 "test": DriftLearningType(
                     description="test",
-                    detection_prompt="test",
-                    analysis_method="ai_analyzed",
-                    scope="turn_level",
+                    scope="conversation_level",
                     context="test",
                     requires_project_context=False,
+                    phases=[
+                        PhaseDefinition(
+                            name="detection",
+                            type="prompt",
+                            prompt="test",
+                        )
+                    ],
                 )
             },
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp", enabled=False)},
@@ -395,18 +416,17 @@ class TestConfigLoader:
         assert "At least one agent tool must be enabled" in str(exc_info.value)
 
     def test_validate_config_no_learning_types(self, sample_provider_config, sample_model_config):
-        """Test validation fails when no learning types are defined."""
+        """Test validation with no learning types (allows project-specific configs)."""
         config = DriftConfig(
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={},  # Empty
+            drift_learning_types={},  # Empty - this is now allowed
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp")},
         )
 
-        with pytest.raises(ValueError) as exc_info:
-            ConfigLoader._validate_config(config)
-        assert "At least one drift learning type must be defined" in str(exc_info.value)
+        # Should not raise - empty learning types are allowed
+        ConfigLoader._validate_config(config)
 
     def test_validate_config_success(self, sample_drift_config):
         """Test validation passes with valid config."""

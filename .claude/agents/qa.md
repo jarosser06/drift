@@ -1,4 +1,6 @@
 ---
+name: qa
+description: Specialized QA agent for writing comprehensive pytest test suites for Drift with 90%+ coverage requirements
 model: sonnet
 skills:
   - testing

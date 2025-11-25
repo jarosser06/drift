@@ -15,6 +15,7 @@ from drift.config.models import (
     DriftConfig,
     DriftLearningType,
     ModelConfig,
+    PhaseDefinition,
     ProviderConfig,
     ProviderType,
 )
@@ -45,13 +46,17 @@ class TestEndToEndWorkflow:
             drift_learning_types={
                 "incomplete_work": DriftLearningType(
                     description="AI stopped before completing work",
-                    detection_prompt="Look for incomplete work",
-                    analysis_method="ai_analyzed",
-                    scope="turn_level",
+                    scope="conversation_level",
                     context="Test context",
                     requires_project_context=False,
-                    explicit_signals=["Finish", "Complete"],
-                    implicit_signals=["User asks for missing parts"],
+                    phases=[
+                        PhaseDefinition(
+                            name="detection",
+                            type="prompt",
+                            prompt="Look for incomplete work",
+                            model="test-model",
+                        )
+                    ],
                 )
             },
             agent_tools={
@@ -349,10 +354,8 @@ class TestEndToEndWorkflow:
 
             assert "# Drift Analysis Results" in md_output
             assert "## Summary" in md_output
-            # Learnings are now split by scope
-            assert "## Turn-Level Issues" in md_output or (
-                "## Conversation-Level Issues" in md_output
-            )
+            # Learnings are now split by severity
+            assert "## Warnings" in md_output or "## Failures" in md_output
 
             # Test JSON formatter
             json_formatter = JsonFormatter()
@@ -439,7 +442,7 @@ class TestEndToEndWorkflow:
         )
 
         # Set learning type to use different model
-        e2e_config.drift_learning_types["incomplete_work"].model = "powerful-model"
+        e2e_config.drift_learning_types["incomplete_work"].phases[0].model = "powerful-model"
 
         with patch("drift.providers.bedrock.boto3") as mock_boto3:
             mock_client = MagicMock()

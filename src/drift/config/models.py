@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class ProviderType(str, Enum):
@@ -67,6 +67,19 @@ class ValidationType(str, Enum):
     FILE_COUNT = "file_count"
     FILE_SIZE = "file_size"
     CROSS_FILE_REFERENCE = "cross_file_reference"
+    LIST_MATCH = "list_match"
+    LIST_REGEX_MATCH = "list_regex_match"
+
+
+class ParamType(str, Enum):
+    """Types of validation rule parameters."""
+
+    STRING = "string"
+    STRING_LIST = "string_list"
+    RESOURCE_LIST = "resource_list"
+    RESOURCE_CONTENT = "resource_content"
+    FILE_CONTENT = "file_content"
+    REGEX_PATTERN = "regex_pattern"
 
 
 class ValidationRule(BaseModel):
@@ -75,20 +88,29 @@ class ValidationRule(BaseModel):
     rule_type: ValidationType = Field(..., description="Type of validation to perform")
     description: str = Field(..., description="Human-readable description of what this rule checks")
 
-    # File existence/pattern rules
+    # Typed parameters for validation
+    params: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Validation parameters with types specified "
+            "(e.g., {'items': {'type': 'resource_list', 'value': 'command'}})"
+        ),
+    )
+
+    # File existence/pattern rules (legacy, prefer params)
     file_path: Optional[str] = Field(None, description="File path or glob pattern to validate")
 
-    # Regex rules
+    # Regex rules (legacy, prefer params)
     pattern: Optional[str] = Field(None, description="Regular expression pattern to match")
     flags: Optional[int] = Field(None, description="Regex flags (e.g., re.MULTILINE=8)")
 
-    # Count/size constraints
+    # Count/size constraints (legacy, prefer params)
     min_count: Optional[int] = Field(None, description="Minimum number of files/matches")
     max_count: Optional[int] = Field(None, description="Maximum number of files/matches")
     min_size: Optional[int] = Field(None, description="Minimum file size in bytes")
     max_size: Optional[int] = Field(None, description="Maximum file size in bytes")
 
-    # Cross-file validation
+    # Cross-file validation (legacy, prefer params)
     source_pattern: Optional[str] = Field(
         None, description="Glob pattern for source files to check"
     )
@@ -138,48 +160,73 @@ class ValidationRulesConfig(BaseModel):
     )
 
 
+class PhaseDefinition(BaseModel):
+    """Definition of a single analysis phase."""
+
+    name: str = Field(..., description="Name of this phase")
+    type: str = Field(
+        "prompt",
+        description=(
+            "Analysis type: 'prompt' for LLM-based, "
+            "or validation type like 'file_exists', 'regex_match', etc."
+        ),
+    )
+    prompt: Optional[str] = Field(None, description="Prompt instructions for prompt-based phases")
+    model: Optional[str] = Field(
+        None, description="Optional model override for prompt-based phases"
+    )
+    available_resources: List[str] = Field(
+        default_factory=lambda: ["command", "skill", "agent", "main_config"],
+        description="Resource types AI can request in prompt-based phases",
+    )
+
+    # For programmatic phases
+    params: Dict[str, Any] = Field(
+        default_factory=dict, description="Parameters for programmatic validation phases"
+    )
+    file_path: Optional[str] = Field(None, description="File path for file validation phases")
+    failure_message: Optional[str] = Field(None, description="Message when validation fails")
+    expected_behavior: Optional[str] = Field(None, description="Description of expected behavior")
+
+
+class SeverityLevel(str, Enum):
+    """Severity level for drift learnings."""
+
+    PASS = "pass"
+    WARNING = "warning"
+    FAIL = "fail"
+
+
 class DriftLearningType(BaseModel):
     """Definition of a drift learning type."""
 
     description: str = Field(..., description="What this learning type represents")
-    detection_prompt: str = Field(
-        ..., description="Prompt instructions for detecting this drift type"
-    )
-    analysis_method: Literal["programmatic", "ai_analyzed"] = Field(
-        ..., description="How this rule is evaluated"
-    )
-    scope: Literal["turn_level", "conversation_level", "document_level", "project_level"] = Field(
+    scope: Literal["conversation_level", "project_level"] = Field(
         ..., description="What scope this rule analyzes"
     )
     context: str = Field(..., description="Why this rule exists for optimization")
     requires_project_context: bool = Field(
         ..., description="Whether rule needs project info to function"
     )
+    severity: Optional[SeverityLevel] = Field(
+        None,
+        description=(
+            "Override severity level (pass/warning/fail). "
+            "If None, defaults based on scope: conversation_level=warning, project_level=fail"
+        ),
+    )
     supported_clients: Optional[List[str]] = Field(
         None, description="Which clients this rule applies to (None = all clients)"
     )
-    model: Optional[str] = Field(None, description="Optional model override for this type")
     document_bundle: Optional[DocumentBundleConfig] = Field(
         None, description="Optional document bundle configuration for document/project scope"
     )
     validation_rules: Optional[ValidationRulesConfig] = Field(
         None, description="Optional validation rules configuration for programmatic analysis"
     )
-
-    @model_validator(mode="after")
-    def validate_analysis_method_consistency(self) -> "DriftLearningType":
-        """Validate that validation_rules is consistent with analysis_method."""
-        if self.analysis_method == "programmatic" and self.validation_rules is None:
-            raise ValueError(
-                "validation_rules must be provided when " "analysis_method is 'programmatic'"
-            )
-
-        if self.analysis_method == "ai_analyzed" and self.validation_rules is not None:
-            raise ValueError(
-                "validation_rules should not be provided when " "analysis_method is 'ai_analyzed'"
-            )
-
-        return self
+    phases: Optional[List[PhaseDefinition]] = Field(
+        None, description="Analysis phases (1 phase = single-shot, 2+ phases = multi-phase)"
+    )
 
 
 class AgentToolConfig(BaseModel):
@@ -267,8 +314,11 @@ class DriftConfig(BaseModel):
         """
         if learning_type in self.drift_learning_types:
             type_config = self.drift_learning_types[learning_type]
-            if type_config.model:
-                return type_config.model
+            # Check if first phase has a model override
+            if type_config.phases and len(type_config.phases) > 0:
+                first_phase = type_config.phases[0]
+                if first_phase.model:
+                    return first_phase.model
         return self.default_model
 
     def get_enabled_agent_tools(self) -> Dict[str, AgentToolConfig]:

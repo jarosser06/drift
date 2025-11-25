@@ -1,3 +1,8 @@
+---
+name: python-docs
+description: Expert in writing PEP 257 compliant docstrings using Google-style format with custom parameter separator. Use when writing or updating Python documentation.
+---
+
 # Python Documentation Skill
 
 Expert in writing clear, consistent Python documentation for Drift.
@@ -136,8 +141,8 @@ def analyze(log_path: str, drift_type: tuple[str, ...]) -> None:
     checking for specified drift types.
 
     Examples:
-        drift analyze conversation.json --drift-type incomplete_work
-        drift analyze logs/session.json --drift-type all
+        drift --types incomplete_work
+        drift --days 7 --format json
     """
 ```
 

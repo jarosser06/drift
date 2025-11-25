@@ -52,23 +52,29 @@ def sample_model_config():
 @pytest.fixture
 def sample_learning_type():
     """Sample drift learning type configuration."""
+    from drift.config.models import PhaseDefinition
+
     return DriftLearningType(
         description="AI stopped before completing the full scope of work",
-        detection_prompt=(
-            "Look for instances where the AI claimed to be done but the user "
-            "had to ask for completion"
-        ),
-        analysis_method="ai_analyzed",
-        scope="turn_level",
+        scope="conversation_level",
         context=(
             "AI stopping before completing full scope wastes user time and "
             "breaks workflow momentum."
         ),
         requires_project_context=False,
         supported_clients=None,
-        explicit_signals=["Finish", "Complete", "You didn't finish"],
-        implicit_signals=["User lists missing items after AI says done"],
-        examples=["User: implement auth | AI: [adds login only] | User: what about logout?"],
+        phases=[
+            PhaseDefinition(
+                name="detection",
+                type="prompt",
+                prompt=(
+                    "Look for instances where the AI claimed to be done but the user "
+                    "had to ask for completion"
+                ),
+                model="haiku",
+                available_resources=[],
+            )
+        ],
     )
 
 
@@ -326,6 +332,44 @@ temp_dir: /tmp/drift
 
     config_file.write_text(config_content)
     return config_file
+
+
+@pytest.fixture
+def make_config_yaml():
+    """Factory fixture to create custom config YAML content."""
+
+    def _make_config(learning_types=None):
+        """Generate config YAML with custom learning types.
+
+        Args:
+            learning_types: Dict of learning type names to configs
+
+        Returns:
+            String containing YAML config content
+        """
+        import yaml
+
+        config = {
+            "providers": {"bedrock": {"provider": "bedrock", "params": {"region": "us-east-1"}}},
+            "models": {
+                "haiku": {
+                    "provider": "bedrock",
+                    "model_id": "us.anthropic.claude-3-haiku-20240307-v1:0",
+                    "params": {"max_tokens": 4096, "temperature": 0.0},
+                }
+            },
+            "default_model": "haiku",
+            "agent_tools": {"claude-code": {"conversation_path": "~/.claude/projects/", "enabled": True}},
+            "conversations": {"mode": "latest", "days": 7},
+            "temp_dir": "/tmp/drift",
+        }
+
+        if learning_types:
+            config["drift_learning_types"] = learning_types
+
+        return yaml.dump(config, default_flow_style=False)
+
+    return _make_config
 
 
 @pytest.fixture

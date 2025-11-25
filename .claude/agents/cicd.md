@@ -1,4 +1,6 @@
 ---
+name: cicd
+description: Specialized CI/CD agent for automation, GitHub Actions workflows, and release management for Drift
 model: sonnet
 skills:
   - testing

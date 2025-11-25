@@ -1,14 +1,23 @@
 """Validators for rule-based document validation."""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from drift.config.models import ValidationRule, ValidationType
 from drift.core.types import DocumentBundle, DocumentLearning
+from drift.validation.params import ParamResolver
 
 
 class BaseValidator(ABC):
     """Abstract base class for all validators."""
+
+    def __init__(self, loader: Any = None):
+        """Initialize validator.
+
+        Args:
+            loader: Optional document loader for resource access
+        """
+        self.loader = loader
 
     @abstractmethod
     def validate(
@@ -112,14 +121,223 @@ class FileExistsValidator(BaseValidator):
         )
 
 
+class ListMatchValidator(BaseValidator):
+    """Validator for checking if list items match expected values."""
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentLearning]:
+        """Check if list items match expected values.
+
+        Expected params:
+            - items: List to check (can be string_list or resource_list)
+            - target: List to compare against (can be string_list, resource_list, or file_content)
+            - match_mode: "all_in", "none_in", "exact" (default: "all_in")
+
+        Args:
+            rule: ValidationRule with params
+            bundle: Document bundle being validated
+            all_bundles: Not used for this validator
+
+        Returns:
+            DocumentLearning if validation fails, None if passes
+        """
+        resolver = ParamResolver(bundle, self.loader)
+
+        try:
+            # Resolve parameters
+            items_spec = rule.params.get("items")
+            target_spec = rule.params.get("target")
+            match_mode = rule.params.get("match_mode", "all_in")
+
+            if not items_spec or not target_spec:
+                raise ValueError("ListMatchValidator requires 'items' and 'target' params")
+
+            items = resolver.resolve(items_spec)
+            target = resolver.resolve(target_spec)
+
+            # Ensure both are lists
+            if not isinstance(items, list):
+                items = [items]
+            if not isinstance(target, list):
+                target = [target]
+
+            # Perform match based on mode
+            if match_mode == "all_in":
+                # All items must be in target
+                missing = [item for item in items if item not in target]
+                if missing:
+                    return self._create_failure_learning(
+                        rule=rule,
+                        bundle=bundle,
+                        context=f"Items not found in target: {', '.join(missing)}",
+                    )
+            elif match_mode == "none_in":
+                # No items should be in target
+                found = [item for item in items if item in target]
+                if found:
+                    return self._create_failure_learning(
+                        rule=rule,
+                        bundle=bundle,
+                        context=f"Items found in target but should not be: {', '.join(found)}",
+                    )
+            elif match_mode == "exact":
+                # Lists must be exactly the same (order-independent)
+                if set(items) != set(target):
+                    return self._create_failure_learning(
+                        rule=rule,
+                        bundle=bundle,
+                        context=f"Lists do not match exactly. Items: {items}, Target: {target}",
+                    )
+            else:
+                raise ValueError(f"Unknown match_mode: {match_mode}")
+
+            return None
+
+        except Exception as e:
+            raise ValueError(f"ListMatchValidator error: {e}")
+
+    def _create_failure_learning(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        context: str,
+    ) -> DocumentLearning:
+        """Create a DocumentLearning for a validation failure."""
+        return DocumentLearning(
+            bundle_id=bundle.bundle_id,
+            bundle_type=bundle.bundle_type,
+            file_paths=[f.relative_path for f in bundle.files],
+            observed_issue=rule.failure_message,
+            expected_quality=rule.expected_behavior,
+            learning_type="",  # Will be set by analyzer
+            context=f"Validation rule: {rule.description}. {context}",
+        )
+
+
+class ListRegexMatchValidator(BaseValidator):
+    """Validator for checking if list items match regex patterns in files."""
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentLearning]:
+        """Check if list items match regex patterns in target files.
+
+        Expected params:
+            - items: List to check (can be string_list or resource_list)
+            - file_path: File path to search in (can be string or file_content)
+            - pattern: Regex pattern to extract matches from file
+            - match_mode: "all_in", "none_in" (default: "all_in")
+
+        Args:
+            rule: ValidationRule with params
+            bundle: Document bundle being validated
+            all_bundles: Not used for this validator
+
+        Returns:
+            DocumentLearning if validation fails, None if passes
+        """
+        resolver = ParamResolver(bundle, self.loader)
+
+        try:
+            # Resolve parameters
+            items_spec = rule.params.get("items")
+            file_path_spec = rule.params.get("file_path")
+            pattern_spec = rule.params.get("pattern")
+            match_mode = rule.params.get("match_mode", "all_in")
+
+            if not items_spec or not file_path_spec or not pattern_spec:
+                raise ValueError(
+                    "ListRegexMatchValidator requires 'items', 'file_path', and 'pattern' params"
+                )
+
+            items = resolver.resolve(items_spec)
+            pattern = resolver.resolve(pattern_spec)
+
+            # Resolve file content
+            if isinstance(file_path_spec, dict) and file_path_spec.get("type") == "file_content":
+                file_content = resolver.resolve(file_path_spec)
+            else:
+                # Legacy: file_path is a string path
+                file_path = resolver.resolve({"type": "string", "value": file_path_spec})
+                file_content = resolver.resolve({"type": "file_content", "value": file_path})
+
+            # Ensure items is a list
+            if not isinstance(items, list):
+                items = [items]
+
+            # Extract matches from file content using pattern
+            matches = pattern.findall(file_content)
+            matches = list(set(matches))  # Remove duplicates
+
+            # Perform match based on mode
+            if match_mode == "all_in":
+                # All items must be found in matches
+                missing = [item for item in items if item not in matches]
+                if missing:
+                    missing_items = ", ".join(missing)
+                    found_items = ", ".join(matches)
+                    context_msg = f"Items not found in file: {missing_items}. Found: {found_items}"
+                    return self._create_failure_learning(
+                        rule=rule,
+                        bundle=bundle,
+                        context=context_msg,
+                    )
+            elif match_mode == "none_in":
+                # No items should be found in matches
+                found = [item for item in items if item in matches]
+                if found:
+                    return self._create_failure_learning(
+                        rule=rule,
+                        bundle=bundle,
+                        context=f"Items found in file but should not be: {', '.join(found)}",
+                    )
+            else:
+                raise ValueError(f"Unknown match_mode: {match_mode}")
+
+            return None
+
+        except Exception as e:
+            raise ValueError(f"ListRegexMatchValidator error: {e}")
+
+    def _create_failure_learning(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        context: str,
+    ) -> DocumentLearning:
+        """Create a DocumentLearning for a validation failure."""
+        return DocumentLearning(
+            bundle_id=bundle.bundle_id,
+            bundle_type=bundle.bundle_type,
+            file_paths=[f.relative_path for f in bundle.files],
+            observed_issue=rule.failure_message,
+            expected_quality=rule.expected_behavior,
+            learning_type="",  # Will be set by analyzer
+            context=f"Validation rule: {rule.description}. {context}",
+        )
+
+
 class ValidatorRegistry:
     """Registry mapping rule types to validator implementations."""
 
-    def __init__(self) -> None:
-        """Initialize registry with available validators."""
+    def __init__(self, loader: Any = None) -> None:
+        """Initialize registry with available validators.
+
+        Args:
+            loader: Optional document loader for resource access
+        """
         self._validators = {
-            ValidationType.FILE_EXISTS: FileExistsValidator(),
-            ValidationType.FILE_NOT_EXISTS: FileExistsValidator(),
+            ValidationType.FILE_EXISTS: FileExistsValidator(loader),
+            ValidationType.FILE_NOT_EXISTS: FileExistsValidator(loader),
+            ValidationType.LIST_MATCH: ListMatchValidator(loader),
+            ValidationType.LIST_REGEX_MATCH: ListRegexMatchValidator(loader),
         }
 
     def execute_rule(

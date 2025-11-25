@@ -96,37 +96,51 @@ class TestDriftLearningType:
 
     def test_valid_learning_type(self):
         """Test creating a valid drift learning type."""
+        from drift.config.models import PhaseDefinition
+
         learning_type = DriftLearningType(
             description="Test learning type",
-            detection_prompt="Look for test patterns",
-            analysis_method="ai_analyzed",
-            scope="turn_level",
+            scope="conversation_level",
             context="Test context for optimization",
             requires_project_context=False,
             supported_clients=None,
-            model="haiku",
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Look for test patterns",
+                    model="haiku",
+                )
+            ],
         )
         assert learning_type.description == "Test learning type"
-        assert learning_type.detection_prompt == "Look for test patterns"
-        assert learning_type.analysis_method == "ai_analyzed"
-        assert learning_type.scope == "turn_level"
+        assert learning_type.phases[0].prompt == "Look for test patterns"
+        assert learning_type.phases[0].type == "prompt"
+        assert learning_type.scope == "conversation_level"
         assert learning_type.context == "Test context for optimization"
         assert learning_type.requires_project_context is False
         assert learning_type.supported_clients is None
-        assert learning_type.model == "haiku"
+        assert learning_type.phases[0].model == "haiku"
         assert learning_type.document_bundle is None
 
     def test_default_values(self):
         """Test default values for optional fields."""
+        from drift.config.models import PhaseDefinition
+
         learning_type = DriftLearningType(
             description="Test",
-            detection_prompt="Detect",
-            analysis_method="ai_analyzed",
-            scope="turn_level",
+            scope="conversation_level",
             context="Test context",
             requires_project_context=False,
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Detect",
+                )
+            ],
         )
-        assert learning_type.model is None
+        assert learning_type.phases[0].model is None
         assert learning_type.supported_clients is None
         assert learning_type.document_bundle is None
 
@@ -239,7 +253,7 @@ class TestDriftConfig:
         self, sample_provider_config, sample_model_config, sample_learning_type
     ):
         """Test getting model for learning type with model override."""
-        sample_learning_type.model = "sonnet"
+        sample_learning_type.phases[0].model = "sonnet"
         config = DriftConfig(
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
@@ -253,7 +267,7 @@ class TestDriftConfig:
         self, sample_provider_config, sample_model_config, sample_learning_type
     ):
         """Test getting model for learning type without override uses default."""
-        sample_learning_type.model = None
+        sample_learning_type.phases[0].model = None
         config = DriftConfig(
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},

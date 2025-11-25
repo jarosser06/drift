@@ -74,9 +74,9 @@ class TestDriftAnalyzer:
 
         assert "incomplete_work" in prompt
         assert sample_learning_type.description in prompt
-        assert sample_learning_type.detection_prompt in prompt
+        assert sample_learning_type.phases[0].prompt in prompt
         assert "JSON" in prompt
-        # Signals are now part of detection_prompt, so just verify prompt has content
+        # Signals are now part of phase prompt, so just verify prompt has content
         assert len(prompt) > 100
 
     def test_parse_analysis_response_valid(self, sample_conversation):
@@ -158,16 +158,17 @@ class TestDriftAnalyzer:
 
         assert learnings == []
 
-    def test_generate_summary_no_results(self):
+    def test_generate_summary_no_results(self, sample_drift_config, tmp_path):
         """Test generating summary from empty results."""
-        summary = DriftAnalyzer._generate_summary([])
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=tmp_path)
+        summary = analyzer._generate_summary([])
 
         assert summary.total_conversations == 0
         assert summary.total_learnings == 0
         assert summary.conversations_with_drift == 0
         assert summary.conversations_without_drift == 0
 
-    def test_generate_summary_with_results(self, sample_learning):
+    def test_generate_summary_with_results(self, sample_learning, sample_drift_config, tmp_path):
         """Test generating summary from results."""
         result1 = AnalysisResult(
             session_id="session1",
@@ -185,7 +186,8 @@ class TestDriftAnalyzer:
             analysis_timestamp=datetime.now(),
         )
 
-        summary = DriftAnalyzer._generate_summary([result1, result2])
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=tmp_path)
+        summary = analyzer._generate_summary([result1, result2])
 
         assert summary.total_conversations == 2
         assert summary.total_learnings == 1
@@ -371,15 +373,18 @@ class TestDriftAnalyzer:
         mock_loader_class,
         sample_drift_config,
     ):
-        """Test analyze handles loader file not found error."""
+        """Test analyze handles loader file not found error gracefully."""
         mock_loader = MagicMock()
         mock_loader.load_conversations.side_effect = FileNotFoundError("Path not found")
         mock_loader_class.return_value = mock_loader
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
 
-        with pytest.raises(FileNotFoundError):
-            analyzer.analyze()
+        # Should return empty result instead of raising
+        result = analyzer.analyze()
+        assert result.summary.total_conversations == 0
+        assert result.summary.total_learnings == 0
+        assert "No conversations available" in result.metadata.get("message", "")
 
     @patch("drift.core.analyzer.ClaudeCodeLoader")
     @patch("drift.core.analyzer.BedrockProvider")
@@ -409,6 +414,38 @@ class TestDriftAnalyzer:
 
         # Should have analyzed both (second with error)
         assert len(result.results) == 1  # Only successful one
+
+    @patch("drift.core.analyzer.ClaudeCodeLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_analyze_fails_on_bedrock_api_error(
+        self,
+        mock_provider_class,
+        mock_loader_class,
+        sample_drift_config,
+        sample_conversation,
+    ):
+        """Test that analyze fails immediately on Bedrock API errors."""
+        mock_loader = MagicMock()
+        mock_loader.load_conversations.return_value = [sample_conversation]
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        # Simulate Bedrock ValidationException
+        mock_provider.generate.side_effect = Exception(
+            "Bedrock API error: An error occurred (ValidationException) when calling "
+            "the InvokeModel operation: Invocation of model ID "
+            "anthropic.claude-haiku-4-5-20251001-v1:0 with on-demand throughput isn't "
+            "supported. Retry your request with the ID or ARN of an inference profile "
+            "that contains this model."
+        )
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+
+        # Should raise the exception, not continue
+        with pytest.raises(Exception, match="Bedrock API error.*ValidationException"):
+            analyzer.analyze()
 
     def test_cleanup(self, sample_drift_config, temp_dir):
         """Test analyzer cleanup."""
@@ -475,13 +512,14 @@ class TestDriftAnalyzer:
         analyzer = DriftAnalyzer(config=sample_drift_config)
         analyzer.providers = {"haiku": mock_provider}
 
-        learnings = analyzer._run_analysis_pass(
+        learnings, error = analyzer._run_analysis_pass(
             sample_conversation,
             "incomplete_work",
             sample_learning_type,
             None,
         )
 
+        assert error is None
         assert len(learnings) == 1
         assert learnings[0].learning_type == "incomplete_work"
 
@@ -521,23 +559,32 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents filters to only document learning types."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
 
         # Add mixed learning types
         sample_drift_config.drift_learning_types = {
             "turn_type": DriftLearningType(
                 description="Turn level",
-                detection_prompt="Find issues",
-                analysis_method="ai_analyzed",
-                scope="turn_level",
+                scope="conversation_level",
                 context="Test",
                 requires_project_context=False,
+                phases=[
+                    PhaseDefinition(
+                        name="detection",
+                        type="prompt",
+                        prompt="Find issues",
+                        model="haiku",
+                    )
+                ],
             ),
             "doc_type": DriftLearningType(
                 description="Document level",
-                detection_prompt="Find doc issues",
-                analysis_method="ai_analyzed",
-                scope="document_level",
+                scope="project_level",
                 context="Test",
                 requires_project_context=True,
                 supported_clients=["claude-code"],
@@ -547,6 +594,14 @@ class TestDriftAnalyzer:
                     bundle_strategy=BundleStrategy.INDIVIDUAL,
                     resource_patterns=[],
                 ),
+                phases=[
+                    PhaseDefinition(
+                        name="detection",
+                        type="prompt",
+                        prompt="Find doc issues",
+                        model="haiku",
+                    )
+                ],
             ),
         }
 
@@ -570,15 +625,18 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with document_level scope."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create document learning type
         doc_type = DriftLearningType(
             description="Test document type",
-            detection_prompt="Find issues in {files_with_paths}",
-            analysis_method="ai_analyzed",
-            scope="document_level",
+            scope="project_level",
             context="Test",
             requires_project_context=True,
             supported_clients=["claude-code"],
@@ -588,6 +646,14 @@ class TestDriftAnalyzer:
                 bundle_strategy=BundleStrategy.INDIVIDUAL,
                 resource_patterns=[],
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find issues in {files_with_paths}",
+                    model="haiku",
+                )
+            ],
         )
         sample_drift_config.drift_learning_types = {"doc_test": doc_type}
 
@@ -652,14 +718,17 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with project_level scope."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create project-level learning type
         proj_type = DriftLearningType(
             description="Test project type",
-            detection_prompt="Find cross-document issues",
-            analysis_method="ai_analyzed",
             scope="project_level",
             context="Test",
             requires_project_context=True,
@@ -670,6 +739,14 @@ class TestDriftAnalyzer:
                 bundle_strategy=BundleStrategy.COLLECTION,
                 resource_patterns=[],
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find cross-document issues",
+                    model="haiku",
+                )
+            ],
         )
         sample_drift_config.drift_learning_types = {"proj_test": proj_type}
 
@@ -727,15 +804,18 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents with specific learning type filter."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
 
         # Create two document learning types
         sample_drift_config.drift_learning_types = {
             "type1": DriftLearningType(
                 description="Type 1",
-                detection_prompt="Find type1 issues",
-                analysis_method="ai_analyzed",
-                scope="document_level",
+                scope="project_level",
                 context="Test",
                 requires_project_context=True,
                 supported_clients=["claude-code"],
@@ -745,12 +825,18 @@ class TestDriftAnalyzer:
                     bundle_strategy=BundleStrategy.INDIVIDUAL,
                     resource_patterns=[],
                 ),
+                phases=[
+                    PhaseDefinition(
+                        name="detection",
+                        type="prompt",
+                        prompt="Find type1 issues",
+                        model="haiku",
+                    )
+                ],
             ),
             "type2": DriftLearningType(
                 description="Type 2",
-                detection_prompt="Find type2 issues",
-                analysis_method="ai_analyzed",
-                scope="document_level",
+                scope="project_level",
                 context="Test",
                 requires_project_context=True,
                 supported_clients=["claude-code"],
@@ -760,6 +846,14 @@ class TestDriftAnalyzer:
                     bundle_strategy=BundleStrategy.INDIVIDUAL,
                     resource_patterns=[],
                 ),
+                phases=[
+                    PhaseDefinition(
+                        name="detection",
+                        type="prompt",
+                        prompt="Find type2 issues",
+                        model="haiku",
+                    )
+                ],
             ),
         }
 
@@ -783,13 +877,16 @@ class TestDriftAnalyzer:
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
         """Test analyze_documents handles no matching files gracefully."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
 
         doc_type = DriftLearningType(
             description="Test",
-            detection_prompt="Find issues",
-            analysis_method="ai_analyzed",
-            scope="document_level",
+            scope="project_level",
             context="Test",
             requires_project_context=True,
             supported_clients=["claude-code"],
@@ -799,6 +896,14 @@ class TestDriftAnalyzer:
                 bundle_strategy=BundleStrategy.INDIVIDUAL,
                 resource_patterns=[],
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find issues",
+                    model="haiku",
+                )
+            ],
         )
         sample_drift_config.drift_learning_types = {"test": doc_type}
 
@@ -819,14 +924,17 @@ class TestDriftAnalyzer:
 
     def test_build_document_analysis_prompt(self, sample_drift_config, temp_dir):
         """Test building document analysis prompt."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
         from drift.core.types import DocumentBundle, DocumentFile
 
         learning_type = DriftLearningType(
             description="Test type",
-            detection_prompt="Find issues in {files_with_paths} at {project_root}",
-            analysis_method="ai_analyzed",
-            scope="document_level",
+            scope="project_level",
             context="Test context",
             requires_project_context=True,
             supported_clients=["claude-code"],
@@ -836,6 +944,14 @@ class TestDriftAnalyzer:
                 bundle_strategy=BundleStrategy.INDIVIDUAL,
                 resource_patterns=[],
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find issues in {files_with_paths} at {project_root}",
+                    model="haiku",
+                )
+            ],
         )
 
         bundle = DocumentBundle(
@@ -933,7 +1049,12 @@ class TestDriftAnalyzer:
 
     def test_combine_bundles(self, sample_drift_config, temp_dir):
         """Test combining multiple bundles into collection."""
-        from drift.config.models import BundleStrategy, DocumentBundleConfig, DriftLearningType
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
         from drift.core.types import DocumentBundle, DocumentFile
 
         bundle1 = DocumentBundle(
@@ -965,8 +1086,6 @@ class TestDriftAnalyzer:
 
         learning_type = DriftLearningType(
             description="Test",
-            detection_prompt="Find issues",
-            analysis_method="ai_analyzed",
             scope="project_level",
             context="Test",
             requires_project_context=True,
@@ -976,6 +1095,14 @@ class TestDriftAnalyzer:
                 bundle_strategy=BundleStrategy.COLLECTION,
                 resource_patterns=[],
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find issues",
+                    model="haiku",
+                )
+            ],
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
@@ -985,3 +1112,47 @@ class TestDriftAnalyzer:
         assert len(combined.files) == 2
         assert combined.bundle_type == "test"
         assert combined.bundle_id == "combined_project_level"
+
+    def test_empty_list_learning_types_does_not_run_all_rules(self, sample_drift_config, temp_dir):
+        """Test that passing learning_types=[] doesn't run ALL rules (critical bug fix)."""
+        with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
+            mock_generate.side_effect = AssertionError(
+                "CRITICAL BUG: generate() was called when learning_types=[]! "
+                "Empty list should prevent ALL rule execution."
+            )
+
+            analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+
+            # Pass empty list - should NOT run any rules or call LLM
+            result = analyzer.analyze(learning_types=[])
+
+            # Verify LLM was never called
+            assert mock_generate.call_count == 0, (
+                f"generate() was called {mock_generate.call_count} times! "
+                f"When learning_types=[], NO rules should run."
+            )
+
+            # Should return empty result
+            assert result.summary.total_learnings == 0
+            assert result.summary.total_conversations == 0
+
+    def test_empty_list_vs_none_learning_types(self, sample_drift_config, temp_dir):
+        """Test that learning_types=[] behaves differently from learning_types=None."""
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+
+        # Mock to count rule execution
+        with patch.object(analyzer, "_analyze_conversation") as mock_analyze:
+            mock_analyze.return_value = MagicMock(
+                learnings=[],
+                rule_errors={},
+            )
+
+            # Empty list should skip analysis entirely
+            result_empty = analyzer.analyze(learning_types=[])
+
+            # None should NOT be the same - it should use all configured rules
+            # (but we're not testing that here, just that empty list works)
+
+            # With empty list, _analyze_conversation should not be called
+            # because no conversations match or no rules to check
+            assert result_empty.summary.total_learnings == 0

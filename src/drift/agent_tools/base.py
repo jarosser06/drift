@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from drift.core.types import Conversation, Turn
+from drift.core.types import Conversation, ResourceRequest, ResourceResponse, Turn
 
 
 class AgentLoader(ABC):
@@ -188,3 +188,32 @@ class AgentLoader(ABC):
                 f"Conversation path for {self.agent_name} is not a "
                 f"directory: {self.conversation_path}"
             )
+
+    def get_resource(
+        self,
+        resource_type: str,
+        resource_id: str,
+        project_path: Optional[str] = None,
+    ) -> ResourceResponse:
+        """Get a specific project resource.
+
+        Args:
+            resource_type: Type of resource (command, skill, agent, main_config)
+            resource_id: Identifier for the resource
+            project_path: Path to project root
+
+        Returns:
+            ResourceResponse with content or error
+        """
+        # Default implementation - subclasses override
+        return ResourceResponse(
+            request=ResourceRequest(
+                resource_type=resource_type,
+                resource_id=resource_id,
+                reason="Requested by analysis",
+            ),
+            found=False,
+            content=None,
+            file_path=None,
+            error=f"Resource extraction not implemented for {self.agent_name}",
+        )

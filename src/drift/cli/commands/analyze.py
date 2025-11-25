@@ -6,6 +6,7 @@ from typing import Optional
 
 import typer
 
+from drift.cli.logging_config import setup_logging
 from drift.cli.output.formatter import OutputFormatter
 from drift.cli.output.json import JsonFormatter
 from drift.cli.output.markdown import MarkdownFormatter
@@ -34,13 +35,55 @@ def _merge_results(
         "document_learnings": doc_result.metadata.get("document_learnings", []),
     }
 
+    # Merge skipped_rules from both results
+    conv_skipped = conv_result.metadata.get("skipped_rules", [])
+    doc_skipped = doc_result.metadata.get("skipped_rules", [])
+    if conv_skipped or doc_skipped:
+        merged_metadata["skipped_rules"] = list(set(conv_skipped) | set(doc_skipped))
+
     # Merge summaries
-    merged_summary = conv_result.summary.copy()
+    merged_summary = conv_result.summary.model_copy()
     merged_summary.total_learnings += doc_result.summary.total_learnings
 
     # Merge by_type counts
     for type_name, count in doc_result.summary.by_type.items():
         merged_summary.by_type[type_name] = merged_summary.by_type.get(type_name, 0) + count
+
+    # Merge rule statistics
+    if conv_result.summary.rules_checked and doc_result.summary.rules_checked:
+        merged_summary.rules_checked = list(
+            set(conv_result.summary.rules_checked) | set(doc_result.summary.rules_checked)
+        )
+    elif doc_result.summary.rules_checked:
+        merged_summary.rules_checked = doc_result.summary.rules_checked
+
+    if conv_result.summary.rules_passed and doc_result.summary.rules_passed:
+        merged_summary.rules_passed = list(
+            set(conv_result.summary.rules_passed) | set(doc_result.summary.rules_passed)
+        )
+    elif doc_result.summary.rules_passed:
+        merged_summary.rules_passed = doc_result.summary.rules_passed
+
+    if conv_result.summary.rules_warned and doc_result.summary.rules_warned:
+        merged_summary.rules_warned = list(
+            set(conv_result.summary.rules_warned) | set(doc_result.summary.rules_warned)
+        )
+    elif doc_result.summary.rules_warned:
+        merged_summary.rules_warned = doc_result.summary.rules_warned
+
+    if conv_result.summary.rules_failed and doc_result.summary.rules_failed:
+        merged_summary.rules_failed = list(
+            set(conv_result.summary.rules_failed) | set(doc_result.summary.rules_failed)
+        )
+    elif doc_result.summary.rules_failed:
+        merged_summary.rules_failed = doc_result.summary.rules_failed
+
+    if conv_result.summary.rules_errored and doc_result.summary.rules_errored:
+        merged_summary.rules_errored = list(
+            set(conv_result.summary.rules_errored) | set(doc_result.summary.rules_errored)
+        )
+    elif doc_result.summary.rules_errored:
+        merged_summary.rules_errored = doc_result.summary.rules_errored
 
     # Merge results lists
     merged_results = conv_result.results + doc_result.results
@@ -60,10 +103,10 @@ def analyze_command(
         help="Output format (markdown or json)",
     ),
     scope: str = typer.Option(
-        "conversations",
+        "all",
         "--scope",
         "-s",
-        help="Analysis scope: conversations, documents, or all",
+        help="Analysis scope: conversation, project, or all",
     ),
     agent_tool: Optional[str] = typer.Option(
         None,
@@ -99,11 +142,23 @@ def analyze_command(
         "-m",
         help="Override model for all analysis (e.g., sonnet, haiku)",
     ),
+    no_llm: bool = typer.Option(
+        False,
+        "--no-llm",
+        help="Skip rules that require LLM calls (only run programmatic validation)",
+    ),
     project: Optional[str] = typer.Option(
         None,
         "--project",
         "-p",
         help="Project path (defaults to current directory)",
+    ),
+    verbose: int = typer.Option(
+        0,
+        "--verbose",
+        "-v",
+        count=True,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
     ),
 ) -> None:
     """Analyze AI agent conversations to identify drift patterns.
@@ -112,23 +167,29 @@ def analyze_command(
     did and what users actually wanted. Outputs actionable insights for improving
     documentation, workflows, and context.
 
+    This function is called by the main CLI (drift command) and can also be used
+    programmatically.
+
     Examples
     --------
     # Analyze latest conversation in current project
-    drift analyze
+    drift
 
-        # Output as JSON
-        drift analyze --format json
+    # Output as JSON
+    drift --format json
 
-        # Analyze only incomplete_work and documentation_gap
-        drift analyze --types incomplete_work,documentation_gap
+    # Analyze only incomplete_work and documentation_gap
+    drift --types incomplete_work,documentation_gap
 
-        # Analyze last 3 days of conversations
-        drift analyze --days 3
+    # Analyze last 3 days of conversations
+    drift --days 3
 
-        # Use sonnet model for all analysis
-        drift analyze --model sonnet
+    # Use sonnet model for all analysis
+    drift --model sonnet
     """
+    # Setup colored logging based on verbosity
+    setup_logging(verbose)
+
     try:
         # Ensure global config exists on first run
         ConfigLoader.ensure_global_config_exists()
@@ -223,43 +284,139 @@ def analyze_command(
             raise typer.Exit(1)
 
         # Validate scope
-        if scope not in ["conversations", "documents", "all"]:
+        if scope not in ["conversation", "project", "all"]:
             typer.secho(
-                f"Error: Invalid scope: {scope}. Use 'conversations', 'documents', or 'all'",
+                f"Error: Invalid scope: {scope}. Use 'conversation', 'project', or 'all'",
                 fg=typer.colors.RED,
                 err=True,
             )
             raise typer.Exit(1)
+
+        # Filter LLM-based rules if --no-llm flag is set
+        llm_skipped_rules = []
+        if no_llm:
+            # Determine which rules to check
+            rules_to_check = (
+                learning_types_list
+                if learning_types_list
+                else list(config.drift_learning_types.keys())
+            )
+
+            # Determine which scopes we're analyzing based on --scope flag
+            if scope == "conversation":
+                target_scopes = ["turn_level", "conversation_level"]
+            elif scope == "project":
+                target_scopes = ["document_level", "project_level"]
+            else:  # scope == "all"
+                target_scopes = [
+                    "turn_level",
+                    "conversation_level",
+                    "document_level",
+                    "project_level",
+                ]
+
+            # Filter to only programmatic rules within the target scopes
+            filtered_types = []
+            for name in rules_to_check:
+                type_config = config.drift_learning_types[name]
+                rule_scope = getattr(type_config, "scope", "turn_level")
+
+                # Skip rules that don't match our target scopes
+                if rule_scope not in target_scopes:
+                    continue
+
+                # Check if this is an LLM-based rule by inspecting phases
+                # A rule uses LLM if ANY phase has type="prompt"
+                phases = getattr(type_config, "phases", [])
+                validation_rules = getattr(type_config, "validation_rules", None)
+
+                # Rule uses LLM if any phase has type="prompt"
+                uses_llm = any(getattr(p, "type", "prompt") == "prompt" for p in phases)
+
+                # Rule is programmatic if it has validation_rules OR no phases use LLM
+                is_programmatic = validation_rules is not None or not uses_llm
+
+                if is_programmatic:
+                    filtered_types.append(name)
+                else:
+                    llm_skipped_rules.append(name)
+
+            # Warn if rules were skipped
+            if llm_skipped_rules:
+                programmatic_count = len(filtered_types) if filtered_types else 0
+                typer.secho(
+                    f"Warning: Skipping {len(llm_skipped_rules)} LLM-based rule(s) "
+                    f"due to --no-llm flag (running {programmatic_count} programmatic rule(s)):",
+                    fg=typer.colors.YELLOW,
+                    err=True,
+                )
+                typer.secho(
+                    f"  Skipped: {', '.join(llm_skipped_rules)}",
+                    fg=typer.colors.YELLOW,
+                    err=True,
+                )
+                if filtered_types:
+                    typer.secho(
+                        f"  Running: {', '.join(filtered_types)}",
+                        fg=typer.colors.GREEN,
+                        err=True,
+                    )
+                typer.secho("", err=True)
+
+            learning_types_list = filtered_types if filtered_types else []
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=config, project_path=project_path)
 
         # Run analysis based on scope
         try:
-            if scope == "conversations":
+            if scope == "conversation":
                 result = analyzer.analyze(
                     agent_tool=agent_tool,
                     learning_types=learning_types_list,
                     model_override=model,
                 )
-            elif scope == "documents":
+            elif scope == "project":
                 result = analyzer.analyze_documents(
                     learning_types=learning_types_list,
                     model_override=model,
                 )
             elif scope == "all":
+                # When --no-llm is used with scope=all, need to split filtered rules by scope
+                conv_types_list = learning_types_list
+                doc_types_list = learning_types_list
+
+                if no_llm and learning_types_list is not None:
+                    # Split the filtered programmatic rules by scope
+                    conv_types_list = [
+                        name for name in learning_types_list
+                        if getattr(config.drift_learning_types[name], "scope", "turn_level")
+                        in ("turn_level", "conversation_level")
+                    ]
+                    doc_types_list = [
+                        name for name in learning_types_list
+                        if getattr(config.drift_learning_types[name], "scope", "turn_level")
+                        in ("document_level", "project_level")
+                    ]
+
                 # Run both analyses
                 conv_result = analyzer.analyze(
                     agent_tool=agent_tool,
-                    learning_types=learning_types_list,
+                    learning_types=conv_types_list,
                     model_override=model,
                 )
                 doc_result = analyzer.analyze_documents(
-                    learning_types=learning_types_list,
+                    learning_types=doc_types_list,
                     model_override=model,
                 )
                 # Merge results
                 result = _merge_results(conv_result, doc_result)
+
+            # Add LLM-skipped rules to metadata if --no-llm was used
+            if no_llm and llm_skipped_rules:
+                existing_skipped = result.metadata.get("skipped_rules", [])
+                result.metadata["skipped_rules"] = existing_skipped + llm_skipped_rules
+
         except FileNotFoundError as e:
             typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
             typer.secho(
@@ -271,6 +428,46 @@ def analyze_command(
         except Exception as e:
             typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED, err=True)
             raise typer.Exit(1)
+
+        # Check if this is because there are NO rules at all configured
+        if not config.drift_learning_types:
+            typer.secho(
+                "Error: No drift learning types configured.",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            typer.secho(
+                "\nTip: Create a .drift.yaml file in your project or global config directory.",
+                fg=typer.colors.YELLOW,
+                err=True,
+            )
+            typer.secho(
+                "See: https://github.com/your-repo/drift for configuration examples",
+                fg=typer.colors.BLUE,
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        # Output rule errors to stderr first
+        if result.summary.rules_errored:
+            typer.secho("\nRule Errors:", fg=typer.colors.RED, bold=True, err=True)
+            for rule in sorted(result.summary.rules_errored):
+                error_msg = result.summary.rule_errors.get(rule, "Unknown error")
+                typer.secho(f"  {rule}: {error_msg}", fg=typer.colors.RED, err=True)
+            typer.secho("", err=True)  # Blank line
+
+        # Output skipped rules warning to stderr
+        skipped_rules = result.metadata.get("skipped_rules", [])
+        if skipped_rules:
+            typer.secho(
+                f"\nSkipped {len(skipped_rules)} rule(s):",
+                fg=typer.colors.YELLOW,
+                bold=True,
+                err=True,
+            )
+            for rule in sorted(skipped_rules):
+                typer.secho(f"  {rule}", fg=typer.colors.YELLOW, err=True)
+            typer.secho("", err=True)  # Blank line
 
         # Format and output results
         formatter: OutputFormatter

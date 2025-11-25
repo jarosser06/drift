@@ -8,6 +8,7 @@ from drift.config.models import (
     DriftConfig,
     DriftLearningType,
     ModelConfig,
+    PhaseDefinition,
     ProviderConfig,
     ProviderType,
     ValidationRule,
@@ -66,28 +67,23 @@ class TestRuleBasedValidation:
         # Create learning type with file existence rule
         learning_type_config = DriftLearningType(
             description="Check CLAUDE.md exists",
-            detection_prompt="Not used for programmatic",
-            analysis_method="programmatic",
             scope="project_level",
             context="CLAUDE.md is required",
             requires_project_context=True,
-            validation_rules=ValidationRulesConfig(
-                scope="project_level",
-                document_bundle=DocumentBundleConfig(
-                    bundle_type="configuration",
-                    file_patterns=["CLAUDE.md"],
-                    bundle_strategy=BundleStrategy.COLLECTION,
-                ),
-                rules=[
-                    ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
-                        description="CLAUDE.md must exist",
-                        file_path="CLAUDE.md",
-                        failure_message="CLAUDE.md not found",
-                        expected_behavior="CLAUDE.md should exist",
-                    )
-                ],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="configuration",
+                file_patterns=["CLAUDE.md"],
+                bundle_strategy=BundleStrategy.COLLECTION,
             ),
+            phases=[
+                PhaseDefinition(
+                    name="check_file",
+                    type="file_exists",
+                    file_path="CLAUDE.md",
+                    failure_message="CLAUDE.md not found",
+                    expected_behavior="CLAUDE.md should exist",
+                )
+            ],
         )
 
         base_config.drift_learning_types["claude_doc_exists"] = learning_type_config
@@ -106,28 +102,23 @@ class TestRuleBasedValidation:
         # Create learning type checking for non-existent file
         learning_type_config = DriftLearningType(
             description="Check MISSING.md exists",
-            detection_prompt="Not used for programmatic",
-            analysis_method="programmatic",
             scope="project_level",
             context="MISSING.md should exist",
             requires_project_context=True,
-            validation_rules=ValidationRulesConfig(
-                scope="project_level",
-                document_bundle=DocumentBundleConfig(
-                    bundle_type="configuration",
-                    file_patterns=["MISSING.md"],
-                    bundle_strategy=BundleStrategy.COLLECTION,
-                ),
-                rules=[
-                    ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
-                        description="MISSING.md must exist",
-                        file_path="MISSING.md",
-                        failure_message="MISSING.md not found",
-                        expected_behavior="MISSING.md should exist",
-                    )
-                ],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="configuration",
+                file_patterns=["MISSING.md"],
+                bundle_strategy=BundleStrategy.COLLECTION,
             ),
+            phases=[
+                PhaseDefinition(
+                    name="check_file",
+                    type="file_exists",
+                    file_path="MISSING.md",
+                    failure_message="MISSING.md not found",
+                    expected_behavior="MISSING.md should exist",
+                )
+            ],
         )
 
         base_config.drift_learning_types["missing_doc"] = learning_type_config
@@ -153,28 +144,23 @@ class TestRuleBasedValidation:
         # CLAUDE.md exists, so this should fail
         learning_type_config = DriftLearningType(
             description="CLAUDE.md should not exist",
-            detection_prompt="Not used for programmatic",
-            analysis_method="programmatic",
             scope="project_level",
             context="Testing inverted logic",
             requires_project_context=True,
-            validation_rules=ValidationRulesConfig(
-                scope="project_level",
-                document_bundle=DocumentBundleConfig(
-                    bundle_type="configuration",
-                    file_patterns=["CLAUDE.md"],
-                    bundle_strategy=BundleStrategy.COLLECTION,
-                ),
-                rules=[
-                    ValidationRule(
-                        rule_type=ValidationType.FILE_NOT_EXISTS,
-                        description="CLAUDE.md should not exist",
-                        file_path="CLAUDE.md",
-                        failure_message="CLAUDE.md exists but should not",
-                        expected_behavior="CLAUDE.md should be absent",
-                    )
-                ],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="configuration",
+                file_patterns=["CLAUDE.md"],
+                bundle_strategy=BundleStrategy.COLLECTION,
             ),
+            phases=[
+                PhaseDefinition(
+                    name="check_file",
+                    type="file_not_exists",
+                    file_path="CLAUDE.md",
+                    failure_message="CLAUDE.md exists but should not",
+                    expected_behavior="CLAUDE.md should be absent",
+                )
+            ],
         )
 
         base_config.drift_learning_types["claude_not_exist"] = learning_type_config
@@ -197,8 +183,6 @@ class TestRuleBasedValidation:
         # Create learning type checking for skill files
         learning_type_config = DriftLearningType(
             description="Check skill files exist",
-            detection_prompt="Not used for programmatic",
-            analysis_method="programmatic",
             scope="project_level",
             context="Skills are required",
             requires_project_context=True,
@@ -237,8 +221,6 @@ class TestRuleBasedValidation:
         # Create learning type with multiple rules
         learning_type_config = DriftLearningType(
             description="Check multiple requirements",
-            detection_prompt="Not used for programmatic",
-            analysis_method="programmatic",
             scope="project_level",
             context="Multiple checks",
             requires_project_context=True,
@@ -289,65 +271,13 @@ class TestRuleBasedValidation:
         learning = result.metadata["document_learnings"][0]
         assert learning["observed_issue"] == "MISSING.md not found"
 
-    def test_programmatic_without_validation_rules_raises_error(self, test_project, base_config):
-        """Test that programmatic analysis without validation_rules raises error."""
-        # Create learning type with programmatic but no validation_rules
-        with pytest.raises(ValueError) as exc_info:
-            DriftLearningType(
-                description="Bad config",
-                detection_prompt="Not used",
-                analysis_method="programmatic",
-                scope="project_level",
-                context="Missing validation rules",
-                requires_project_context=True,
-                # No validation_rules!
-            )
-
-        assert "validation_rules must be provided" in str(exc_info.value)
-
-    def test_ai_analyzed_with_validation_rules_raises_error(self, test_project, base_config):
-        """Test that ai_analyzed with validation_rules raises error."""
-        # Create learning type with ai_analyzed but validation_rules present
-        with pytest.raises(ValueError) as exc_info:
-            DriftLearningType(
-                description="Bad config",
-                detection_prompt="Used for AI",
-                analysis_method="ai_analyzed",
-                scope="project_level",
-                context="Has validation rules",
-                requires_project_context=True,
-                validation_rules=ValidationRulesConfig(
-                    scope="project_level",
-                    document_bundle=DocumentBundleConfig(
-                        bundle_type="test",
-                        file_patterns=["*.md"],
-                        bundle_strategy=BundleStrategy.COLLECTION,
-                    ),
-                    rules=[
-                        ValidationRule(
-                            rule_type=ValidationType.FILE_EXISTS,
-                            description="Test",
-                            file_path="test.md",
-                            failure_message="Test",
-                            expected_behavior="Test",
-                        )
-                    ],
-                ),
-            )
-
-        assert "validation_rules should not be provided" in str(exc_info.value)
-
-    def test_backward_compatibility_ai_analysis_unaffected(self, test_project, base_config, mocker):
-        """Test that existing AI-based analysis still works."""
-        # Mock the provider
+    def test_ai_analysis_with_phases_works(self, test_project, base_config, mocker):
+        """Test that AI-based analysis with phases works."""
         mock_provider = mocker.Mock()
-        mock_provider.generate.return_value = "[]"  # Empty response
+        mock_provider.generate.return_value = "[]"
 
-        # Create traditional AI-based learning type (no validation_rules)
         learning_type_config = DriftLearningType(
             description="AI-based check",
-            detection_prompt="Look for issues",
-            analysis_method="ai_analyzed",
             scope="project_level",
             context="Testing AI path",
             requires_project_context=True,
@@ -356,17 +286,22 @@ class TestRuleBasedValidation:
                 file_patterns=["*.md"],
                 bundle_strategy=BundleStrategy.COLLECTION,
             ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Look for issues",
+                    model="haiku",
+                )
+            ],
         )
 
         base_config.drift_learning_types["ai_check"] = learning_type_config
 
-        # Create analyzer and inject mock provider
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
         analyzer.providers["haiku"] = mock_provider
 
-        # Analyze documents
         result = analyzer.analyze_documents(learning_types=["ai_check"])
 
-        # Verify AI provider was called (not validation)
         assert mock_provider.generate.called
         assert len(result.metadata["document_learnings"]) == 0
