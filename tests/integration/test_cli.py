@@ -120,7 +120,7 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(
             app,
-            ["--agent-tool", "claude-code", "--project", str(temp_dir)],
+            ["--scope", "conversation", "--agent-tool", "claude-code", "--project", str(temp_dir)],
         )
 
         assert result.exit_code == 0
@@ -149,7 +149,7 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(
             app,
-            ["--types", "incomplete_work", "--project", str(temp_dir)],
+            ["--scope", "conversation", "--types", "incomplete_work", "--project", str(temp_dir)],
         )
 
         assert result.exit_code == 0
@@ -309,7 +309,7 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(
             app,
-            ["--model", "haiku", "--project", str(temp_dir)],
+            ["--scope", "conversation", "--model", "haiku", "--project", str(temp_dir)],
         )
 
         assert result.exit_code == 0
@@ -408,7 +408,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         mock_analyzer = MagicMock()
-        mock_analyzer.analyze.side_effect = FileNotFoundError("Path not found")
+        mock_analyzer.analyze_documents.side_effect = FileNotFoundError("Path not found")
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
@@ -431,7 +431,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         mock_analyzer = MagicMock()
-        mock_analyzer.analyze.side_effect = Exception("Something went wrong")
+        mock_analyzer.analyze_documents.side_effect = Exception("Something went wrong")
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
@@ -603,14 +603,8 @@ class TestAnalyzeCommand:
         )
 
         mock_analyzer = MagicMock()
-        mock_analyzer.analyze.return_value = result_with_skipped
-        # Mock analyze_documents too since default scope is now 'all'
-        empty_doc_result = CompleteAnalysisResult(
-            metadata={"generated_at": "2024-01-01T10:00:00"},
-            summary=AnalysisSummary(total_conversations=0, total_learnings=0),
-            results=[],
-        )
-        mock_analyzer.analyze_documents.return_value = empty_doc_result
+        # Default scope is now 'project', so only analyze_documents is called
+        mock_analyzer.analyze_documents.return_value = result_with_skipped
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
@@ -679,7 +673,9 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
+        result = cli_runner.invoke(
+            app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+        )
 
         # Should show warning about skipping LLM rule
         assert "Skipping 1 LLM-based rule(s)" in result.stderr
@@ -762,7 +758,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = result_empty
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
+        result = cli_runner.invoke(app, ["--scope", "all", "--no-llm", "--project", str(temp_dir)])
 
         # Should show LLM rule was skipped due to --no-llm
         assert "Skipping 1 LLM-based rule(s)" in result.stderr
@@ -908,7 +904,9 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
+        result = cli_runner.invoke(
+            app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+        )
 
         # Should show warning that all rules are skipped
         assert "Skipping 2 LLM-based rule(s)" in result.stderr
@@ -1111,7 +1109,9 @@ class TestAnalyzeCommand:
 
                 # Mock the provider's generate method to ensure it's NEVER called
                 with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
-                    cli_runner.invoke(app, ["--no-llm", "--project", str(temp_dir)])
+                    cli_runner.invoke(
+                        app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+                    )
 
                     # CRITICAL: LLM generate should NEVER be called with --no-llm
                     assert mock_generate.call_count == 0, (
@@ -1201,7 +1201,7 @@ class TestAnalyzeCommand:
             )
 
     def test_default_scope_is_all(self, cli_runner, claude_code_project_dir, make_config_yaml):
-        """Test that default scope is 'all' (not 'conversation')."""
+        """Test that default scope is 'project' (not 'conversation' or 'all')."""
         # Create config with both conversation and project rules
         config_content = make_config_yaml(
             learning_types={
@@ -1237,17 +1237,20 @@ class TestAnalyzeCommand:
         with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
             mock_generate.return_value = "[]"
 
-            # Run without explicit --scope (should default to 'all')
+            # Run without explicit --scope (should default to 'project')
             result = cli_runner.invoke(
                 app,
                 ["--project", str(claude_code_project_dir)],
             )
 
-            # Check that output mentions both conversation and project analysis
-            # The summary should show results from both scopes
+            # Check that only project analysis runs (not conversation)
+            # The project rule should have run (checks for README.md)
             assert result.exit_code in [0, 2]
-            # Project rule should have run (checks for README.md)
             assert "project_rule" in result.stdout or "Rules checked" in result.stdout
+            # Conversation rule should NOT have run
+            assert (
+                mock_generate.call_count == 0
+            ), "Conversation rules should not run with default scope"
 
     def test_no_llm_project_scope_runs_programmatic_rules(
         self, cli_runner, claude_code_project_dir, make_config_yaml

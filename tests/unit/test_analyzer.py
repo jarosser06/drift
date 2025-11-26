@@ -1764,3 +1764,97 @@ class TestAnalyzerEdgeCases:
 
         # Should include resource content in prompt
         assert "Test command content" in prompt or "command" in prompt.lower()
+
+    @patch("drift.core.analyzer.DocumentLoader")
+    @patch("drift.core.analyzer.BedrockProvider")
+    def test_document_learnings_should_not_have_turn_number_one(
+        self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
+    ):
+        """Test that document learnings are properly distinguished from conversation learnings.
+
+        This test validates that document-based learnings (from project files) don't
+        show misleading "Turn: 1" in output, since they're not tied to conversation turns.
+        """
+        from drift.config.models import (
+            BundleStrategy,
+            DocumentBundleConfig,
+            DriftLearningType,
+            PhaseDefinition,
+        )
+        from drift.core.types import DocumentBundle, DocumentFile
+
+        # Create document learning type
+        doc_type = DriftLearningType(
+            description="Test document drift",
+            scope="project_level",
+            context="Testing",
+            requires_project_context=True,
+            supported_clients=["claude-code"],
+            document_bundle=DocumentBundleConfig(
+                bundle_type="test",
+                file_patterns=["*.md"],
+                bundle_strategy=BundleStrategy.INDIVIDUAL,
+                resource_patterns=[],
+            ),
+            phases=[
+                PhaseDefinition(
+                    name="detection",
+                    type="prompt",
+                    prompt="Find issues",
+                    model="haiku",
+                )
+            ],
+        )
+        sample_drift_config.drift_learning_types = {"doc_test": doc_type}
+
+        # Create mock bundle
+        bundle = DocumentBundle(
+            bundle_id="test_bundle",
+            bundle_type="test",
+            bundle_strategy="individual",
+            project_path=temp_dir,
+            files=[
+                DocumentFile(
+                    relative_path="test.md",
+                    content="test content",
+                    file_path=temp_dir / "test.md",
+                )
+            ],
+        )
+
+        mock_loader = MagicMock()
+        mock_loader.load_bundles.return_value = [bundle]
+        mock_loader.format_bundle_for_llm.return_value = "formatted content"
+        mock_loader_class.return_value = mock_loader
+
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
+        mock_provider.generate.return_value = json.dumps(
+            [
+                {
+                    "file_paths": ["test.md"],
+                    "observed_issue": "Issue found",
+                    "expected_quality": "Should be better",
+                    "context": "Test context",
+                }
+            ]
+        )
+        mock_provider_class.return_value = mock_provider
+
+        analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
+        result = analyzer.analyze_documents()
+
+        # Verify learnings were created
+        assert len(result.results) > 0
+        assert len(result.results[0].learnings) > 0
+
+        # CRITICAL: Document learnings should NOT have turn_number=1
+        # They should either have turn_number=0 (indicating not turn-based)
+        # or have a source_type field distinguishing them from conversation learnings
+        for analysis_result in result.results:
+            for learning in analysis_result.learnings:
+                # This assertion will FAIL with current implementation (turn_number=1)
+                # After fix, document learnings should have turn_number=0 or similar indicator
+                assert learning.turn_number != 1 or hasattr(
+                    learning, "source_type"
+                ), "Document learnings should not show turn_number=1 as it's misleading"

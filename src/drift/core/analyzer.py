@@ -27,7 +27,6 @@ from drift.core.types import (
     Conversation,
     DocumentBundle,
     DocumentLearning,
-    FrequencyType,
     Learning,
     PhaseAnalysisResult,
     ResourceRequest,
@@ -642,12 +641,12 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 observed_behavior=item.get("observed_behavior", ""),
                 expected_behavior=item.get("expected_behavior", ""),
                 learning_type=learning_type,
-                frequency=FrequencyType.ONE_TIME,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 context=item.get("context", ""),
                 resources_consulted=[],
                 phases_count=1,
+                source_type="conversation",  # Mark as conversation-sourced learning
             )
             learnings.append(learning)
 
@@ -677,7 +676,6 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         # Count learnings by type and agent
         by_type: Dict[str, int] = {}
         by_agent: Dict[str, int] = {}
-        by_frequency: Dict[str, int] = {}
         all_rule_errors: Dict[str, str] = {}
 
         for result in results:
@@ -695,17 +693,12 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 # By agent
                 by_agent[learning.agent_tool] = by_agent.get(learning.agent_tool, 0) + 1
 
-                # By frequency
-                freq = learning.frequency.value
-                by_frequency[freq] = by_frequency.get(freq, 0) + 1
-
             # Collect rule errors
             for rule_name, error_msg in result.rule_errors.items():
                 all_rule_errors[rule_name] = error_msg
 
         summary.by_type = by_type
         summary.by_agent = by_agent
-        summary.by_frequency = by_frequency
 
         # Track which rules were checked, passed, warned, failed, and errored
         if types_checked:
@@ -912,20 +905,22 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         for doc_learning in all_document_learnings:
             # Map DocumentLearning fields to Learning fields
             learning = Learning(
-                turn_number=1,  # Document learnings aren't tied to specific turns
+                turn_number=0,  # Document learnings aren't tied to specific turns
                 turn_uuid=None,
                 agent_tool="documents",
                 conversation_file="N/A",
                 observed_behavior=doc_learning.observed_issue,
                 expected_behavior=doc_learning.expected_quality,
                 learning_type=doc_learning.learning_type,
-                frequency=FrequencyType.ONE_TIME,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],
                 context=doc_learning.context,
                 resources_consulted=[],
                 phases_count=1,
+                source_type="document",  # Mark as document-sourced learning
+                affected_files=doc_learning.file_paths,  # Transfer file information
+                bundle_id=doc_learning.bundle_id,  # Transfer bundle identifier
             )
             converted_learnings.append(learning)
 
@@ -1338,7 +1333,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             )
             learnings.append(learning)
 
-        return learnings
+        # ENFORCE: Return only first learning (ONE per rule)
+        # This ensures each rule returns exactly one learning, regardless of what LLM returns
+        return learnings[:1] if learnings else []
 
     def _combine_bundles(
         self,
@@ -1777,7 +1774,7 @@ Return JSON with the same format:
             if not resource.found:
                 # Missing resource IS the drift
                 learning = Learning(
-                    turn_number=1,  # Not turn-specific
+                    turn_number=0,  # Not turn-specific
                     turn_uuid=None,
                     agent_tool=conversation.agent_tool,
                     conversation_file=conversation.file_path,
@@ -1791,7 +1788,6 @@ Return JSON with the same format:
                         f"'{resource.request.resource_id}' should exist in project"
                     ),
                     learning_type=f"missing_{resource.request.resource_type}",
-                    frequency=FrequencyType.ONE_TIME,
                     workflow_element=WorkflowElement.UNKNOWN,
                     turns_to_resolve=1,
                     turns_involved=[],
@@ -1800,6 +1796,7 @@ Return JSON with the same format:
                         f"{resource.request.resource_type}:{resource.request.resource_id}"
                     ],
                     phases_count=len(phase_results),
+                    source_type="resource_missing",  # Mark as resource-missing learning
                 )
                 learnings.append(learning)
 
@@ -1823,6 +1820,9 @@ Return JSON with the same format:
         learnings = []
         malformed_count = 0
 
+        # ENFORCE: Only process first VALID finding (ONE per rule)
+        # This ensures each rule returns exactly one learning, regardless of what LLM returns
+        # We find the first valid finding to handle cases where LLM returns malformed data first
         for finding in final_phase.findings:
             # Validate that finding has required fields
             observed = finding.get("observed_behavior", "").strip()
@@ -1833,6 +1833,7 @@ Return JSON with the same format:
                 malformed_count += 1
                 continue
 
+            # Found first valid finding - create learning and stop
             learning = Learning(
                 turn_number=finding.get("turn_number", 0),
                 turn_uuid=None,
@@ -1841,15 +1842,16 @@ Return JSON with the same format:
                 observed_behavior=observed,
                 expected_behavior=expected,
                 learning_type=learning_type,
-                frequency=FrequencyType.ONE_TIME,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],
                 context=finding.get("context", ""),
                 resources_consulted=resources_consulted,
                 phases_count=len(phase_results),
+                source_type="conversation",  # Mark as conversation-sourced learning
             )
             learnings.append(learning)
+            break  # ENFORCE: Only one learning per rule
 
         # Return error if we had malformed findings
         error = None

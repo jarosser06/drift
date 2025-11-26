@@ -866,7 +866,7 @@ class TestComprehensiveE2E:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir), "--format", "markdown"]
+                app, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "markdown"]
             )
 
         # Verify exit code (2 = drift found)
@@ -977,7 +977,9 @@ class TestComprehensiveE2E:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --format json (NO --detailed flag)
-            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--format", "json"])
+            result = cli_runner.invoke(
+                app, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "json"]
+            )
 
         # Verify exit code
         assert result.exit_code == 2, (
@@ -1129,7 +1131,9 @@ class TestComprehensiveE2E:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --detailed flag
-            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--detailed"])
+            result = cli_runner.invoke(
+                app, ["--scope", "all", "--project", str(e2e_project_dir), "--detailed"]
+            )
 
         # Verify exit code
         assert result.exit_code == 2, (
@@ -1191,8 +1195,10 @@ class TestComprehensiveE2E:
         mock_provider = FailIfCalledProvider()
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            # Run with --no-llm flag
-            result = cli_runner.invoke(app, ["--project", str(e2e_project_dir), "--no-llm"])
+            # Run with --no-llm flag and --scope all to test both conversation and project rules
+            result = cli_runner.invoke(
+                app, ["--scope", "all", "--project", str(e2e_project_dir), "--no-llm"]
+            )
 
         # Should succeed (exit code 0 because CLAUDE.md exists, so programmatic rule passes)
         assert result.exit_code == 0, (
@@ -1574,6 +1580,8 @@ class TestComprehensiveE2E:
             result = cli_runner.invoke(
                 app,
                 [
+                    "--scope",
+                    "conversation",
                     "--project",
                     str(e2e_project_dir),
                     "--format",
@@ -1870,6 +1878,8 @@ drift_learning_types:
             result = cli_runner.invoke(
                 app,
                 [
+                    "--scope",
+                    "conversation",
                     "--project",
                     str(e2e_project_dir),
                     "--types",
@@ -1976,7 +1986,9 @@ drift_learning_types:
         mock_provider = SequentialMockProvider([json.dumps([])])  # No drift
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            result = cli_runner.invoke(app, ["--project", str(project_dir), "--format", "json"])
+            result = cli_runner.invoke(
+                app, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
+            )
 
         output = json.loads(result.stdout)
 
@@ -1995,7 +2007,15 @@ drift_learning_types:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir_all_conversations), "--format", "json"]
+                app,
+                [
+                    "--scope",
+                    "conversation",
+                    "--project",
+                    str(e2e_project_dir_all_conversations),
+                    "--format",
+                    "json",
+                ],
             )
 
         output = json.loads(result.stdout)
@@ -2041,7 +2061,9 @@ drift_learning_types:
         mock_provider = SequentialMockProvider([json.dumps([])])
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            result = cli_runner.invoke(app, ["--project", str(project_dir), "--format", "json"])
+            result = cli_runner.invoke(
+                app, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
+            )
 
         output = json.loads(result.stdout)
 

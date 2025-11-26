@@ -44,7 +44,6 @@ class JsonFormatter(OutputFormatter):
                 "conversations_without_drift": result.summary.conversations_without_drift,
                 "by_type": result.summary.by_type,
                 "by_agent": result.summary.by_agent,
-                "by_frequency": result.summary.by_frequency,
             },
             "results": [],
         }
@@ -66,7 +65,7 @@ class JsonFormatter(OutputFormatter):
 
             # Add learnings
             for learning in analysis_result.learnings:
-                learning_data = {
+                learning_data: Dict[str, Any] = {
                     "turn_number": learning.turn_number,
                     "turn_uuid": learning.turn_uuid,
                     "agent_tool": learning.agent_tool,
@@ -74,12 +73,18 @@ class JsonFormatter(OutputFormatter):
                     "observed_behavior": learning.observed_behavior,
                     "expected_behavior": learning.expected_behavior,
                     "learning_type": learning.learning_type,
-                    "frequency": learning.frequency.value,
                     "workflow_element": learning.workflow_element.value,
                     "turns_to_resolve": learning.turns_to_resolve,
                     "turns_involved": learning.turns_involved,
                     "context": learning.context,
                 }
+
+                # Add optional document-specific fields
+                if hasattr(learning, "affected_files") and learning.affected_files:
+                    learning_data["affected_files"] = learning.affected_files
+                if hasattr(learning, "bundle_id") and learning.bundle_id:
+                    learning_data["bundle_id"] = learning.bundle_id
+
                 learnings_list = conversation_data.get("learnings")
                 if isinstance(learnings_list, list):
                     learnings_list.append(learning_data)

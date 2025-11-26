@@ -40,7 +40,7 @@ def main(
         help="Output format (markdown or json)",
     ),
     scope: str = typer.Option(
-        "all",
+        "project",
         "--scope",
         "-s",
         help="Analysis scope: conversation, project, or all",

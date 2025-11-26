@@ -9,7 +9,6 @@ from drift.core.types import (
     AnalysisResult,
     AnalysisSummary,
     CompleteAnalysisResult,
-    FrequencyType,
     Learning,
     WorkflowElement,
 )
@@ -211,38 +210,9 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter()
         output = formatter.format(result)
 
-        assert "**Workflow element:** documentation" in output
-
-    def test_format_frequency(self):
-        """Test formatting frequency type."""
-        learning = Learning(
-            turn_number=1,
-            agent_tool="claude-code",
-            conversation_file="/path",
-            observed_behavior="Action",
-            expected_behavior="Intent",
-            learning_type="test",
-            frequency=FrequencyType.REPEATED,
-        )
-
-        analysis_result = AnalysisResult(
-            session_id="session",
-            agent_tool="claude-code",
-            conversation_file="/path",
-            learnings=[learning],
-            analysis_timestamp=datetime.now(),
-        )
-
-        result = CompleteAnalysisResult(
-            metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
-            results=[analysis_result],
-        )
-
-        formatter = MarkdownFormatter()
-        output = formatter.format(result)
-
-        assert "**Frequency:** repeated" in output
+        # Workflow element is stored but not displayed in output - verify formatting works
+        assert "**Observed:** Action" in output
+        assert "**Expected:** Intent" in output
 
     def test_format_with_project_path(self):
         """Test formatting with project path."""
@@ -741,7 +711,6 @@ class TestJsonFormatter:
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
                 by_agent={"claude-code": 1},
-                by_frequency={"one-time": 1},
             ),
             results=[analysis_result],
         )
@@ -833,7 +802,6 @@ class TestJsonFormatter:
             observed_behavior="AI action",
             expected_behavior="User intent",
             learning_type="test_type",
-            frequency=FrequencyType.REPEATED,
             workflow_element=WorkflowElement.SKILL,
             turns_to_resolve=3,
             turns_involved=[5, 6, 7],
@@ -862,7 +830,6 @@ class TestJsonFormatter:
 
         assert learning_data["turn_number"] == 5
         assert learning_data["turn_uuid"] == "turn-uuid-123"
-        assert learning_data["frequency"] == "repeated"
         assert learning_data["workflow_element"] == "skill"
         assert learning_data["turns_to_resolve"] == 3
         assert learning_data["turns_involved"] == [5, 6, 7]
@@ -971,3 +938,157 @@ class TestJsonFormatter:
         # Should still be valid JSON
         data = json.loads(output)
         assert data["results"][0]["learnings"][0]["observed_behavior"] == "Action with émojis 🚀"
+
+    def test_format_document_learning_with_files_in_json(self):
+        """Test that document learnings include affected_files in JSON output."""
+        learning = Learning(
+            turn_number=0,
+            agent_tool="documents",
+            conversation_file="N/A",
+            observed_behavior="Issue found in skill",
+            expected_behavior="Should be correct",
+            learning_type="skill_completeness",
+            source_type="document",
+            affected_files=[".claude/skills/testing/SKILL.md"],
+            bundle_id="testing_skill",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="document_analysis",
+            agent_tool="documents",
+            conversation_file="N/A",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            results=[analysis_result],
+        )
+
+        formatter = JsonFormatter()
+        output = formatter.format(result)
+
+        data = json.loads(output)
+        learning_data = data["results"][0]["learnings"][0]
+
+        assert "affected_files" in learning_data
+        assert learning_data["affected_files"] == [".claude/skills/testing/SKILL.md"]
+        assert learning_data["bundle_id"] == "testing_skill"
+
+
+class TestMarkdownFormatterDocumentLearnings:
+    """Tests for MarkdownFormatter with document learnings."""
+
+    def test_format_document_learning_single_file(self):
+        """Test that document learnings show single file path."""
+        learning = Learning(
+            turn_number=0,
+            agent_tool="documents",
+            conversation_file="N/A",
+            observed_behavior="References to external files that don't exist",
+            expected_behavior="Should only reference files in bundle",
+            learning_type="skill_completeness",
+            source_type="document",
+            affected_files=[".claude/skills/testing/SKILL.md"],
+            bundle_id="testing_skill",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="document_analysis",
+            agent_tool="documents",
+            conversation_file="N/A",
+            project_path="/path/to/project",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        assert "**File:** .claude/skills/testing/SKILL.md" in output
+        assert "**Source:** document_analysis" in output
+        assert "**Observed:** References to external files that don't exist" in output
+
+    def test_format_document_learning_multiple_files(self):
+        """Test that document learnings show multiple files as list."""
+        learning = Learning(
+            turn_number=0,
+            agent_tool="documents",
+            conversation_file="N/A",
+            observed_behavior="Multiple commands missing execution steps",
+            expected_behavior="Commands should have clear execution workflow",
+            learning_type="command_completeness",
+            source_type="document",
+            affected_files=[
+                ".claude/commands/test.md",
+                ".claude/commands/lint.md",
+                ".claude/commands/deploy.md",
+            ],
+            bundle_id="commands_collection",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="document_analysis",
+            agent_tool="documents",
+            conversation_file="N/A",
+            project_path="/path/to/project",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        assert "**Files:**" in output
+        assert "  - .claude/commands/test.md" in output
+        assert "  - .claude/commands/lint.md" in output
+        assert "  - .claude/commands/deploy.md" in output
+        assert "**Source:** document_analysis" in output
+
+    def test_format_document_learning_no_files(self):
+        """Test document learnings without affected_files still work."""
+        learning = Learning(
+            turn_number=0,
+            agent_tool="documents",
+            conversation_file="N/A",
+            observed_behavior="Issue found",
+            expected_behavior="Should be correct",
+            learning_type="test_type",
+            source_type="document",
+        )
+
+        analysis_result = AnalysisResult(
+            session_id="document_analysis",
+            agent_tool="documents",
+            conversation_file="N/A",
+            learnings=[learning],
+            analysis_timestamp=datetime.now(),
+        )
+
+        result = CompleteAnalysisResult(
+            metadata={},
+            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            results=[analysis_result],
+        )
+
+        formatter = MarkdownFormatter()
+        output = formatter.format(result)
+
+        # Should not show file info if not present
+        assert "**File:**" not in output
+        assert "**Files:**" not in output
+        assert "**Source:** document_analysis" in output

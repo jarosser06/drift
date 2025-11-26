@@ -103,9 +103,6 @@ class Learning(BaseModel):
     )
     expected_behavior: str = Field(..., description="What should have happened instead")
     learning_type: str = Field(..., description="Type of drift learning")
-    frequency: FrequencyType = Field(
-        FrequencyType.ONE_TIME, description="How often this pattern appears"
-    )
     workflow_element: WorkflowElement = Field(
         WorkflowElement.UNKNOWN, description="What workflow element needs improvement"
     )
@@ -118,6 +115,17 @@ class Learning(BaseModel):
         default_factory=list, description="Resources checked during multi-phase analysis"
     )
     phases_count: int = Field(1, description="Number of analysis phases")
+    source_type: Optional[str] = Field(
+        None, description="Source of the learning: 'conversation' or 'document'"
+    )
+    affected_files: Optional[List[str]] = Field(
+        default=None,
+        description="Files involved in this learning (for document analysis)",
+    )
+    bundle_id: Optional[str] = Field(
+        default=None,
+        description="Bundle identifier (e.g., 'testing_skill') for document learnings",
+    )
 
 
 class AnalysisResult(BaseModel):
@@ -146,9 +154,6 @@ class AnalysisSummary(BaseModel):
     by_type: Dict[str, int] = Field(default_factory=dict, description="Learning count by type")
     by_agent: Dict[str, int] = Field(
         default_factory=dict, description="Learning count by agent tool"
-    )
-    by_frequency: Dict[str, int] = Field(
-        default_factory=dict, description="Learning count by frequency"
     )
     conversations_with_drift: int = Field(0, description="Number of conversations containing drift")
     conversations_without_drift: int = Field(0, description="Number of conversations without drift")

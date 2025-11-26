@@ -331,6 +331,58 @@ class TestMultiPhaseAnalysis:
             assert isinstance(learnings, list)
             assert len(phase_results) == 1
 
+    @patch("drift.core.analyzer.BedrockProvider", MockProvider)
+    def test_multi_phase_enforces_single_finding(
+        self, config_with_multi_phase, sample_conversation
+    ):
+        """Verify that even if LLM returns multiple findings, only first is used."""
+        # LLM returns 3 findings (simulating the bug where skill_completeness returned 9)
+        phase_response = json.dumps(
+            {
+                "resource_requests": [],
+                "findings": [
+                    {
+                        "observed_behavior": "First issue found",
+                        "expected_behavior": "Should be correct",
+                        "context": "This is the first finding",
+                    },
+                    {
+                        "observed_behavior": "Second issue found",
+                        "expected_behavior": "Should also be correct",
+                        "context": "This is the second finding",
+                    },
+                    {
+                        "observed_behavior": "Third issue found",
+                        "expected_behavior": "Should be fixed too",
+                        "context": "This is the third finding",
+                    },
+                ],
+                "final_determination": True,
+            }
+        )
+
+        mock_provider = MockProvider()
+        mock_provider.set_response(phase_response)
+
+        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
+            analyzer = DriftAnalyzer(config=config_with_multi_phase)
+
+            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+                conversation=sample_conversation,
+                learning_type="multi_phase_test",
+                type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                model_override=None,
+            )
+
+            # CRITICAL: Even though LLM returned 3 findings, we should only get 1 learning
+            assert error is None or error == ""
+            assert isinstance(learnings, list)
+            assert (
+                len(learnings) == 1
+            ), f"Should enforce single finding per rule, got {len(learnings)} learnings"
+            assert learnings[0].observed_behavior == "First issue found"
+            assert learnings[0].context == "This is the first finding"
+
 
 class TestResourceLoading:
     """Test resource loading for multi-phase."""

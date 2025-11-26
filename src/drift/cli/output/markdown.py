@@ -283,7 +283,29 @@ class MarkdownFormatter(OutputFormatter):
                 lines.append(session_info)
 
                 lines.append(f"**Agent Tool:** {analysis_result.agent_tool}")
-                lines.append(f"**Turn:** {learning.turn_number}")
+
+                # Show Turn or Source based on learning source type
+                if hasattr(learning, "source_type") and learning.source_type == "document":
+                    # Show affected files for document learnings
+                    if hasattr(learning, "affected_files") and learning.affected_files:
+                        if len(learning.affected_files) == 1:
+                            # Single file - use singular "File:"
+                            lines.append(f"**File:** {learning.affected_files[0]}")
+                        else:
+                            # Multiple files - show each on separate line for readability
+                            lines.append("**Files:**")
+                            for file_path in learning.affected_files:
+                                lines.append(f"  - {file_path}")
+                    lines.append("**Source:** document_analysis")
+                elif (
+                    hasattr(learning, "source_type") and learning.source_type == "resource_missing"
+                ):
+                    lines.append("**Source:** resource_validation")
+                else:
+                    # Conversation-based learning - show turn number
+                    if learning.turn_number > 0:
+                        lines.append(f"**Turn:** {learning.turn_number}")
+                    # else: turn_number=0 indicates not turn-specific, don't show it
 
                 # Observed vs expected behavior - color based on scope
                 # Observed behavior uses the scope color (red/yellow)
@@ -292,13 +314,6 @@ class MarkdownFormatter(OutputFormatter):
                 lines.append(
                     f"**Expected:** {self._colorize(learning.expected_behavior, self.GREEN)}"
                 )
-
-                # Frequency
-                lines.append(f"**Frequency:** {learning.frequency.value}")
-
-                # Workflow element (if not unknown)
-                if learning.workflow_element.value != "unknown":
-                    lines.append(f"**Workflow element:** {learning.workflow_element.value}")
 
                 # Context (if provided) - don't color it
                 if learning.context:

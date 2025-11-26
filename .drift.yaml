@@ -29,137 +29,7 @@ conversations:
 temp_dir: /tmp/drift
 
 drift_learning_types:
-  agent_delegation_miss:
-    description: "AI performed tasks that available agents could handle better"
-    scope: conversation_level
-    context: "Identifies when AI performs tasks that available agents could handle better, leading to slower workflows and inconsistent results. Proper delegation improves speed and reliability."
-    requires_project_context: true
-    supported_clients:
-      - claude-code
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Identify when AI performs tasks that available agents could handle better, leading to slower workflows and inconsistent results.
-
-          When analyzing, consider which agents are available in the project (if project context is provided).
-
-          Focus on these patterns:
-          - AI manually performing tasks that specialized agents could automate
-          - User suggesting "use the X agent" or "let the agent handle this"
-          - AI spending multiple turns on tasks an agent could complete in one
-          - Repetitive manual work that agents are designed for
-
-          Explicit phrases that indicate this drift:
-          - "Use the agent", "Let the agent handle"
-          - "Why didn't you use the agent", "Delegate to"
-
-          Behavioral patterns to look for:
-          - AI manually performs automated tasks
-          - User redirects to agent-based workflow
-          - Multiple turns for single-agent task
-
-          Example:
-          User says "run tests", AI manually searches for test files and reads them, then user says "just use the testing agent"
-        available_resources: []
-
-  skill_ignored:
-    description: "AI reinvented solutions when documented skills existed"
-    scope: conversation_level
-    context: "Reinventing documented solutions creates inconsistency and wastes development time. Using existing skills ensures proven patterns."
-    requires_project_context: true
-    supported_clients:
-      - claude-code
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Find cases where AI implemented functionality from scratch when project skills already documented the approach.
-
-          When analyzing, consider which skills are available in the project (if project context is provided).
-
-          Focus on these patterns:
-          - AI writing code that duplicates skill patterns
-          - User pointing to "we have a skill for this"
-          - AI not following documented skill workflows
-          - User referencing skill documentation AI should have used
-
-          Explicit phrases that indicate this drift:
-          - "We have a skill for", "Check the skill"
-          - "Follow the skill pattern", "Use the documented approach"
-
-          Behavioral patterns to look for:
-          - AI implements from scratch when skill exists
-          - User references skill documentation
-          - Deviation from documented workflow
-
-          Example:
-          User asks "add API endpoint", AI writes custom code, then user says "we have a REST API skill that shows the pattern"
-        available_resources: []
-
-  workflow_bypass:
-    description: "User manually prompted instead of using documented workflows"
-    scope: conversation_level
-    context: "Manual prompting instead of documented workflows misses validation steps and efficiency gains. Following established processes ensures quality and speed."
-    requires_project_context: false
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Detect when user bypassed documented workflows, commands, or processes by manually prompting the AI. This indicates workflows may need improvement or the user isn't aware of them.
-
-          Focus on these patterns:
-          - User manually describing multi-step processes that commands automate
-          - Conversation following manual path when slash command exists
-          - User unaware of available automation
-          - Missing validation steps that workflows would provide
-
-          Explicit phrases that indicate this drift:
-          - "I didn't know there was a command"
-          - "Oh, there's a workflow for that"
-          - "Should have used the command"
-
-          Behavioral patterns to look for:
-          - User manually describes automated workflow
-          - Missing validation from standard workflow
-          - Conversation recreates command functionality
-
-          Example:
-          User says "first run tests, then lint, then build, then commit" when a /full-check command exists that does all of this
-
-          Note: Maximum 1 learning per conversation for this type.
-        available_resources: []
-
-  no_agents_configured:
-    description: "Project has no agents configured, missing automation opportunities"
-    scope: conversation_level
-    context: "Projects without agents miss opportunities for specialized task delegation and workflow optimization. Adding agents for common tasks improves speed and consistency."
-    requires_project_context: true
-    supported_clients:
-      - claude-code
-    phases:
-      - name: detection
-        type: prompt
-        model: haiku
-        prompt: |
-          Determine if the project has zero agents configured. This is a project-level issue indicating missed opportunities for task delegation and workflow automation.
-
-          Based on the project context (if provided), check if any agents are configured.
-
-          If no agents are found, this represents an opportunity to add specialized agents for common tasks to improve workflow speed and consistency.
-
-          Behavioral patterns to look for:
-          - No agents configured in project
-          - Project context shows empty agents list
-          - Project with .claude/ directory but no .claude/agents/ folder
-
-          Note: Maximum 1 learning per conversation for this type.
-        available_resources: []
-
-  # Project-level document analysis
+  # All rules are project-level focused on documentation quality
   skill_completeness:
     description: "Claude Code skills missing essential components or clarity"
     scope: project_level
@@ -184,6 +54,19 @@ drift_learning_types:
         prompt: |
           Check if the skill has basic structure: clear title, purpose, examples.
           Look for obvious missing components or vague instructions.
+
+          Focus on:
+          - References to external files that don't exist in the skill bundle
+          - Missing practical examples or walkthroughs demonstrating usage
+          - Broken or dangling references to resources
+
+          Do NOT flag:
+          - Missing MCP function call syntax explanations - AI can figure this out
+          - Missing explicit "activation criteria" sections - description is enough
+          - Missing "when NOT to use" sections - optional nice-to-have
+
+          CONSOLIDATION: If multiple skills have the same type of issue, consolidate them.
+          Return ONE finding that lists all affected skills, not separate findings per skill.
         available_resources:
           - skill
       - name: verify_dependencies
@@ -191,15 +74,24 @@ drift_learning_types:
         model: sonnet
         prompt: |
           If the skill references other skills, verify they exist by requesting them.
-          Check if "Required skills:" section is present when needed.
+          Only flag missing references to actual files/resources, not missing metadata sections.
+
+          CONSOLIDATION: If multiple skills have missing dependencies, consolidate into one finding.
         available_resources:
           - skill
       - name: final_quality_check
         type: prompt
         model: sonnet
         prompt: |
-          Make final determination on skill quality.
-          Report any issues with observed behavior and expected quality standards.
+          Review all findings from previous phases and make final determination.
+
+          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
+          If multiple skills have similar issues, consolidate them into one finding.
+
+          Format your response as a JSON array with ONE element:
+          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
+
+          If no issues found, return empty array: []
         available_resources:
           - skill
 
@@ -223,23 +115,45 @@ drift_learning_types:
         prompt: |
           Check if the agent has basic structure: clear purpose, tool declarations, examples.
           Look for obvious missing components or vague task descriptions.
+
+          Focus on structural gaps like:
+          - Missing workflow guidance (how to approach tasks systematically)
+          - Missing decision criteria for choosing between strategies
+          - Unexplained custom tools or dependencies that aren't standard
+
+          Do NOT flag:
+          - References to standard project scripts (./lint.sh, ./test.sh) - assume they exist
+          - Lack of detailed MCP tool parameter documentation - AI can figure this out
+
+          CONSOLIDATION: If multiple agents have the same issue, consolidate into one finding.
         available_resources:
           - agent
       - name: verify_references
         type: prompt
         model: sonnet
         prompt: |
-          If the agent references other agents, verify they exist by requesting them.
+          If the agent references other agents or skills, verify they exist by requesting them.
+
+          CONSOLIDATION: If multiple agents have missing references, consolidate into one finding.
         available_resources:
           - agent
+          - skill
       - name: final_quality_check
         type: prompt
         model: sonnet
         prompt: |
-          Make final determination on agent quality.
-          Report any issues with observed behavior and expected quality standards.
+          Review all findings from previous phases and make final determination.
+
+          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
+          If multiple agents have similar issues, consolidate them into one finding.
+
+          Format your response as a JSON array with ONE element:
+          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
+
+          If no issues found, return empty array: []
         available_resources:
           - agent
+          - skill
 
   command_completeness:
     description: "Claude Code commands missing essential components or clarity"
@@ -260,7 +174,19 @@ drift_learning_types:
         model: sonnet
         prompt: |
           Check if the command has basic structure: clear purpose, execution steps, examples.
-          Look for missing "Required skills:" section or vague instructions.
+
+          Focus on:
+          - Missing step-by-step execution workflow
+          - Missing error handling guidance or prerequisites
+          - Unclear command parameters or invocation
+
+          Do NOT flag:
+          - Missing detailed MCP tool parameter docs - AI can infer these
+          - Missing example output formats - nice-to-have, not required
+          - Missing explanation of obvious variables like $ARGUMENTS
+          - Missing "Required skills:" section - optional metadata
+
+          CONSOLIDATION: If multiple commands have the same issue, consolidate into one finding.
         available_resources:
           - command
           - skill
@@ -271,6 +197,8 @@ drift_learning_types:
         prompt: |
           If the command references other commands, skills, or agents, verify they exist.
           Request command, skill, or agent resources as needed.
+
+          CONSOLIDATION: If multiple commands have missing dependencies, consolidate into one finding.
         available_resources:
           - command
           - skill
@@ -279,8 +207,15 @@ drift_learning_types:
         type: prompt
         model: sonnet
         prompt: |
-          Make final determination on command quality and completeness.
-          Report any issues with observed behavior and expected quality standards.
+          Review all findings from previous phases and make final determination.
+
+          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
+          If multiple commands have similar issues, consolidate them into one finding.
+
+          Format your response as a JSON array with ONE element:
+          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
+
+          If no issues found, return empty array: []
         available_resources:
           - command
           - skill
@@ -316,17 +251,25 @@ drift_learning_types:
           - Commands that contradict CLAUDE.md guidelines
           - Inconsistent parameter naming across commands
           - Conflicting approaches to similar tasks
-          - Commands referencing skills/agents that don't exist
           - Different terminology for the same concepts
-          - Missing "Required skills:" declarations
 
-          When reporting contradictions, cite specific files and conflicting content.
+          When reporting, cite specific files and conflicting content.
+
+          CONSOLIDATION: If you find multiple contradictions, consolidate them into ONE finding.
+          List all affected files in the file_paths array.
+
+          CRITICAL: Return EXACTLY ONE finding total for this rule.
+          If multiple contradictions exist, pick the MOST IMPORTANT one and report only that.
+
+          Format your response as a JSON array with ONE element:
+          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
 
           Example contradictions:
           - Command A says "always run tests first" but Command B runs lint first
           - One command uses --force flag, another uses --skip-checks for same purpose
           - CLAUDE.md says use skill X, but command implements custom solution
-          - Command requires skill but doesn't declare it
+
+          If no contradictions found, return empty array: []
         available_resources: []
 
   claude_md_missing:

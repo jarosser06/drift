@@ -202,7 +202,7 @@ class DriftLearningType(BaseModel):
 
     description: str = Field(..., description="What this learning type represents")
     scope: Literal["conversation_level", "project_level"] = Field(
-        ..., description="What scope this rule analyzes"
+        "project_level", description="What scope this rule analyzes (defaults to project_level)"
     )
     context: str = Field(..., description="Why this rule exists for optimization")
     requires_project_context: bool = Field(
