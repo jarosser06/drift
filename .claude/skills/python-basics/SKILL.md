@@ -298,9 +298,3 @@ When reviewing or writing Python code:
 - [ ] Proper spacing and blank lines
 - [ ] Specific exception handling
 
-## Resources
-
-See the following resources:
-- `pep8.md` - PEP 8 style guide
-- `imports.md` - Import best practices
-- `anti-patterns.md` - Common Python mistakes to avoid

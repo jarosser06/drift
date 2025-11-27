@@ -353,9 +353,3 @@ mcp__github__update_issue(
 )
 ```
 
-## Resources
-
-See the following resources:
-- `mcp-github-tools.md` - Complete MCP tool reference
-- `git-workflow.md` - Git best practices
-- `pr-template.md` - Pull request template

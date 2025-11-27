@@ -124,7 +124,17 @@ def test_parser_parse_conversation_with_invalid_json():
 
 ## Resources
 
-See the following resources for testing patterns:
-- `pytest-basics.md` - Pytest fundamentals
-- `mocking-aws.md` - AWS service mocking patterns
-- `coverage.md` - Coverage measurement and reporting
+### 📖 [Pytest Basics](resources/pytest-basics.md)
+Quick reference for pytest fundamentals including fixtures, parametrize, and mocking.
+
+**Use when:** Writing new tests or looking up pytest syntax.
+
+### 📖 [Mocking AWS Bedrock](resources/mocking-aws.md)
+Patterns for mocking AWS Bedrock API calls in tests.
+
+**Use when:** Testing LLM integration code or API interactions.
+
+### 📖 [Coverage Requirements](resources/coverage.md)
+Guidelines for measuring and achieving 90%+ test coverage.
+
+**Use when:** Checking coverage reports or improving test coverage.

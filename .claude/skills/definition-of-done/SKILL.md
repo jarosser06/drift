@@ -163,7 +163,12 @@ All definition of done criteria satisfied.
 
 ## Resources
 
-See the following resources:
-- `validation-guide.md` - Detailed validation procedures
-- `common-gaps.md` - Common issues and how to avoid them
-- `checklist-template.md` - Reusable checklist template
+### 📖 [Validation Guide](resources/validation-guide.md)
+Step-by-step guide for validating work meets all requirements and quality standards.
+
+**Use when:** Verifying task completion before creating a PR.
+
+### 📖 [Common Gaps](resources/common-gaps.md)
+Common completion gaps to watch for with examples and fixes.
+
+**Use when:** Checking for typical issues that cause work to be incomplete.

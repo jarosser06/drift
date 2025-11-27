@@ -98,9 +98,3 @@ All code must pass linting before:
 
 Zero tolerance for linting errors in main branch.
 
-## Resources
-
-See the following resources for linting standards:
-- `flake8-rules.md` - Common flake8 rules and fixes
-- `black-style.md` - Black formatting guidelines
-- `mypy-guide.md` - Type hinting best practices

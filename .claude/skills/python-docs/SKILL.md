@@ -154,9 +154,3 @@ def analyze(log_path: str, drift_type: tuple[str, ...]) -> None:
 - Link to related documentation
 - Update when features change
 
-## Resources
-
-See the following resources:
-- `pep-257.md` - PEP 257 docstring conventions
-- `google-style.md` - Google-style docstring guide
-- `examples.md` - Good documentation examples from Drift

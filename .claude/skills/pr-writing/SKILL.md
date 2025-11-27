@@ -227,7 +227,12 @@ A good PR is:
 
 ## Resources
 
-See the following resources:
-- `pr-template.md` - Complete PR template
-- `review-checklist.md` - Reviewer's checklist
-- `good-prs.md` - Examples of excellent PRs
+### 📖 [PR Template](resources/template.md)
+Complete pull request templates for features, bug fixes, and refactoring.
+
+**Use when:** Creating a new pull request and need structure.
+
+### 📖 [Good PR Examples](resources/good-examples.md)
+Real examples of excellent pull requests with annotations.
+
+**Use when:** Learning what makes a good PR or validating your PR before creating it.

@@ -296,7 +296,17 @@ Check for:
 
 ## Resources
 
-See the following resources:
-- `review-checklist.md` - Complete review checklist
-- `common-issues.md` - Common problems and solutions
-- `feedback-examples.md` - Examples of good review feedback
+### 📖 [Review Checklist](resources/checklist.md)
+Comprehensive code review checklist covering quality, testing, security, and more.
+
+**Use when:** Performing a code review to ensure nothing is missed.
+
+### 📖 [Common Issues](resources/common-issues.md)
+Anti-patterns and common problems to watch for in Drift code.
+
+**Use when:** Looking for specific problems or learning what to avoid.
+
+### 📖 [Feedback Examples](resources/feedback-examples.md)
+Examples of constructive, specific code review feedback.
+
+**Use when:** Writing review comments or learning how to give better feedback.
