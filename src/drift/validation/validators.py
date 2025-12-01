@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional
 
 from drift.config.models import ValidationRule, ValidationType
-from drift.core.types import DocumentBundle, DocumentLearning
+from drift.core.types import DocumentBundle, DocumentRule
 from drift.validation.params import ParamResolver
 
 
@@ -25,7 +25,7 @@ class BaseValidator(ABC):
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Execute validation rule.
 
         Args:
@@ -34,7 +34,7 @@ class BaseValidator(ABC):
             all_bundles: Optional list of all bundles (for cross-bundle validation)
 
         Returns:
-            DocumentLearning if validation fails, None if passes
+            DocumentRule if validation fails, None if passes
         """
         pass
 
@@ -47,7 +47,7 @@ class FileExistsValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Check if specified file(s) exist.
 
         Args:
@@ -56,7 +56,7 @@ class FileExistsValidator(BaseValidator):
             all_bundles: Not used for this validator
 
         Returns:
-            DocumentLearning if file doesn't exist, None if it does
+            DocumentRule if file doesn't exist, None if it does
         """
         if not rule.file_path:
             raise ValueError("FileExistsValidator requires rule.file_path")
@@ -99,8 +99,8 @@ class FileExistsValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         file_paths: List[str],
-    ) -> DocumentLearning:
-        """Create a DocumentLearning for a validation failure.
+    ) -> DocumentRule:
+        """Create a DocumentRule for a validation failure.
 
         Args:
             rule: The validation rule that failed
@@ -108,15 +108,15 @@ class FileExistsValidator(BaseValidator):
             file_paths: List of file paths involved in the failure
 
         Returns:
-            DocumentLearning representing the failure
+            DocumentRule representing the failure
         """
-        return DocumentLearning(
+        return DocumentRule(
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=rule.failure_message,
             expected_quality=rule.expected_behavior,
-            learning_type="",  # Will be set by analyzer
+            rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )
 
@@ -129,7 +129,7 @@ class RegexMatchValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Check if file content matches the specified regex pattern.
 
         Args:
@@ -138,7 +138,7 @@ class RegexMatchValidator(BaseValidator):
             all_bundles: Not used for this validator
 
         Returns:
-            DocumentLearning if pattern doesn't match, None if it does
+            DocumentRule if pattern doesn't match, None if it does
         """
         import re
 
@@ -194,8 +194,8 @@ class RegexMatchValidator(BaseValidator):
         bundle: DocumentBundle,
         file_paths: List[str],
         context: str,
-    ) -> DocumentLearning:
-        """Create a DocumentLearning for a validation failure.
+    ) -> DocumentRule:
+        """Create a DocumentRule for a validation failure.
 
         Args:
             rule: The validation rule that failed
@@ -204,15 +204,15 @@ class RegexMatchValidator(BaseValidator):
             context: Additional context about the failure
 
         Returns:
-            DocumentLearning representing the failure
+            DocumentRule representing the failure
         """
-        return DocumentLearning(
+        return DocumentRule(
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=rule.failure_message,
             expected_quality=rule.expected_behavior,
-            learning_type="",  # Will be set by analyzer
+            rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
 
@@ -225,7 +225,7 @@ class ListMatchValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Check if list items match expected values.
 
         Expected params:
@@ -239,7 +239,7 @@ class ListMatchValidator(BaseValidator):
             all_bundles: Not used for this validator
 
         Returns:
-            DocumentLearning if validation fails, None if passes
+            DocumentRule if validation fails, None if passes
         """
         resolver = ParamResolver(bundle, self.loader)
 
@@ -301,15 +301,15 @@ class ListMatchValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         context: str,
-    ) -> DocumentLearning:
-        """Create a DocumentLearning for a validation failure."""
-        return DocumentLearning(
+    ) -> DocumentRule:
+        """Create a DocumentRule for a validation failure."""
+        return DocumentRule(
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[f.relative_path for f in bundle.files],
             observed_issue=rule.failure_message,
             expected_quality=rule.expected_behavior,
-            learning_type="",  # Will be set by analyzer
+            rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
 
@@ -322,7 +322,7 @@ class ListRegexMatchValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Check if list items match regex patterns in target files.
 
         Expected params:
@@ -337,7 +337,7 @@ class ListRegexMatchValidator(BaseValidator):
             all_bundles: Not used for this validator
 
         Returns:
-            DocumentLearning if validation fails, None if passes
+            DocumentRule if validation fails, None if passes
         """
         resolver = ParamResolver(bundle, self.loader)
 
@@ -407,15 +407,15 @@ class ListRegexMatchValidator(BaseValidator):
         rule: ValidationRule,
         bundle: DocumentBundle,
         context: str,
-    ) -> DocumentLearning:
-        """Create a DocumentLearning for a validation failure."""
-        return DocumentLearning(
+    ) -> DocumentRule:
+        """Create a DocumentRule for a validation failure."""
+        return DocumentRule(
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[f.relative_path for f in bundle.files],
             observed_issue=rule.failure_message,
             expected_quality=rule.expected_behavior,
-            learning_type="",  # Will be set by analyzer
+            rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
 
@@ -442,7 +442,7 @@ class ValidatorRegistry:
         rule: ValidationRule,
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Execute a validation rule.
 
         Args:
@@ -451,7 +451,7 @@ class ValidatorRegistry:
             all_bundles: Optional list of all bundles
 
         Returns:
-            DocumentLearning if validation fails, None if passes
+            DocumentRule if validation fails, None if passes
 
         Raises:
             ValueError: If rule type is not supported
@@ -470,10 +470,10 @@ class ValidatorRegistry:
 
     def _invert_result(
         self,
-        result: Optional[DocumentLearning],
+        result: Optional[DocumentRule],
         rule: ValidationRule,
         bundle: DocumentBundle,
-    ) -> Optional[DocumentLearning]:
+    ) -> Optional[DocumentRule]:
         """Invert validation result for NOT rules.
 
         Args:
@@ -482,18 +482,18 @@ class ValidatorRegistry:
             bundle: The document bundle
 
         Returns:
-            Inverted result (None becomes DocumentLearning, DocumentLearning becomes None)
+            Inverted result (None becomes DocumentRule, DocumentRule becomes None)
         """
         if result is None:
             # Original validation passed (file exists), but we want it NOT to exist
             # So this is a failure
-            return DocumentLearning(
+            return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[rule.file_path] if rule.file_path else [],
                 observed_issue=rule.failure_message,
                 expected_quality=rule.expected_behavior,
-                learning_type="",  # Will be set by analyzer
+                rule_type="",  # Will be set by analyzer
                 context=f"Validation rule: {rule.description}",
             )
         else:

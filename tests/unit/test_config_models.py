@@ -8,10 +8,10 @@ from drift.config.models import (
     ConversationMode,
     ConversationSelection,
     DriftConfig,
-    DriftLearningType,
     ModelConfig,
     ProviderConfig,
     ProviderType,
+    RuleDefinition,
 )
 
 
@@ -92,13 +92,13 @@ class TestModelConfig:
 
 
 class TestDriftLearningType:
-    """Tests for DriftLearningType model."""
+    """Tests for RuleDefinition model."""
 
     def test_valid_learning_type(self):
         """Test creating a valid drift learning type."""
         from drift.config.models import PhaseDefinition
 
-        learning_type = DriftLearningType(
+        rule_type = RuleDefinition(
             description="Test learning type",
             scope="conversation_level",
             context="Test context for optimization",
@@ -113,21 +113,21 @@ class TestDriftLearningType:
                 )
             ],
         )
-        assert learning_type.description == "Test learning type"
-        assert learning_type.phases[0].prompt == "Look for test patterns"
-        assert learning_type.phases[0].type == "prompt"
-        assert learning_type.scope == "conversation_level"
-        assert learning_type.context == "Test context for optimization"
-        assert learning_type.requires_project_context is False
-        assert learning_type.supported_clients is None
-        assert learning_type.phases[0].model == "haiku"
-        assert learning_type.document_bundle is None
+        assert rule_type.description == "Test learning type"
+        assert rule_type.phases[0].prompt == "Look for test patterns"
+        assert rule_type.phases[0].type == "prompt"
+        assert rule_type.scope == "conversation_level"
+        assert rule_type.context == "Test context for optimization"
+        assert rule_type.requires_project_context is False
+        assert rule_type.supported_clients is None
+        assert rule_type.phases[0].model == "haiku"
+        assert rule_type.document_bundle is None
 
     def test_default_values(self):
         """Test default values for optional fields."""
         from drift.config.models import PhaseDefinition
 
-        learning_type = DriftLearningType(
+        rule_type = RuleDefinition(
             description="Test",
             scope="conversation_level",
             context="Test context",
@@ -140,9 +140,9 @@ class TestDriftLearningType:
                 )
             ],
         )
-        assert learning_type.phases[0].model is None
-        assert learning_type.supported_clients is None
-        assert learning_type.document_bundle is None
+        assert rule_type.phases[0].model is None
+        assert rule_type.supported_clients is None
+        assert rule_type.document_bundle is None
 
 
 class TestAgentToolConfig:
@@ -222,14 +222,14 @@ class TestDriftConfig:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={"incomplete_work": sample_learning_type},
+            rule_definitions={"incomplete_work": sample_learning_type},
             agent_tools={"claude-code": sample_agent_config},
             temp_dir="/tmp/drift",
         )
         assert "bedrock" in config.providers
         assert "haiku" in config.models
         assert config.default_model == "haiku"
-        assert "incomplete_work" in config.drift_learning_types
+        assert "incomplete_work" in config.rule_definitions
         assert "claude-code" in config.agent_tools
         assert config.temp_dir == "/tmp/drift"
 
@@ -239,7 +239,7 @@ class TestDriftConfig:
         assert config.providers == {}
         assert config.models == {}
         assert config.default_model == "haiku"
-        assert config.drift_learning_types == {}
+        assert config.rule_definitions == {}
         assert config.agent_tools == {}
         assert config.temp_dir == "/tmp/drift"
 
@@ -258,9 +258,9 @@ class TestDriftConfig:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={"incomplete_work": sample_learning_type},
+            rule_definitions={"incomplete_work": sample_learning_type},
         )
-        model = config.get_model_for_learning_type("incomplete_work")
+        model = config.get_model_for_rule("incomplete_work")
         assert model == "sonnet"
 
     def test_get_model_for_learning_type_without_override(
@@ -272,9 +272,9 @@ class TestDriftConfig:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={"incomplete_work": sample_learning_type},
+            rule_definitions={"incomplete_work": sample_learning_type},
         )
-        model = config.get_model_for_learning_type("incomplete_work")
+        model = config.get_model_for_rule("incomplete_work")
         assert model == "haiku"
 
     def test_get_model_for_nonexistent_learning_type(
@@ -286,7 +286,7 @@ class TestDriftConfig:
             models={"haiku": sample_model_config},
             default_model="haiku",
         )
-        model = config.get_model_for_learning_type("nonexistent")
+        model = config.get_model_for_rule("nonexistent")
         assert model == "haiku"
 
     def test_get_enabled_agent_tools(self, sample_agent_config):

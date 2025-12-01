@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.core.types import Learning
+from drift.core.types import Rule
 from drift.utils.temp import TempManager
 
 
@@ -66,7 +66,7 @@ class TestTempManager:
             data = json.load(f)
 
         assert len(data) == 1
-        assert data[0]["learning_type"] == "incomplete_work"
+        assert data[0]["rule_type"] == "incomplete_work"
 
     def test_save_pass_result_no_analysis_dir(self, temp_dir):
         """Test that save_pass_result fails without analysis dir."""
@@ -88,17 +88,17 @@ class TestTempManager:
         assert conv_dir.is_dir()
 
     def test_save_pass_result_multiple_learnings(self, temp_dir, sample_learning):
-        """Test saving multiple learnings."""
+        """Test saving multiple rules."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 
-        learning2 = Learning(
+        learning2 = Rule(
             turn_number=2,
             agent_tool="test",
             conversation_file="/path",
             observed_behavior="Action 2",
             expected_behavior="Intent 2",
-            learning_type="wrong_assumption",
+            rule_type="wrong_assumption",
         )
 
         manager.save_pass_result(
@@ -122,20 +122,20 @@ class TestTempManager:
         manager.save_pass_result("conv", "type1", [sample_learning])
 
         # Load them back
-        learnings = manager.load_pass_result("conv", "type1")
+        rules = manager.load_pass_result("conv", "type1")
 
-        assert len(learnings) == 1
-        assert isinstance(learnings[0], Learning)
-        assert learnings[0].learning_type == sample_learning.learning_type
+        assert len(rules) == 1
+        assert isinstance(rules[0], Rule)
+        assert rules[0].rule_type == sample_learning.rule_type
 
     def test_load_pass_result_not_found(self, temp_dir):
         """Test loading non-existent pass results returns empty list."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 
-        learnings = manager.load_pass_result("conv", "nonexistent")
+        rules = manager.load_pass_result("conv", "nonexistent")
 
-        assert learnings == []
+        assert rules == []
 
     def test_load_pass_result_no_analysis_dir(self, temp_dir):
         """Test loading pass results without analysis dir."""
@@ -146,28 +146,28 @@ class TestTempManager:
         assert "Analysis directory not created" in str(exc_info.value)
 
     def test_get_all_learnings(self, temp_dir, sample_learning):
-        """Test getting all learnings for a conversation."""
+        """Test getting all rules for a conversation."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 
-        learning2 = Learning(
+        learning2 = Rule(
             turn_number=2,
             agent_tool="test",
             conversation_file="/path",
             observed_behavior="Action 2",
             expected_behavior="Intent 2",
-            learning_type="type2",
+            rule_type="type2",
         )
 
-        # Save learnings of different types
+        # Save rules of different types
         manager.save_pass_result("conv", "type1", [sample_learning])
         manager.save_pass_result("conv", "type2", [learning2])
 
-        # Get all learnings
-        all_learnings = manager.get_all_learnings("conv")
+        # Get all rules
+        all_rules = manager.get_all_learnings("conv")
 
-        assert len(all_learnings) == 2
-        types = {learning.learning_type for learning in all_learnings}
+        assert len(all_rules) == 2
+        types = {learning.rule_type for learning in all_rules}
         assert "incomplete_work" in types
         assert "type2" in types
 
@@ -175,18 +175,18 @@ class TestTempManager:
         """Test get_all_learnings without analysis dir returns empty list."""
         manager = TempManager(str(temp_dir))
 
-        learnings = manager.get_all_learnings("conv")
+        rules = manager.get_all_learnings("conv")
 
-        assert learnings == []
+        assert rules == []
 
     def test_get_all_learnings_conversation_not_found(self, temp_dir):
         """Test get_all_learnings for non-existent conversation."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 
-        learnings = manager.get_all_learnings("nonexistent")
+        rules = manager.get_all_learnings("nonexistent")
 
-        assert learnings == []
+        assert rules == []
 
     def test_save_metadata(self, temp_dir):
         """Test saving analysis metadata."""
@@ -283,7 +283,7 @@ class TestTempManager:
         assert result is None
 
     def test_save_and_load_roundtrip(self, temp_dir, sample_learning):
-        """Test full roundtrip of saving and loading learnings."""
+        """Test full roundtrip of saving and loading rules."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 
@@ -315,7 +315,7 @@ class TestTempManager:
         assert len(conv2_learnings) == 1
 
     def test_empty_learnings_list(self, temp_dir):
-        """Test saving empty learnings list."""
+        """Test saving empty rules list."""
         manager = TempManager(str(temp_dir))
         manager.create_analysis_dir("session")
 

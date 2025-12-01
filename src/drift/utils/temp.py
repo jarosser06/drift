@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from drift.core.types import Learning
+from drift.core.types import Rule
 
 
 class TempManager:
@@ -36,15 +36,15 @@ class TempManager:
     def save_pass_result(
         self,
         conversation_id: str,
-        learning_type: str,
-        learnings: List[Learning],
+        rule_type: str,
+        rules: List[Rule],
     ) -> Path:
         """Save results from a single analysis pass.
 
         Args:
             conversation_id: ID of the conversation analyzed
-            learning_type: Type of drift learning
-            learnings: List of learnings found
+            rule_type: Type of drift learning
+            rules: List of rules found
 
         Returns:
             Path to saved result file
@@ -56,11 +56,11 @@ class TempManager:
         conv_dir = self.analysis_dir / conversation_id
         conv_dir.mkdir(exist_ok=True)
 
-        # Save learnings to JSON file
-        result_file = conv_dir / f"{learning_type}.json"
+        # Save rules to JSON file
+        result_file = conv_dir / f"{rule_type}.json"
         with open(result_file, "w") as f:
             json.dump(
-                [learning.model_dump(mode="python") for learning in learnings],
+                [learning.model_dump(mode="python") for learning in rules],
                 f,
                 indent=2,
                 default=str,
@@ -71,37 +71,37 @@ class TempManager:
     def load_pass_result(
         self,
         conversation_id: str,
-        learning_type: str,
-    ) -> List[Learning]:
+        rule_type: str,
+    ) -> List[Rule]:
         """Load results from a previous analysis pass.
 
         Args:
             conversation_id: ID of the conversation
-            learning_type: Type of drift learning
+            rule_type: Type of drift learning
 
         Returns:
-            List of learnings from the pass
+            List of rules from the pass
         """
         if not self.analysis_dir:
             raise ValueError("Analysis directory not created.")
 
-        result_file = self.analysis_dir / conversation_id / f"{learning_type}.json"
+        result_file = self.analysis_dir / conversation_id / f"{rule_type}.json"
 
         if not result_file.exists():
             return []
 
         with open(result_file, "r") as f:
             data = json.load(f)
-            return [Learning.model_validate(item) for item in data]
+            return [Rule.model_validate(item) for item in data]
 
-    def get_all_learnings(self, conversation_id: str) -> List[Learning]:
-        """Get all learnings for a conversation across all passes.
+    def get_all_learnings(self, conversation_id: str) -> List[Rule]:
+        """Get all rules for a conversation across all passes.
 
         Args:
             conversation_id: ID of the conversation
 
         Returns:
-            Combined list of all learnings
+            Combined list of all rules
         """
         if not self.analysis_dir:
             return []
@@ -111,14 +111,14 @@ class TempManager:
         if not conv_dir.exists():
             return []
 
-        all_learnings = []
+        all_rules = []
 
         for result_file in conv_dir.glob("*.json"):
             with open(result_file, "r") as f:
                 data = json.load(f)
-                all_learnings.extend([Learning.model_validate(item) for item in data])
+                all_rules.extend([Rule.model_validate(item) for item in data])
 
-        return all_learnings
+        return all_rules
 
     def save_metadata(self, metadata: Dict[str, Any]) -> None:
         """Save analysis metadata.

@@ -8,7 +8,7 @@ Drift analyzes AI agent conversations to find patterns where the AI diverged fro
 
 **Key capabilities:**
 - **Project-aware analysis**: Scans your project for available commands, skills, and MCP servers
-- **6 learning types**: Detects incomplete work, delegation misses, skill ignorance, workflow bypasses, and more
+- **6 rules**: Detects incomplete work, delegation misses, skill ignorance, workflow bypasses, and more
 - **Multi-provider**: AWS Bedrock (Claude models)
 - **Multi-agent**: Claude Code support
 - **Structured output**: Markdown or JSON, grouped by issue type
@@ -34,8 +34,8 @@ drift
 # Analyze last 7 days with JSON output
 drift --days 7 --format json
 
-# Analyze specific learning types only
-drift --types incomplete_work,documentation_gap
+# Analyze specific rules only
+drift --rules incomplete_work,documentation_gap
 
 # Use different model
 drift --model sonnet
@@ -48,7 +48,7 @@ drift --model sonnet
 
 ## Summary
 - Total conversations: 3
-- Total learnings: 3
+- Total rule violations: 3
 - Rules checked: 6
 - Rules passed: 3
 - Rules warned: 2
@@ -123,7 +123,7 @@ drift --model sonnet
 
 Default config auto-generates at `~/.config/drift/config.yaml`. Override per-project with `.drift.yaml`.
 
-**Supported learning types:**
+**Supported rules:**
 - `incomplete_work` - AI stopped before completing full scope
 - `agent_delegation_miss` - AI did work manually instead of using agents (Claude Code only)
 - `skill_ignored` - AI didn't use available skills (Claude Code only)

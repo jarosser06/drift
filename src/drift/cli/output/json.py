@@ -33,13 +33,13 @@ class JsonFormatter(OutputFormatter):
                 "generated_at": result.metadata.get("generated_at"),
                 "session_id": result.metadata.get("session_id"),
                 "total_conversations": result.summary.total_conversations,
-                "total_learnings": result.summary.total_learnings,
+                "total_rule_violations": result.summary.total_rule_violations,
                 "config_used": result.metadata.get("config_used", {}),
                 "execution_details": result.metadata.get("execution_details", []),
             },
             "summary": {
                 "conversations_analyzed": result.summary.total_conversations,
-                "total_learnings": result.summary.total_learnings,
+                "total_rule_violations": result.summary.total_rule_violations,
                 "conversations_with_drift": result.summary.conversations_with_drift,
                 "conversations_without_drift": result.summary.conversations_without_drift,
                 "by_type": result.summary.by_type,
@@ -60,11 +60,11 @@ class JsonFormatter(OutputFormatter):
                     if analysis_result.analysis_timestamp
                     else None
                 ),
-                "learnings": [],
+                "rules": [],
             }
 
-            # Add learnings
-            for learning in analysis_result.learnings:
+            # Add rules
+            for learning in analysis_result.rules:
                 learning_data: Dict[str, Any] = {
                     "turn_number": learning.turn_number,
                     "turn_uuid": learning.turn_uuid,
@@ -72,7 +72,7 @@ class JsonFormatter(OutputFormatter):
                     "conversation_file": learning.conversation_file,
                     "observed_behavior": learning.observed_behavior,
                     "expected_behavior": learning.expected_behavior,
-                    "learning_type": learning.learning_type,
+                    "rule_type": learning.rule_type,
                     "workflow_element": learning.workflow_element.value,
                     "turns_to_resolve": learning.turns_to_resolve,
                     "turns_involved": learning.turns_involved,
@@ -85,7 +85,7 @@ class JsonFormatter(OutputFormatter):
                 if hasattr(learning, "bundle_id") and learning.bundle_id:
                     learning_data["bundle_id"] = learning.bundle_id
 
-                learnings_list = conversation_data.get("learnings")
+                learnings_list = conversation_data.get("rules")
                 if isinstance(learnings_list, list):
                     learnings_list.append(learning_data)
 

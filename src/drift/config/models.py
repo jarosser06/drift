@@ -190,17 +190,17 @@ class PhaseDefinition(BaseModel):
 
 
 class SeverityLevel(str, Enum):
-    """Severity level for drift learnings."""
+    """Severity level for rule violations."""
 
     PASS = "pass"
     WARNING = "warning"
     FAIL = "fail"
 
 
-class DriftLearningType(BaseModel):
-    """Definition of a drift learning type."""
+class RuleDefinition(BaseModel):
+    """Definition of a rule for drift detection."""
 
-    description: str = Field(..., description="What this learning type represents")
+    description: str = Field(..., description="What this rule checks for")
     scope: Literal["conversation_level", "project_level"] = Field(
         "project_level", description="What scope this rule analyzes (defaults to project_level)"
     )
@@ -277,8 +277,8 @@ class DriftConfig(BaseModel):
         default_factory=dict, description="Available model definitions"
     )
     default_model: str = Field("haiku", description="Default model to use")
-    drift_learning_types: Dict[str, DriftLearningType] = Field(
-        default_factory=dict, description="Drift learning type definitions"
+    rule_definitions: Dict[str, RuleDefinition] = Field(
+        default_factory=dict, description="Rule definitions for drift detection"
     )
     agent_tools: Dict[str, AgentToolConfig] = Field(
         default_factory=dict, description="Agent tool configurations"
@@ -303,20 +303,20 @@ class DriftConfig(BaseModel):
         """Expand user home directory in temp dir path."""
         return str(Path(v).expanduser())
 
-    def get_model_for_learning_type(self, learning_type: str) -> str:
-        """Get the model to use for a specific learning type.
+    def get_model_for_rule(self, rule_name: str) -> str:
+        """Get the model to use for a specific rule.
 
         Args:
-            learning_type: Name of the drift learning type
+            rule_name: Name of the rule
 
         Returns:
-            Model name to use (from learning type override or default)
+            Model name to use (from rule override or default)
         """
-        if learning_type in self.drift_learning_types:
-            type_config = self.drift_learning_types[learning_type]
+        if rule_name in self.rule_definitions:
+            rule_config = self.rule_definitions[rule_name]
             # Check if first phase has a model override
-            if type_config.phases and len(type_config.phases) > 0:
-                first_phase = type_config.phases[0]
+            if rule_config.phases and len(rule_config.phases) > 0:
+                first_phase = rule_config.phases[0]
                 if first_phase.model:
                     return first_phase.model
         return self.default_model

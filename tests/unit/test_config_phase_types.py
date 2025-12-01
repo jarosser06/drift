@@ -15,7 +15,7 @@ class TestPhaseTypes:
 
         missing_types = []
 
-        for rule_name, rule_config in config.drift_learning_types.items():
+        for rule_name, rule_config in config.rule_definitions.items():
             phases = getattr(rule_config, "phases", None)
             if not phases:
                 continue
@@ -53,7 +53,7 @@ class TestPhaseTypes:
 
         invalid_types = []
 
-        for rule_name, rule_config in config.drift_learning_types.items():
+        for rule_name, rule_config in config.rule_definitions.items():
             phases = getattr(rule_config, "phases", None)
             if not phases:
                 continue

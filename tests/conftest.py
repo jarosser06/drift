@@ -12,12 +12,12 @@ from drift.config.models import (
     ConversationMode,
     ConversationSelection,
     DriftConfig,
-    DriftLearningType,
     ModelConfig,
     ProviderConfig,
     ProviderType,
+    RuleDefinition,
 )
-from drift.core.types import AnalysisSummary, CompleteAnalysisResult, Conversation, Learning, Turn
+from drift.core.types import AnalysisSummary, CompleteAnalysisResult, Conversation, Rule, Turn
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def sample_learning_type():
     """Sample drift learning type configuration."""
     from drift.config.models import PhaseDefinition
 
-    return DriftLearningType(
+    return RuleDefinition(
         description="AI stopped before completing the full scope of work",
         scope="conversation_level",
         context=(
@@ -96,7 +96,7 @@ def sample_drift_config(
         providers={"bedrock": sample_provider_config},
         models={"haiku": sample_model_config},
         default_model="haiku",
-        drift_learning_types={"incomplete_work": sample_learning_type},
+        rule_definitions={"incomplete_work": sample_learning_type},
         agent_tools={"claude-code": sample_agent_config},
         conversations=ConversationSelection(mode=ConversationMode.LATEST, days=7),
         temp_dir="/tmp/drift-test",
@@ -133,7 +133,7 @@ def sample_conversation(sample_turn):
 @pytest.fixture
 def sample_learning():
     """Sample learning instance."""
-    return Learning(
+    return Rule(
         turn_number=1,
         turn_uuid="turn-123",
         agent_tool="claude-code",
@@ -142,14 +142,14 @@ def sample_learning():
         expected_behavior=(
             "Implement complete authentication including login, logout, and session handling"
         ),
-        learning_type="incomplete_work",
+        rule_type="incomplete_work",
         context="User had to ask for logout and session handling separately",
     )
 
 
 @pytest.fixture
 def mock_complete_result():
-    """Create a mock complete analysis result with no learnings."""
+    """Create a mock complete analysis result with no rules."""
     return CompleteAnalysisResult(
         metadata={
             "generated_at": "2024-01-01T10:00:00",
@@ -158,7 +158,7 @@ def mock_complete_result():
         },
         summary=AnalysisSummary(
             total_conversations=1,
-            total_learnings=0,
+            total_rule_violations=0,
             conversations_without_drift=1,
             rules_checked=[],
             rules_passed=[],
@@ -325,7 +325,7 @@ models:
 
 default_model: haiku
 
-drift_learning_types:
+rule_definitions:
   incomplete_work:
     description: AI stopped before completing work
     detection_prompt: Look for incomplete work
@@ -362,11 +362,11 @@ temp_dir: /tmp/drift
 def make_config_yaml():
     """Create custom config YAML content."""
 
-    def _make_config(learning_types=None):
+    def _make_config(rule_types=None):
         """Generate config YAML with custom learning types.
 
         Args:
-            learning_types: Dict of learning type names to configs
+            rule_types: Dict of learning type names to configs
 
         Returns:
             String containing YAML config content
@@ -390,8 +390,8 @@ def make_config_yaml():
             "temp_dir": "/tmp/drift",
         }
 
-        if learning_types:
-            config["drift_learning_types"] = learning_types
+        if rule_types:
+            config["rule_definitions"] = rule_types
 
         return yaml.dump(config, default_flow_style=False)
 

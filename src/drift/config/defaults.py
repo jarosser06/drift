@@ -7,10 +7,10 @@ from drift.config.models import (
     ConversationMode,
     ConversationSelection,
     DriftConfig,
-    DriftLearningType,
     ModelConfig,
     ProviderConfig,
     ProviderType,
+    RuleDefinition,
 )
 
 # Default provider configurations
@@ -44,8 +44,8 @@ DEFAULT_MODELS = {
     ),
 }
 
-# Default drift learning type definitions (empty - define in project .drift.yaml)
-DEFAULT_DRIFT_LEARNING_TYPES: Dict[str, DriftLearningType] = {}
+# Default rule definitions (empty - define in project .drift.yaml)
+DEFAULT_RULE_DEFINITIONS: Dict[str, RuleDefinition] = {}
 
 # Default agent tool configurations
 DEFAULT_AGENT_TOOLS = {
@@ -72,7 +72,7 @@ def get_default_config() -> DriftConfig:
         providers=DEFAULT_PROVIDERS,
         models=DEFAULT_MODELS,
         default_model="haiku",
-        drift_learning_types=DEFAULT_DRIFT_LEARNING_TYPES,
+        rule_definitions=DEFAULT_RULE_DEFINITIONS,
         agent_tools=DEFAULT_AGENT_TOOLS,
         conversations=DEFAULT_CONVERSATION_SELECTION,
         temp_dir="/tmp/drift",

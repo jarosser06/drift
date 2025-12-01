@@ -51,11 +51,11 @@ def main(
         "-a",
         help="Specific agent tool to analyze (e.g., claude-code)",
     ),
-    types: str = typer.Option(
+    rules: str = typer.Option(
         None,
-        "--types",
-        "-t",
-        help="Comma-separated list of learning types to check",
+        "--rules",
+        "-r",
+        help="Comma-separated list of rules to check",
     ),
     latest: bool = typer.Option(
         False,
@@ -118,7 +118,7 @@ def main(
     drift --format json
 
     # Analyze only incomplete_work and documentation_gap
-    drift --types incomplete_work,documentation_gap
+    drift --rules incomplete_work,documentation_gap
 
     # Analyze last 3 days of conversations
     drift --days 3
@@ -135,7 +135,7 @@ def main(
         format=format,
         scope=scope,
         agent_tool=agent_tool,
-        types=types,
+        rules=rules,
         latest=latest,
         days=days,
         all_conversations=all_conversations,

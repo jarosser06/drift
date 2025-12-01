@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from drift.config.models import DriftLearningType, PhaseDefinition
+from drift.config.models import PhaseDefinition, RuleDefinition
 from drift.core.analyzer import DriftAnalyzer
 from tests.mock_provider import MockProvider
 
@@ -16,7 +16,7 @@ class TestMultiPhaseAnalysis:
     @pytest.fixture
     def multi_phase_learning_type(self):
         """Create a multi-phase learning type."""
-        return DriftLearningType(
+        return RuleDefinition(
             description="Multi-phase test",
             scope="conversation_level",
             context="Testing multi-phase",
@@ -44,7 +44,7 @@ class TestMultiPhaseAnalysis:
     def config_with_multi_phase(self, sample_drift_config, multi_phase_learning_type):
         """Config with multi-phase learning type."""
         config = sample_drift_config
-        config.drift_learning_types["multi_phase_test"] = multi_phase_learning_type
+        config.rule_definitions["multi_phase_test"] = multi_phase_learning_type
         return config
 
     @pytest.fixture
@@ -81,21 +81,21 @@ class TestMultiPhaseAnalysis:
                 conversation.project_path = str(project_with_resources)
 
                 # Run multi-phase analysis
-                learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+                rules, error, phase_results = analyzer._run_multi_phase_analysis(
                     conversation=conversation,
-                    learning_type="multi_phase_test",
-                    type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                    rule_type="multi_phase_test",
+                    type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
                     model_override=None,
                 )
 
                 # Should complete without fatal error
-                assert isinstance(learnings, list)
+                assert isinstance(rules, list)
                 assert isinstance(phase_results, list)
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_multi_phase_no_phases_error(self, sample_drift_config, sample_conversation):
         """Test multi-phase with no phases configured."""
-        bad_type = DriftLearningType(
+        bad_type = RuleDefinition(
             description="No phases",
             scope="conversation_level",
             context="Test",
@@ -105,14 +105,14 @@ class TestMultiPhaseAnalysis:
         )
 
         config = sample_drift_config
-        config.drift_learning_types["bad"] = bad_type
+        config.rule_definitions["bad"] = bad_type
 
         analyzer = DriftAnalyzer(config=config)
 
         with pytest.raises(ValueError, match="no phases configured"):
             analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="bad",
+                rule_type="bad",
                 type_config=bad_type,
                 model_override=None,
             )
@@ -125,16 +125,16 @@ class TestMultiPhaseAnalysis:
 
         analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-        learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+        rules, error, phase_results = analyzer._run_multi_phase_analysis(
             conversation=conversation,
-            learning_type="multi_phase_test",
-            type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+            rule_type="multi_phase_test",
+            type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
             model_override=None,
         )
 
         assert error is not None
         assert "No agent loader" in error
-        assert len(learnings) == 0
+        assert len(rules) == 0
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_build_multi_phase_prompt(
@@ -145,12 +145,12 @@ class TestMultiPhaseAnalysis:
 
         analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-        type_config = config_with_multi_phase.drift_learning_types["multi_phase_test"]
+        type_config = config_with_multi_phase.rule_definitions["multi_phase_test"]
         phase_def = type_config.phases[0]
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="multi_phase_test",
+            rule_type="multi_phase_test",
             type_config=type_config,
             phase_idx=0,
             phase_def=phase_def,
@@ -170,14 +170,14 @@ class TestMultiPhaseAnalysis:
 
         analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-        type_config = config_with_multi_phase.drift_learning_types["multi_phase_test"]
+        type_config = config_with_multi_phase.rule_definitions["multi_phase_test"]
         phase_def = type_config.phases[0]
 
         resources = [{"type": "command", "id": "test", "content": "Test"}]
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="multi_phase_test",
+            rule_type="multi_phase_test",
             type_config=type_config,
             phase_idx=0,
             phase_def=phase_def,
@@ -202,8 +202,8 @@ class TestMultiPhaseAnalysis:
         with pytest.raises(ValueError, match="Model.*not found"):
             analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="multi_phase_test",
-                type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                rule_type="multi_phase_test",
+                type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
                 model_override=None,
             )
 
@@ -260,10 +260,10 @@ class TestMultiPhaseAnalysis:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="multi_phase_test",
-                type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                rule_type="multi_phase_test",
+                type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
                 model_override=None,
             )
 
@@ -289,11 +289,11 @@ class TestMultiPhaseAnalysis:
                 "Test Command" in phase2_prompt
             ), "Phase 2 prompt should include loaded resource content"
 
-            # Verify final learnings were created
+            # Verify final rules were created
             assert error is None or error == ""
-            assert isinstance(learnings, list)
-            assert len(learnings) > 0, "Should have learnings from phase 2 findings"
-            assert learnings[0].observed_behavior == "Found issue after checking command"
+            assert isinstance(rules, list)
+            assert len(rules) > 0, "Should have rules from phase 2 findings"
+            assert rules[0].observed_behavior == "Found issue after checking command"
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_multi_phase_analysis_no_resource_requests(
@@ -319,16 +319,16 @@ class TestMultiPhaseAnalysis:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="multi_phase_test",
-                type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                rule_type="multi_phase_test",
+                type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
                 model_override=None,
             )
 
             # Should complete with findings from first phase
             assert error is None or error == ""
-            assert isinstance(learnings, list)
+            assert isinstance(rules, list)
             assert len(phase_results) == 1
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
@@ -367,21 +367,21 @@ class TestMultiPhaseAnalysis:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=config_with_multi_phase)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="multi_phase_test",
-                type_config=config_with_multi_phase.drift_learning_types["multi_phase_test"],
+                rule_type="multi_phase_test",
+                type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
                 model_override=None,
             )
 
             # CRITICAL: Even though LLM returned 3 findings, we should only get 1 learning
             assert error is None or error == ""
-            assert isinstance(learnings, list)
+            assert isinstance(rules, list)
             assert (
-                len(learnings) == 1
-            ), f"Should enforce single finding per rule, got {len(learnings)} learnings"
-            assert learnings[0].observed_behavior == "First issue found"
-            assert learnings[0].context == "This is the first finding"
+                len(rules) == 1
+            ), f"Should enforce single finding per rule, got {len(rules)} rules"
+            assert rules[0].observed_behavior == "First issue found"
+            assert rules[0].context == "This is the first finding"
 
 
 class TestResourceLoading:
@@ -513,7 +513,7 @@ class TestResourceLoading:
     def test_create_missing_resource_learnings(
         self, sample_drift_config, sample_conversation, temp_dir
     ):
-        """Test creating learnings for missing resources."""
+        """Test creating rules for missing resources."""
         from drift.core.types import PhaseAnalysisResult, ResourceRequest, ResourceResponse
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
@@ -544,23 +544,23 @@ class TestResourceLoading:
             )
         ]
 
-        learnings, error, results = analyzer._create_missing_resource_learnings(
+        rules, error, results = analyzer._create_missing_resource_learnings(
             conversation=sample_conversation,
-            learning_type="test_type",
+            rule_type="test_type",
             resources_loaded=resources_loaded,
             phase_results=phase_results,
         )
 
-        # Should create learnings for missing resources
-        assert len(learnings) > 0
-        assert learnings[0].learning_type == "missing_command"
-        assert "not found" in learnings[0].observed_behavior.lower()
+        # Should create rules for missing resources
+        assert len(rules) > 0
+        assert rules[0].rule_type == "missing_command"
+        assert "not found" in rules[0].observed_behavior.lower()
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_finalize_multi_phase_learnings_with_findings(
         self, sample_drift_config, sample_conversation
     ):
-        """Test finalizing multi-phase learnings with valid findings."""
+        """Test finalizing multi-phase rules with valid findings."""
         from drift.core.types import PhaseAnalysisResult
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
@@ -582,26 +582,26 @@ class TestResourceLoading:
             )
         ]
 
-        learnings, error = analyzer._finalize_multi_phase_learnings(
+        rules, error = analyzer._finalize_multi_phase_learnings(
             conversation=sample_conversation,
-            learning_type="test_type",
+            rule_type="test_type",
             phase_results=phase_results,
             resources_consulted=[],
         )
 
-        # Should create learnings from findings
-        assert len(learnings) > 0
-        assert learnings[0].learning_type == "test_type"
-        assert learnings[0].observed_behavior == "Agent did something wrong"
-        assert learnings[0].expected_behavior == "Agent should do it right"
-        assert learnings[0].context == "During testing"
-        assert learnings[0].phases_count == 1
+        # Should create rules from findings
+        assert len(rules) > 0
+        assert rules[0].rule_type == "test_type"
+        assert rules[0].observed_behavior == "Agent did something wrong"
+        assert rules[0].expected_behavior == "Agent should do it right"
+        assert rules[0].context == "During testing"
+        assert rules[0].phases_count == 1
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_finalize_multi_phase_learnings_with_malformed_findings(
         self, sample_drift_config, sample_conversation
     ):
-        """Test finalizing learnings with malformed findings (missing fields)."""
+        """Test finalizing rules with malformed findings (missing fields)."""
         from drift.core.types import PhaseAnalysisResult
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
@@ -633,23 +633,23 @@ class TestResourceLoading:
             )
         ]
 
-        learnings, error = analyzer._finalize_multi_phase_learnings(
+        rules, error = analyzer._finalize_multi_phase_learnings(
             conversation=sample_conversation,
-            learning_type="test_type",
+            rule_type="test_type",
             phase_results=phase_results,
             resources_consulted=[],
         )
 
         # Should only create learning for valid finding
-        assert len(learnings) == 1
-        assert learnings[0].observed_behavior == "Valid observation"
-        assert learnings[0].expected_behavior == "Valid expectation"
+        assert len(rules) == 1
+        assert rules[0].observed_behavior == "Valid observation"
+        assert rules[0].expected_behavior == "Valid expectation"
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_finalize_multi_phase_learnings_with_resources_consulted(
         self, sample_drift_config, sample_conversation
     ):
-        """Test finalizing learnings includes resources consulted."""
+        """Test finalizing rules includes resources consulted."""
         from drift.core.types import PhaseAnalysisResult, ResourceRequest
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
@@ -674,17 +674,17 @@ class TestResourceLoading:
             )
         ]
 
-        learnings, error = analyzer._finalize_multi_phase_learnings(
+        rules, error = analyzer._finalize_multi_phase_learnings(
             conversation=sample_conversation,
-            learning_type="test_type",
+            rule_type="test_type",
             phase_results=phase_results,
             resources_consulted=resources_consulted,
         )
 
         # Should include resources consulted
-        assert len(learnings) > 0
-        assert learnings[0].resources_consulted is not None
-        assert "command:test" in learnings[0].resources_consulted
+        assert len(rules) > 0
+        assert rules[0].resources_consulted is not None
+        assert "command:test" in rules[0].resources_consulted
 
 
 class TestMultiPhaseEdgeCases:
@@ -693,7 +693,7 @@ class TestMultiPhaseEdgeCases:
     @pytest.fixture
     def three_phase_config(self, sample_drift_config):
         """Create config with 3 phases."""
-        three_phase_type = DriftLearningType(
+        three_phase_type = RuleDefinition(
             description="Three phase test",
             scope="conversation_level",
             context="Testing three phases",
@@ -724,7 +724,7 @@ class TestMultiPhaseEdgeCases:
             ],
         )
         config = sample_drift_config
-        config.drift_learning_types["three_phase"] = three_phase_type
+        config.rule_definitions["three_phase"] = three_phase_type
         return config
 
     @pytest.fixture
@@ -814,10 +814,10 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=three_phase_config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="three_phase",
-                type_config=three_phase_config.drift_learning_types["three_phase"],
+                rule_type="three_phase",
+                type_config=three_phase_config.rule_definitions["three_phase"],
                 model_override=None,
             )
 
@@ -836,9 +836,9 @@ class TestMultiPhaseEdgeCases:
             assert len(phase_results[2].resource_requests) == 0
             assert phase_results[2].final_determination is True
 
-            # Verify final learnings
-            assert len(learnings) > 0
-            assert learnings[0].phases_count == 3
+            # Verify final rules
+            assert len(rules) > 0
+            assert rules[0].phases_count == 3
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_multiple_resources_same_type(
@@ -892,10 +892,10 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=three_phase_config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="three_phase",
-                type_config=three_phase_config.drift_learning_types["three_phase"],
+                rule_type="three_phase",
+                type_config=three_phase_config.rule_definitions["three_phase"],
                 model_override=None,
             )
 
@@ -917,7 +917,7 @@ class TestMultiPhaseEdgeCases:
         sample_conversation.project_path = str(project_with_all_resources)
 
         # Create config that allows multiple resource types
-        multi_type = DriftLearningType(
+        multi_type = RuleDefinition(
             description="Multi-resource test",
             scope="conversation_level",
             context="Testing multiple resource types",
@@ -942,7 +942,7 @@ class TestMultiPhaseEdgeCases:
         )
 
         config = sample_drift_config
-        config.drift_learning_types["multi_type"] = multi_type
+        config.rule_definitions["multi_type"] = multi_type
 
         # Phase 1: Request command, skill, and agent
         phase1_response = json.dumps(
@@ -990,10 +990,10 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="multi_type",
-                type_config=config.drift_learning_types["multi_type"],
+                rule_type="multi_type",
+                type_config=config.rule_definitions["multi_type"],
                 model_override=None,
             )
 
@@ -1066,16 +1066,16 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=three_phase_config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="three_phase",
-                type_config=three_phase_config.drift_learning_types["three_phase"],
+                rule_type="three_phase",
+                type_config=three_phase_config.rule_definitions["three_phase"],
                 model_override=None,
             )
 
             # Should continue to phase 2 (not all resources missing)
             assert len(phase_results) == 2
-            assert len(learnings) > 0
+            assert len(rules) > 0
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_max_phases_without_final_determination(
@@ -1134,19 +1134,19 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=three_phase_config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="three_phase",
-                type_config=three_phase_config.drift_learning_types["three_phase"],
+                rule_type="three_phase",
+                type_config=three_phase_config.rule_definitions["three_phase"],
                 model_override=None,
             )
 
             # Should execute all 3 phases even without final_determination
             assert len(phase_results) == 3
 
-            # Should still attempt to finalize learnings
+            # Should still attempt to finalize rules
             # (May be empty if no findings in any phase)
-            assert isinstance(learnings, list)
+            assert isinstance(rules, list)
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_type_only_available_resources(
@@ -1156,7 +1156,7 @@ class TestMultiPhaseEdgeCases:
         sample_conversation.project_path = str(project_with_all_resources)
 
         # Config with type-only available_resources
-        type_only = DriftLearningType(
+        type_only = RuleDefinition(
             description="Type-only test",
             scope="conversation_level",
             context="Testing type-only matching",
@@ -1181,7 +1181,7 @@ class TestMultiPhaseEdgeCases:
         )
 
         config = sample_drift_config
-        config.drift_learning_types["type_only"] = type_only
+        config.rule_definitions["type_only"] = type_only
 
         # Phase 1: Request specific command
         phase1_response = json.dumps(
@@ -1231,10 +1231,10 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="type_only",
-                type_config=config.drift_learning_types["type_only"],
+                rule_type="type_only",
+                type_config=config.rule_definitions["type_only"],
                 model_override=None,
             )
 
@@ -1294,10 +1294,10 @@ class TestMultiPhaseEdgeCases:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             analyzer = DriftAnalyzer(config=three_phase_config)
 
-            learnings, error, phase_results = analyzer._run_multi_phase_analysis(
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
                 conversation=sample_conversation,
-                learning_type="three_phase",
-                type_config=three_phase_config.drift_learning_types["three_phase"],
+                rule_type="three_phase",
+                type_config=three_phase_config.rule_definitions["three_phase"],
                 model_override=None,
             )
 
@@ -1305,4 +1305,4 @@ class TestMultiPhaseEdgeCases:
             assert len(phase_results) == 2
             assert len(phase_results[0].findings) == 0
             assert len(phase_results[1].findings) == 1
-            assert len(learnings) > 0
+            assert len(rules) > 0

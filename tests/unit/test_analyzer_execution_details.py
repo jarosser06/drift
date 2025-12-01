@@ -7,7 +7,7 @@ from drift.config.models import (
     BundleStrategy,
     DocumentBundleConfig,
     DriftConfig,
-    DriftLearningType,
+    RuleDefinition,
     ValidationRule,
     ValidationRulesConfig,
 )
@@ -26,8 +26,8 @@ class TestAnalyzerExecutionDetails:
             (project_path / ".claude.md").write_text("# Test\n")
 
             config = DriftConfig(
-                drift_learning_types={
-                    "claude_md_missing": DriftLearningType(
+                rule_definitions={
+                    "claude_md_missing": RuleDefinition(
                         description="Test rule",
                         scope="project_level",
                         context="Test context",
@@ -105,8 +105,8 @@ class TestAnalyzerExecutionDetails:
             # DON'T create .claude.md so rule fails
 
             config = DriftConfig(
-                drift_learning_types={
-                    "claude_md_missing": DriftLearningType(
+                rule_definitions={
+                    "claude_md_missing": RuleDefinition(
                         description="Test rule",
                         scope="project_level",
                         context="Test context",
@@ -166,8 +166,8 @@ class TestAnalyzerExecutionDetails:
             (project_path / ".claude.md").write_text("# Test\n")
 
             config = DriftConfig(
-                drift_learning_types={
-                    "claude_md_missing": DriftLearningType(
+                rule_definitions={
+                    "claude_md_missing": RuleDefinition(
                         description="Test rule",
                         scope="project_level",
                         context="Test context",
