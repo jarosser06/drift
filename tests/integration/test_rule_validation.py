@@ -6,11 +6,11 @@ from drift.config.models import (
     BundleStrategy,
     DocumentBundleConfig,
     DriftConfig,
-    DriftLearningType,
     ModelConfig,
     PhaseDefinition,
     ProviderConfig,
     ProviderType,
+    RuleDefinition,
     ValidationRule,
     ValidationRulesConfig,
     ValidationType,
@@ -59,13 +59,13 @@ class TestRuleBasedValidation:
                 )
             },
             default_model="haiku",
-            drift_learning_types={},
+            rule_definitions={},
         )
 
     def test_file_exists_validation_passes(self, test_project, base_config):
         """Test that file existence validation passes when file exists."""
         # Create learning type with file existence rule
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="Check CLAUDE.md exists",
             scope="project_level",
             context="CLAUDE.md is required",
@@ -86,21 +86,21 @@ class TestRuleBasedValidation:
             ],
         )
 
-        base_config.drift_learning_types["claude_doc_exists"] = learning_type_config
+        base_config.rule_definitions["claude_doc_exists"] = learning_type_config
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
 
         # Analyze documents
-        result = analyzer.analyze_documents(learning_types=["claude_doc_exists"])
+        result = analyzer.analyze_documents(rule_types=["claude_doc_exists"])
 
-        # Should have no learnings (file exists, validation passes)
-        assert len(result.metadata["document_learnings"]) == 0
+        # Should have no rules (file exists, validation passes)
+        assert len(result.metadata["document_rules"]) == 0
 
     def test_file_exists_validation_fails(self, test_project, base_config):
         """Test that file existence validation fails when file missing."""
         # Create learning type checking for non-existent file
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="Check MISSING.md exists",
             scope="project_level",
             context="MISSING.md should exist",
@@ -121,19 +121,19 @@ class TestRuleBasedValidation:
             ],
         )
 
-        base_config.drift_learning_types["missing_doc"] = learning_type_config
+        base_config.rule_definitions["missing_doc"] = learning_type_config
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
 
         # Analyze documents
-        result = analyzer.analyze_documents(learning_types=["missing_doc"])
+        result = analyzer.analyze_documents(rule_types=["missing_doc"])
 
         # Should have one learning (file missing, validation fails)
-        assert len(result.metadata["document_learnings"]) == 1
+        assert len(result.metadata["document_rules"]) == 1
 
-        learning = result.metadata["document_learnings"][0]
-        assert learning["learning_type"] == "missing_doc"
+        learning = result.metadata["document_rules"][0]
+        assert learning["rule_type"] == "missing_doc"
         assert learning["observed_issue"] == "MISSING.md not found"
         assert learning["expected_quality"] == "MISSING.md should exist"
         assert "MISSING.md" in learning["file_paths"]
@@ -142,7 +142,7 @@ class TestRuleBasedValidation:
         """Test that FILE_NOT_EXISTS correctly inverts the logic."""
         # Create learning type checking that a file should NOT exist
         # CLAUDE.md exists, so this should fail
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="CLAUDE.md should not exist",
             scope="project_level",
             context="Testing inverted logic",
@@ -163,25 +163,25 @@ class TestRuleBasedValidation:
             ],
         )
 
-        base_config.drift_learning_types["claude_not_exist"] = learning_type_config
+        base_config.rule_definitions["claude_not_exist"] = learning_type_config
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
 
         # Analyze documents
-        result = analyzer.analyze_documents(learning_types=["claude_not_exist"])
+        result = analyzer.analyze_documents(rule_types=["claude_not_exist"])
 
         # Should have one learning (file exists but shouldn't, validation fails)
-        assert len(result.metadata["document_learnings"]) == 1
+        assert len(result.metadata["document_rules"]) == 1
 
-        learning = result.metadata["document_learnings"][0]
-        assert learning["learning_type"] == "claude_not_exist"
+        learning = result.metadata["document_rules"][0]
+        assert learning["rule_type"] == "claude_not_exist"
         assert learning["observed_issue"] == "CLAUDE.md exists but should not"
 
     def test_glob_pattern_validation(self, test_project, base_config):
         """Test validation with glob patterns."""
         # Create learning type checking for skill files
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="Check skill files exist",
             scope="project_level",
             context="Skills are required",
@@ -205,21 +205,21 @@ class TestRuleBasedValidation:
             ),
         )
 
-        base_config.drift_learning_types["skill_exists"] = learning_type_config
+        base_config.rule_definitions["skill_exists"] = learning_type_config
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
 
         # Analyze documents
-        result = analyzer.analyze_documents(learning_types=["skill_exists"])
+        result = analyzer.analyze_documents(rule_types=["skill_exists"])
 
-        # Should have no learnings (skill files exist)
-        assert len(result.metadata["document_learnings"]) == 0
+        # Should have no rules (skill files exist)
+        assert len(result.metadata["document_rules"]) == 0
 
     def test_multiple_rules_execution(self, test_project, base_config):
         """Test that multiple rules are executed."""
         # Create learning type with multiple rules
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="Check multiple requirements",
             scope="project_level",
             context="Multiple checks",
@@ -257,18 +257,18 @@ class TestRuleBasedValidation:
             ),
         )
 
-        base_config.drift_learning_types["multi_check"] = learning_type_config
+        base_config.rule_definitions["multi_check"] = learning_type_config
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
 
         # Analyze documents
-        result = analyzer.analyze_documents(learning_types=["multi_check"])
+        result = analyzer.analyze_documents(rule_types=["multi_check"])
 
         # Should have one learning (only MISSING.md fails)
-        assert len(result.metadata["document_learnings"]) == 1
+        assert len(result.metadata["document_rules"]) == 1
 
-        learning = result.metadata["document_learnings"][0]
+        learning = result.metadata["document_rules"][0]
         assert learning["observed_issue"] == "MISSING.md not found"
 
     def test_ai_analysis_with_phases_works(self, test_project, base_config, mocker):
@@ -276,7 +276,7 @@ class TestRuleBasedValidation:
         mock_provider = mocker.Mock()
         mock_provider.generate.return_value = "[]"
 
-        learning_type_config = DriftLearningType(
+        learning_type_config = RuleDefinition(
             description="AI-based check",
             scope="project_level",
             context="Testing AI path",
@@ -296,12 +296,12 @@ class TestRuleBasedValidation:
             ],
         )
 
-        base_config.drift_learning_types["ai_check"] = learning_type_config
+        base_config.rule_definitions["ai_check"] = learning_type_config
 
         analyzer = DriftAnalyzer(config=base_config, project_path=test_project)
         analyzer.providers["haiku"] = mock_provider
 
-        result = analyzer.analyze_documents(learning_types=["ai_check"])
+        result = analyzer.analyze_documents(rule_types=["ai_check"])
 
         assert mock_provider.generate.called
-        assert len(result.metadata["document_learnings"]) == 0
+        assert len(result.metadata["document_rules"]) == 0

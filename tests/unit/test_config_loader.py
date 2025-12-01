@@ -4,7 +4,7 @@ import pytest
 import yaml
 
 from drift.config.loader import ConfigLoader
-from drift.config.models import AgentToolConfig, ConversationMode, DriftConfig, DriftLearningType
+from drift.config.models import AgentToolConfig, ConversationMode, DriftConfig, RuleDefinition
 
 
 class TestConfigLoader:
@@ -328,8 +328,8 @@ class TestConfigLoader:
         config = DriftConfig(
             models={},  # No models defined
             default_model="nonexistent",
-            drift_learning_types={
-                "test": DriftLearningType(
+            rule_definitions={
+                "test": RuleDefinition(
                     description="test",
                     scope="conversation_level",
                     context="test",
@@ -360,8 +360,8 @@ class TestConfigLoader:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={
-                "test": DriftLearningType(
+            rule_definitions={
+                "test": RuleDefinition(
                     description="test",
                     scope="conversation_level",
                     context="test",
@@ -393,8 +393,8 @@ class TestConfigLoader:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={
-                "test": DriftLearningType(
+            rule_definitions={
+                "test": RuleDefinition(
                     description="test",
                     scope="conversation_level",
                     context="test",
@@ -421,7 +421,7 @@ class TestConfigLoader:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={},  # Empty - this is now allowed
+            rule_definitions={},  # Empty - this is now allowed
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp")},
         )
 

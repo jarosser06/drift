@@ -35,7 +35,7 @@ def _merge_results(
     merged_metadata = {
         **conv_result.metadata,
         "analysis_scopes": ["conversations", "documents"],
-        "document_learnings": doc_result.metadata.get("document_learnings", []),
+        "document_rules": doc_result.metadata.get("document_rules", []),
     }
 
     # Merge execution_details from both results
@@ -57,7 +57,7 @@ def _merge_results(
 
     # Merge summaries
     merged_summary = conv_result.summary.model_copy()
-    merged_summary.total_learnings += doc_result.summary.total_learnings
+    merged_summary.total_rule_violations += doc_result.summary.total_rule_violations
 
     # Merge by_type counts
     for type_name, count in doc_result.summary.by_type.items():
@@ -128,11 +128,11 @@ def analyze_command(
         "-a",
         help="Specific agent tool to analyze (e.g., claude-code)",
     ),
-    types: Optional[str] = typer.Option(
+    rules: Optional[str] = typer.Option(
         None,
         "--types",
         "-t",
-        help="Comma-separated list of learning types to check",
+        help="Comma-separated list of rules to check",
     ),
     latest: bool = typer.Option(
         False,
@@ -246,20 +246,20 @@ def analyze_command(
         elif all_conversations:
             config.conversations.mode = ConversationMode.ALL
 
-        # Parse learning types if specified
-        learning_types_list = None
-        if types:
-            learning_types_list = [t.strip() for t in types.split(",")]
+        # Parse rule names if specified
+        rule_names_list = None
+        if rules:
+            rule_names_list = [t.strip() for t in rules.split(",")]
             # Validate learning types exist in config
-            invalid_types = [t for t in learning_types_list if t not in config.drift_learning_types]
+            invalid_types = [t for t in rule_names_list if t not in config.rule_definitions]
             if invalid_types:
                 typer.secho(
-                    f"Error: Unknown learning types: {', '.join(invalid_types)}",
+                    f"Error: Unknown rules: {', '.join(invalid_types)}",
                     fg=typer.colors.RED,
                     err=True,
                 )
                 typer.secho(
-                    f"Available types: {', '.join(config.drift_learning_types.keys())}",
+                    f"Available rules: {', '.join(config.rule_definitions.keys())}",
                     fg=typer.colors.YELLOW,
                     err=True,
                 )
@@ -316,9 +316,7 @@ def analyze_command(
         if no_llm:
             # Determine which rules to check
             rules_to_check = (
-                learning_types_list
-                if learning_types_list
-                else list(config.drift_learning_types.keys())
+                rule_names_list if rule_names_list else list(config.rule_definitions.keys())
             )
 
             # Determine which scopes we're analyzing based on --scope flag
@@ -337,7 +335,7 @@ def analyze_command(
             # Filter to only programmatic rules within the target scopes
             filtered_types = []
             for name in rules_to_check:
-                type_config = config.drift_learning_types[name]
+                type_config = config.rule_definitions[name]
                 rule_scope = getattr(type_config, "scope", "turn_level")
 
                 # Skip rules that don't match our target scopes
@@ -382,7 +380,7 @@ def analyze_command(
                     )
                 typer.secho("", err=True)
 
-            learning_types_list = filtered_types if filtered_types else []
+            rule_names_list = filtered_types if filtered_types else []
 
         # Create analyzer
         analyzer = DriftAnalyzer(config=config, project_path=project_path)
@@ -392,42 +390,42 @@ def analyze_command(
             if scope == "conversation":
                 result = analyzer.analyze(
                     agent_tool=agent_tool,
-                    learning_types=learning_types_list,
+                    rule_types=rule_names_list,
                     model_override=model,
                 )
             elif scope == "project":
                 result = analyzer.analyze_documents(
-                    learning_types=learning_types_list,
+                    rule_types=rule_names_list,
                     model_override=model,
                 )
             elif scope == "all":
                 # When --no-llm is used with scope=all, need to split filtered rules by scope
-                conv_types_list = learning_types_list
-                doc_types_list = learning_types_list
+                conv_types_list = rule_names_list
+                doc_types_list = rule_names_list
 
-                if no_llm and learning_types_list is not None:
+                if no_llm and rule_names_list is not None:
                     # Split the filtered programmatic rules by scope
                     conv_types_list = [
                         name
-                        for name in learning_types_list
-                        if getattr(config.drift_learning_types[name], "scope", "turn_level")
+                        for name in rule_names_list
+                        if getattr(config.rule_definitions[name], "scope", "turn_level")
                         in ("turn_level", "conversation_level")
                     ]
                     doc_types_list = [
                         name
-                        for name in learning_types_list
-                        if getattr(config.drift_learning_types[name], "scope", "turn_level")
+                        for name in rule_names_list
+                        if getattr(config.rule_definitions[name], "scope", "turn_level")
                         in ("document_level", "project_level")
                     ]
 
                 # Run both analyses
                 conv_result = analyzer.analyze(
                     agent_tool=agent_tool,
-                    learning_types=conv_types_list,
+                    rule_types=conv_types_list,
                     model_override=model,
                 )
                 doc_result = analyzer.analyze_documents(
-                    learning_types=doc_types_list,
+                    rule_types=doc_types_list,
                     model_override=model,
                 )
                 # Merge results
@@ -451,7 +449,7 @@ def analyze_command(
             raise typer.Exit(1)
 
         # Check if this is because there are NO rules at all configured
-        if not config.drift_learning_types:
+        if not config.rule_definitions:
             typer.secho(
                 "Error: No drift learning types configured.",
                 fg=typer.colors.RED,
@@ -501,10 +499,10 @@ def analyze_command(
         print(output)
 
         # Exit with appropriate code
-        # Exit code 0: No learnings found (clean)
+        # Exit code 0: No rules found (clean)
         # Exit code 1: Error occurred (handled above)
         # Exit code 2: Learnings found (drift detected)
-        if result.summary.total_learnings > 0:
+        if result.summary.total_rule_violations > 0:
             sys.exit(2)
         else:
             sys.exit(0)

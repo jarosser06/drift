@@ -2,7 +2,7 @@
 # This shows how to use programmatic validation rules instead of AI analysis
 # for fast, cheap validation checks
 
-drift_learning_types:
+rule_definitions:
   # Example 1: File existence check
   claude_doc_missing:
     description: "Project lacks required CLAUDE.md documentation"

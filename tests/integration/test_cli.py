@@ -27,7 +27,7 @@ def mock_complete_result():
         },
         summary=AnalysisSummary(
             total_conversations=1,
-            total_learnings=0,
+            total_rule_violations=0,
             conversations_without_drift=1,
         ),
         results=[],
@@ -149,12 +149,12 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(
             app,
-            ["--scope", "conversation", "--types", "incomplete_work", "--project", str(temp_dir)],
+            ["--scope", "conversation", "--rules", "incomplete_work", "--project", str(temp_dir)],
         )
 
         assert result.exit_code == 0
         call_kwargs = mock_analyzer.analyze.call_args[1]
-        assert call_kwargs["learning_types"] == ["incomplete_work"]
+        assert call_kwargs["rule_types"] == ["incomplete_work"]
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -178,12 +178,12 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(
             app,
-            ["--types", "incomplete_work,wrong_assumption", "--project", str(temp_dir)],
+            ["--rules", "incomplete_work,wrong_assumption", "--project", str(temp_dir)],
         )
 
         # Should fail because wrong_assumption is not in sample config
         assert result.exit_code == 1
-        assert "Unknown learning types" in result.stderr
+        assert "Unknown rules" in result.stderr
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -466,7 +466,7 @@ class TestAnalyzeCommand:
         sample_learning,
         temp_dir,
     ):
-        """Test analyze command exits with code 2 when learnings are found."""
+        """Test analyze command exits with code 2 when rules are found."""
         mock_config_loader.load_config.return_value = sample_drift_config
         mock_config_loader.ensure_global_config_exists.return_value = None
 
@@ -476,7 +476,7 @@ class TestAnalyzeCommand:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 conversations_with_drift=1,
             ),
             results=[
@@ -484,7 +484,7 @@ class TestAnalyzeCommand:
                     session_id="session",
                     agent_tool="claude-code",
                     conversation_file="/path",
-                    learnings=[sample_learning],
+                    rules=[sample_learning],
                 )
             ],
         )
@@ -510,7 +510,7 @@ class TestAnalyzeCommand:
         mock_complete_result,
         temp_dir,
     ):
-        """Test analyze command exits with code 0 when no learnings found."""
+        """Test analyze command exits with code 0 when no rules found."""
         mock_config_loader.load_config.return_value = sample_drift_config
         mock_config_loader.ensure_global_config_exists.return_value = None
 
@@ -543,7 +543,7 @@ class TestAnalyzeCommand:
             providers={"bedrock": sample_provider_config},
             models={"haiku": sample_model_config},
             default_model="haiku",
-            drift_learning_types={},  # Empty!
+            rule_definitions={},  # Empty!
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp")},
         )
 
@@ -558,7 +558,7 @@ class TestAnalyzeCommand:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -597,7 +597,7 @@ class TestAnalyzeCommand:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -609,7 +609,7 @@ class TestAnalyzeCommand:
 
         result = cli_runner.invoke(app, ["--project", str(temp_dir)])
 
-        # Should exit with error code 0 since no learnings
+        # Should exit with error code 0 since no rules
         assert result.exit_code == 0
         assert "Skipped 2 rule(s):" in result.stderr
         assert "incomplete_work" in result.stderr
@@ -627,13 +627,13 @@ class TestAnalyzeCommand:
         temp_dir,
     ):
         """Test --no-llm flag filters out LLM-based rules correctly."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         # Create test config with mix of LLM and programmatic rules
         config = sample_drift_config
-        config.drift_learning_types = {
+        config.rule_definitions = {
             # LLM rule - has 'prompt'
-            "llm_rule": DriftLearningType(
+            "llm_rule": RuleDefinition(
                 description="LLM-based rule",
                 scope="conversation_level",
                 context="Test",
@@ -648,7 +648,7 @@ class TestAnalyzeCommand:
                 ],
             ),
             # Programmatic rule - has 'type' at conversation_level
-            "programmatic_rule": DriftLearningType(
+            "programmatic_rule": RuleDefinition(
                 description="Programmatic rule",
                 scope="conversation_level",
                 context="Test",
@@ -686,8 +686,8 @@ class TestAnalyzeCommand:
         # Analyzer should be called with only programmatic rule
         mock_analyzer.analyze.assert_called_once()
         call_args = mock_analyzer.analyze.call_args
-        learning_types = call_args.kwargs["learning_types"]
-        assert learning_types == ["programmatic_rule"]
+        rule_types = call_args.kwargs["rule_types"]
+        assert rule_types == ["programmatic_rule"]
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -700,12 +700,12 @@ class TestAnalyzeCommand:
         temp_dir,
     ):
         """Test --no-llm with conversation scope doesn't duplicate skipped rules."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         # Create config with LLM conversation rule and programmatic project rule
         config = sample_drift_config
-        config.drift_learning_types = {
-            "llm_conversation_rule": DriftLearningType(
+        config.rule_definitions = {
+            "llm_conversation_rule": RuleDefinition(
                 description="LLM conversation rule",
                 scope="conversation_level",
                 context="Test",
@@ -719,7 +719,7 @@ class TestAnalyzeCommand:
                     )
                 ],
             ),
-            "programmatic_project_rule": DriftLearningType(
+            "programmatic_project_rule": RuleDefinition(
                 description="Programmatic project rule",
                 scope="project_level",
                 context="Test",
@@ -748,7 +748,7 @@ class TestAnalyzeCommand:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -771,8 +771,8 @@ class TestAnalyzeCommand:
         # Analyzer should be called with empty list (no conversation-level programmatic rules)
         mock_analyzer.analyze.assert_called_once()
         call_args = mock_analyzer.analyze.call_args
-        learning_types = call_args.kwargs["learning_types"]
-        assert learning_types == []
+        rule_types = call_args.kwargs["rule_types"]
+        assert rule_types == []
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -786,11 +786,11 @@ class TestAnalyzeCommand:
         temp_dir,
     ):
         """Test --no-llm with project scope runs programmatic rules correctly."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         config = sample_drift_config
-        config.drift_learning_types = {
-            "llm_rule": DriftLearningType(
+        config.rule_definitions = {
+            "llm_rule": RuleDefinition(
                 description="LLM rule",
                 scope="project_level",
                 context="Test",
@@ -804,7 +804,7 @@ class TestAnalyzeCommand:
                     )
                 ],
             ),
-            "programmatic_rule": DriftLearningType(
+            "programmatic_rule": RuleDefinition(
                 description="Programmatic rule",
                 scope="project_level",
                 context="Test",
@@ -841,8 +841,8 @@ class TestAnalyzeCommand:
         # Should call analyze_documents with only programmatic rule
         mock_analyzer.analyze_documents.assert_called_once()
         call_args = mock_analyzer.analyze_documents.call_args
-        learning_types = call_args.kwargs["learning_types"]
-        assert learning_types == ["programmatic_rule"]
+        rule_types = call_args.kwargs["rule_types"]
+        assert rule_types == ["programmatic_rule"]
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -856,13 +856,13 @@ class TestAnalyzeCommand:
         temp_dir,
     ):
         """Test that --no-llm with ALL LLM rules passes empty list, not None."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         config = sample_drift_config
 
         # Create config with ONLY LLM rules (no programmatic rules)
-        config.drift_learning_types = {
-            "llm_rule_1": DriftLearningType(
+        config.rule_definitions = {
+            "llm_rule_1": RuleDefinition(
                 name="llm_rule_1",
                 scope="conversation_level",
                 description="LLM rule 1",
@@ -878,7 +878,7 @@ class TestAnalyzeCommand:
                     )
                 ],
             ),
-            "llm_rule_2": DriftLearningType(
+            "llm_rule_2": RuleDefinition(
                 name="llm_rule_2",
                 scope="conversation_level",
                 description="LLM rule 2",
@@ -916,8 +916,8 @@ class TestAnalyzeCommand:
         # If None is passed, analyzer will run ALL rules
         mock_analyzer.analyze.assert_called_once()
         call_args = mock_analyzer.analyze.call_args
-        learning_types = call_args.kwargs["learning_types"]
-        assert learning_types == [], f"Expected empty list [], got {learning_types}"
+        rule_types = call_args.kwargs["rule_types"]
+        assert rule_types == [], f"Expected empty list [], got {rule_types}"
 
     @patch("drift.cli.commands.analyze.DriftAnalyzer")
     @patch("drift.cli.commands.analyze.ConfigLoader")
@@ -931,14 +931,14 @@ class TestAnalyzeCommand:
         temp_dir,
     ):
         """Test --no-llm with --scope all filters both conversation and project rules."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         config = sample_drift_config
 
         # Mix of LLM and programmatic rules at different scopes
-        config.drift_learning_types = {
+        config.rule_definitions = {
             # Conversation-level LLM rule
-            "conv_llm": DriftLearningType(
+            "conv_llm": RuleDefinition(
                 name="conv_llm",
                 scope="conversation_level",
                 description="Conv LLM rule",
@@ -955,7 +955,7 @@ class TestAnalyzeCommand:
                 ],
             ),
             # Conversation-level programmatic rule
-            "conv_prog": DriftLearningType(
+            "conv_prog": RuleDefinition(
                 name="conv_prog",
                 scope="conversation_level",
                 description="Conv programmatic rule",
@@ -972,7 +972,7 @@ class TestAnalyzeCommand:
                 ],
             ),
             # Project-level LLM rule
-            "proj_llm": DriftLearningType(
+            "proj_llm": RuleDefinition(
                 name="proj_llm",
                 scope="project_level",
                 description="Proj LLM rule",
@@ -989,7 +989,7 @@ class TestAnalyzeCommand:
                 ],
             ),
             # Project-level programmatic rule
-            "proj_prog": DriftLearningType(
+            "proj_prog": RuleDefinition(
                 name="proj_prog",
                 scope="project_level",
                 description="Proj programmatic rule",
@@ -1029,12 +1029,12 @@ class TestAnalyzeCommand:
         # Should call both analyze methods with correct filtered lists
         mock_analyzer.analyze.assert_called_once()
         conv_call_args = mock_analyzer.analyze.call_args
-        conv_learning_types = conv_call_args.kwargs["learning_types"]
+        conv_learning_types = conv_call_args.kwargs["rule_types"]
         assert conv_learning_types == ["conv_prog"]
 
         mock_analyzer.analyze_documents.assert_called_once()
         doc_call_args = mock_analyzer.analyze_documents.call_args
-        doc_learning_types = doc_call_args.kwargs["learning_types"]
+        doc_learning_types = doc_call_args.kwargs["rule_types"]
         assert doc_learning_types == ["proj_prog"]
 
     def test_no_llm_flag_actually_prevents_llm_calls(
@@ -1046,13 +1046,13 @@ class TestAnalyzeCommand:
         """Test that --no-llm actually prevents LLM calls from being made."""
         from unittest.mock import MagicMock, patch
 
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         config = sample_drift_config
 
         # Create config with ONLY LLM rules
-        config.drift_learning_types = {
-            "llm_rule_1": DriftLearningType(
+        config.rule_definitions = {
+            "llm_rule_1": RuleDefinition(
                 name="llm_rule_1",
                 scope="conversation_level",
                 description="LLM rule 1",
@@ -1068,7 +1068,7 @@ class TestAnalyzeCommand:
                     )
                 ],
             ),
-            "llm_rule_2": DriftLearningType(
+            "llm_rule_2": RuleDefinition(
                 name="llm_rule_2",
                 scope="conversation_level",
                 description="LLM rule 2",
@@ -1101,7 +1101,7 @@ class TestAnalyzeCommand:
                     },
                     summary=AnalysisSummary(
                         total_conversations=0,
-                        total_learnings=0,
+                        total_rule_violations=0,
                     ),
                     results=[],
                 )
@@ -1122,8 +1122,8 @@ class TestAnalyzeCommand:
                     # Should pass empty list to analyzer
                     mock_analyzer.analyze.assert_called_once()
                     call_args = mock_analyzer.analyze.call_args
-                    learning_types = call_args.kwargs["learning_types"]
-                    assert learning_types == [], f"Expected empty list, got {learning_types}"
+                    rule_types = call_args.kwargs["rule_types"]
+                    assert rule_types == [], f"Expected empty list, got {rule_types}"
 
     def test_no_llm_flag_prevents_real_llm_calls_integration(
         self,
@@ -1139,7 +1139,7 @@ class TestAnalyzeCommand:
         # Create config with LLM rule + programmatic rule
         with open(sample_config_yaml) as f:
             config_dict = yaml.safe_load(f)
-        config_dict["drift_learning_types"] = {
+        config_dict["rule_definitions"] = {
             "llm_rule": {
                 "description": "LLM rule",
                 "scope": "conversation_level",
@@ -1204,7 +1204,7 @@ class TestAnalyzeCommand:
         """Test that default scope is 'project' (not 'conversation' or 'all')."""
         # Create config with both conversation and project rules
         config_content = make_config_yaml(
-            learning_types={
+            rule_types={
                 "conversation_rule": {
                     "description": "Conv rule",
                     "scope": "conversation_level",
@@ -1257,7 +1257,7 @@ class TestAnalyzeCommand:
     ):
         """Test that --no-llm --scope project runs programmatic rules and reports stats."""
         config_content = make_config_yaml(
-            learning_types={
+            rule_types={
                 "llm_rule": {
                     "description": "LLM-based rule",
                     "scope": "project_level",
@@ -1329,7 +1329,7 @@ class TestAnalyzeCommand:
     ):
         """Test that --no-llm --scope all merges conversation and project rule stats."""
         config_content = make_config_yaml(
-            learning_types={
+            rule_types={
                 "conv_llm": {
                     "description": "Conv LLM",
                     "scope": "conversation_level",
@@ -1387,7 +1387,7 @@ class TestAnalyzeCommand:
     ):
         """Test that --no-llm --scope conversation doesn't run project rules."""
         config_content = make_config_yaml(
-            learning_types={
+            rule_types={
                 "conv_llm": {
                     "description": "Conv LLM",
                     "scope": "conversation_level",
@@ -1447,7 +1447,7 @@ class TestAnalyzeCommand:
     ):
         """Test that programmatic project-level rules execute and report correctly."""
         config_content = make_config_yaml(
-            learning_types={
+            rule_types={
                 "readme_check": {
                     "description": "README existence check",
                     "scope": "project_level",

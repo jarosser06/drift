@@ -274,7 +274,7 @@ class TestComprehensiveE2E:
                     "enabled": True,
                 }
             },
-            "drift_learning_types": {
+            "rule_definitions": {
                 # Conversation-level (single-phase LLM)
                 "incomplete_work": {
                     "description": "AI stopped before completing full scope of work",
@@ -709,13 +709,13 @@ class TestComprehensiveE2E:
         """Assert learning has required fields and valid content.
 
         Args:
-            learning: Learning dictionary to validate
+            learning: Rule dictionary to validate
         """
         required_fields = [
             "turn_number",
             "observed_behavior",
             "expected_behavior",
-            "learning_type",
+            "rule_type",
             "frequency",
             "workflow_element",
             "context",
@@ -882,14 +882,14 @@ class TestComprehensiveE2E:
         # Verify summary statistics
         # Should find 4 conversation files (incomplete, skill, clean, command)
         assert "Total conversations: 4" in result.stdout
-        assert "Total learnings:" in result.stdout  # Should have 2+ learnings
+        assert "Total rules:" in result.stdout  # Should have 2+ rules
 
         # Verify learning types are mentioned
         assert "incomplete_work" in result.stdout
         assert "skill_ignored" in result.stdout
 
         # Verify both conversation and project scopes ran
-        # (conversation learnings + programmatic claude_md_missing check)
+        # (conversation rules + programmatic claude_md_missing check)
         assert "Warnings" in result.stdout or "## Learnings" in result.stdout
 
         # Verify prompt content
@@ -1051,23 +1051,23 @@ class TestComprehensiveE2E:
             assert detail["status"] in ["passed", "failed", "error", "skipped"]
             # Duration is optional
 
-        # Verify results array has learnings
+        # Verify results array has rules
         assert "results" in output, "No results in JSON output"
         assert isinstance(output["results"], list), "results should be a list"
 
-        # Extract all learnings from results
-        all_learnings = []
+        # Extract all rules from results
+        all_rules = []
         for conv in output["results"]:
-            all_learnings.extend(conv.get("learnings", []))
+            all_rules.extend(conv.get("rules", []))
 
-        # Should have learnings from conversation analysis
+        # Should have rules from conversation analysis
         conversation_learnings = [
             learning
-            for learning in all_learnings
-            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            for learning in all_rules
+            if learning.get("rule_type") in ["incomplete_work", "skill_ignored"]
         ]
         assert len(conversation_learnings) >= 2, (
-            f"Expected at least 2 conversation learnings, " f"got {len(conversation_learnings)}"
+            f"Expected at least 2 conversation rules, " f"got {len(conversation_learnings)}"
         )
 
     def test_detailed_flag_shows_execution_context(self, cli_runner, e2e_project_dir):
@@ -1220,7 +1220,7 @@ class TestComprehensiveE2E:
             or "0 conversations" in output_text.lower()
         ), f"No indication of LLM filtering in output:\n{output_text}"
 
-        # Should NOT have conversation learnings
+        # Should NOT have conversation rules
         assert (
             "incomplete_work" not in result.stdout
         ), "Should not have incomplete_work learning with --no-llm"
@@ -1298,32 +1298,30 @@ class TestComprehensiveE2E:
         # Parse JSON output
         output = json.loads(result.stdout)
 
-        # Should have conversation learnings
-        # Results are conversations, each with a learnings array
-        all_learnings = []
+        # Should have conversation rules
+        # Results are conversations, each with a rules array
+        all_rules = []
         for conv in output["results"]:
-            all_learnings.extend(conv.get("learnings", []))
+            all_rules.extend(conv.get("rules", []))
 
         conversation_learnings = [
             learning
-            for learning in all_learnings
-            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            for learning in all_rules
+            if learning.get("rule_type") in ["incomplete_work", "skill_ignored"]
         ]
         assert len(conversation_learnings) >= 1, (
-            f"Expected conversation learnings with --scope conversation, "
-            f"got {len(conversation_learnings)}. All learnings: "
-            f"{[learning.get('learning_type') for learning in all_learnings]}"
+            f"Expected conversation rules with --scope conversation, "
+            f"got {len(conversation_learnings)}. All rules: "
+            f"{[learning.get('rule_type') for learning in all_rules]}"
         )
 
-        # Should NOT have project-level learnings
-        # Project learnings would have learning_type of programmatic rules
+        # Should NOT have project-level rules
+        # Project rules would have rule_type of programmatic rules
         project_learnings = [
-            learning
-            for learning in all_learnings
-            if learning.get("learning_type") == "claude_md_missing"
+            learning for learning in all_rules if learning.get("rule_type") == "claude_md_missing"
         ]
         assert len(project_learnings) == 0, (
-            f"Should not have project learnings with --scope conversation, "
+            f"Should not have project rules with --scope conversation, "
             f"got {len(project_learnings)}"
         )
 
@@ -1368,14 +1366,14 @@ class TestComprehensiveE2E:
         # Parse JSON output
         output = json.loads(result.stdout)
 
-        # Should NOT have conversation learnings
+        # Should NOT have conversation rules
         conversation_learnings = [
             r
             for r in output["results"]
-            if r.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            if r.get("rule_type") in ["incomplete_work", "skill_ignored"]
         ]
         assert len(conversation_learnings) == 0, (
-            f"Should not have conversation learnings with --scope project, "
+            f"Should not have conversation rules with --scope project, "
             f"got {len(conversation_learnings)}"
         )
 
@@ -1470,28 +1468,23 @@ class TestComprehensiveE2E:
         # Parse JSON output
         output = json.loads(result.stdout)
 
-        # Should have BOTH conversation and project learnings
-        # Extract all learnings from conversations
-        all_learnings = []
+        # Should have BOTH conversation and project rules
+        # Extract all rules from conversations
+        all_rules = []
         for conv in output["results"]:
-            all_learnings.extend(conv.get("learnings", []))
+            all_rules.extend(conv.get("rules", []))
 
         conversation_learnings = [
             learning
-            for learning in all_learnings
-            if learning.get("learning_type") in ["incomplete_work", "skill_ignored"]
+            for learning in all_rules
+            if learning.get("rule_type") in ["incomplete_work", "skill_ignored"]
         ]
-        _ = [
-            learning
-            for learning in all_learnings
-            if learning.get("learning_type") == "claude_md_missing"
-        ]
+        _ = [learning for learning in all_rules if learning.get("rule_type") == "claude_md_missing"]
 
         # Note: project programmatic rule (claude_md_missing) passes, so no learning
-        # But we should have conversation learnings
+        # But we should have conversation rules
         assert len(conversation_learnings) >= 1, (
-            f"Expected conversation learnings with --scope all, "
-            f"got {len(conversation_learnings)}"
+            f"Expected conversation rules with --scope all, " f"got {len(conversation_learnings)}"
         )
 
         # Summary should show conversations analyzed
@@ -1586,7 +1579,7 @@ class TestComprehensiveE2E:
                     str(e2e_project_dir),
                     "--format",
                     "json",
-                    "--types",
+                    "--rules",
                     "command_activation_required",
                 ],
             )
@@ -1696,7 +1689,7 @@ class TestComprehensiveE2E:
 
         # Create config with file_exists rule
         config_content = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "Project missing CLAUDE.md configuration file"
     scope: "project_level"
@@ -1729,11 +1722,11 @@ drift_learning_types:
 
         # Parse and verify
         output_pass = json.loads(result_pass.stdout)
-        # Extract learnings
+        # Extract rules
         all_learnings_pass = []
         for result in output_pass["results"]:
-            all_learnings_pass.extend(result.get("learnings", []))
-        assert len(all_learnings_pass) == 0, "Should have no learnings when file exists"
+            all_learnings_pass.extend(result.get("rules", []))
+        assert len(all_learnings_pass) == 0, "Should have no rules when file exists"
 
         # Verify execution detail shows passed
         exec_details = output_pass["metadata"]["execution_details"]
@@ -1762,16 +1755,16 @@ drift_learning_types:
         output_fail = json.loads(result_fail.stdout)
         assert len(output_fail["results"]) > 0, "Should have results when file missing"
 
-        # Extract learnings from results
-        all_learnings = []
+        # Extract rules from results
+        all_rules = []
         for result in output_fail["results"]:
-            all_learnings.extend(result.get("learnings", []))
+            all_rules.extend(result.get("rules", []))
 
-        assert len(all_learnings) > 0, "Should have learnings when file missing"
+        assert len(all_rules) > 0, "Should have rules when file missing"
 
         # Verify learning
-        learning = all_learnings[0]
-        assert learning["learning_type"] == "claude_md_missing"
+        learning = all_rules[0]
+        assert learning["rule_type"] == "claude_md_missing"
         assert "CLAUDE.md" in learning["observed_behavior"]
 
         # Verify execution detail shows failed
@@ -1795,7 +1788,7 @@ drift_learning_types:
 
         # Create config with regex_match rule
         config_content = """
-drift_learning_types:
+rule_definitions:
   readme_version_format:
     description: "README should have proper version format"
     scope: "project_level"
@@ -1828,7 +1821,7 @@ drift_learning_types:
         )
 
         output = json.loads(result.stdout)
-        assert len(output["results"]) == 0, "Should have no learnings when pattern matches"
+        assert len(output["results"]) == 0, "Should have no rules when pattern matches"
 
         # Test non-matching case
         (project_dir / "README.md").write_text("# Test Project\n\nNo version here.")
@@ -1845,8 +1838,8 @@ drift_learning_types:
         output_fail = json.loads(result_fail.stdout)
         assert len(output_fail["results"]) > 0, "Should have learning when pattern doesn't match"
 
-    def test_learning_type_filter(self, cli_runner, e2e_project_dir_all_conversations):
-        """Test --types filter to run specific learning types only."""
+    def test_rule_definition_filter(self, cli_runner, e2e_project_dir_all_conversations):
+        """Test --rules filter to run specific learning types only."""
         e2e_project_dir = e2e_project_dir_all_conversations
         # Create mock provider with responses
         mock_provider = SequentialMockProvider(
@@ -1874,7 +1867,7 @@ drift_learning_types:
         )
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            # Run with --types to filter to only incomplete_work
+            # Run with --rules to filter to only incomplete_work
             result = cli_runner.invoke(
                 app,
                 [
@@ -1882,7 +1875,7 @@ drift_learning_types:
                     "conversation",
                     "--project",
                     str(e2e_project_dir),
-                    "--types",
+                    "--rules",
                     "incomplete_work",
                     "--format",
                     "json",
@@ -1892,21 +1885,19 @@ drift_learning_types:
         # Parse output
         output = json.loads(result.stdout)
 
-        # Extract all learnings from conversations
-        all_learnings = []
+        # Extract all rules from conversations
+        all_rules = []
         for conv in output["results"]:
-            all_learnings.extend(conv.get("learnings", []))
+            all_rules.extend(conv.get("rules", []))
 
-        # Should only have incomplete_work learnings
-        learning_types = {learning["learning_type"] for learning in all_learnings}
-        assert "incomplete_work" in learning_types or len(learning_types) == 0
+        # Should only have incomplete_work rules
+        rule_types = {learning["rule_type"] for learning in all_rules}
+        assert "incomplete_work" in rule_types or len(rule_types) == 0
 
         # Should NOT have other types
+        assert "skill_ignored" not in rule_types, "Should not run skill_ignored when filtered out"
         assert (
-            "skill_ignored" not in learning_types
-        ), "Should not run skill_ignored when filtered out"
-        assert (
-            "claude_md_missing" not in learning_types
+            "claude_md_missing" not in rule_types
         ), "Should not run claude_md_missing when filtered out"
 
         # Execution details should only show incomplete_work
@@ -1914,7 +1905,7 @@ drift_learning_types:
         rule_names = {d["rule_name"] for d in exec_details}
 
         assert "incomplete_work" in rule_names, (
-            f"Should run incomplete_work with --types filter. " f"Found: {rule_names}"
+            f"Should run incomplete_work with --rules filter. " f"Found: {rule_names}"
         )
 
         # May or may not have other rules depending on implementation
@@ -2075,13 +2066,13 @@ drift_learning_types:
 
     def test_exit_codes_comprehensive(self, cli_runner, temp_dir):
         """Test all exit code scenarios: 0 (no drift), 2 (drift found), 1 (error)."""
-        # Exit code 0: No learnings found
+        # Exit code 0: No rules found
         project_no_drift = temp_dir / "no_drift"
         project_no_drift.mkdir()
         (project_no_drift / "CLAUDE.md").write_text("# Config\n")
 
         config_pass = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "CLAUDE.md check"
     scope: "project_level"
@@ -2154,7 +2145,7 @@ drift_learning_types:
 
         # Config with individual strategy for skills
         config_individual = """
-drift_learning_types:
+rule_definitions:
   skill_completeness:
     description: "Skills should be complete"
     scope: "project_level"
@@ -2179,15 +2170,15 @@ drift_learning_types:
             app, ["--project", str(project_individual), "--no-llm", "--format", "json"]
         )
 
-        # With individual strategy, should get separate learnings for each file
+        # With individual strategy, should get separate rules for each file
         output_individual = json.loads(result_individual.stdout)
-        # Should have multiple learnings (one per skill file)
-        # Results array has 1 AnalysisResult for documents with multiple learnings inside
+        # Should have multiple rules (one per skill file)
+        # Results array has 1 AnalysisResult for documents with multiple rules inside
         assert len(output_individual["results"]) >= 1, "Should have document results"
         document_result = output_individual["results"][0]
-        assert len(document_result["learnings"]) >= 2, (
-            f"Individual strategy should create separate learnings (one per file), "
-            f"got {len(document_result['learnings'])}"
+        assert len(document_result["rules"]) >= 2, (
+            f"Individual strategy should create separate rules (one per file), "
+            f"got {len(document_result['rules'])}"
         )
 
         # Test collection strategy
@@ -2198,7 +2189,7 @@ drift_learning_types:
 
         # Config with collection strategy
         config_collection = """
-drift_learning_types:
+rule_definitions:
   docs_consistency:
     description: "Documentation consistency"
     scope: "project_level"

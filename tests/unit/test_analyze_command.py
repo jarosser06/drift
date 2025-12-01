@@ -13,7 +13,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -21,7 +21,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -29,17 +29,17 @@ class TestMergeResults:
         merged = _merge_results(conv_result, doc_result)
 
         assert merged.summary.total_conversations == 0
-        assert merged.summary.total_learnings == 0
+        assert merged.summary.total_rule_violations == 0
         assert merged.results == []
         assert merged.metadata["analysis_scopes"] == ["conversations", "documents"]
 
     def test_merge_with_learnings(self):
-        """Test merging results with learnings."""
+        """Test merging results with rules."""
         conv_result = CompleteAnalysisResult(
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=2,
+                total_rule_violations=2,
                 by_type={"incomplete_work": 2},
             ),
             results=[],
@@ -48,7 +48,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=1,
+                total_rule_violations=1,
                 by_type={"claude_md_missing": 1},
             ),
             results=[],
@@ -56,7 +56,7 @@ class TestMergeResults:
 
         merged = _merge_results(conv_result, doc_result)
 
-        assert merged.summary.total_learnings == 3
+        assert merged.summary.total_rule_violations == 3
         assert merged.summary.by_type["incomplete_work"] == 2
         assert merged.summary.by_type["claude_md_missing"] == 1
 
@@ -66,7 +66,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=2,
+                total_rule_violations=2,
                 by_type={"incomplete_work": 2},
             ),
             results=[],
@@ -75,7 +75,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=3,
+                total_rule_violations=3,
                 by_type={"incomplete_work": 3},
             ),
             results=[],
@@ -83,35 +83,35 @@ class TestMergeResults:
 
         merged = _merge_results(conv_result, doc_result)
 
-        assert merged.summary.total_learnings == 5
+        assert merged.summary.total_rule_violations == 5
         assert merged.summary.by_type["incomplete_work"] == 5
 
     def test_merge_document_learnings_metadata(self):
-        """Test that document_learnings metadata is preserved."""
+        """Test that document_rules metadata is preserved."""
         conv_result = CompleteAnalysisResult(
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
         doc_result = CompleteAnalysisResult(
             metadata={
                 "generated_at": "2024-01-01T10:00:00",
-                "document_learnings": [{"type": "claude_md_missing", "count": 1}],
+                "document_rules": [{"type": "claude_md_missing", "count": 1}],
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=1,
+                total_rule_violations=1,
             ),
             results=[],
         )
 
         merged = _merge_results(conv_result, doc_result)
 
-        assert "document_learnings" in merged.metadata
-        assert merged.metadata["document_learnings"] == [{"type": "claude_md_missing", "count": 1}]
+        assert "document_rules" in merged.metadata
+        assert merged.metadata["document_rules"] == [{"type": "claude_md_missing", "count": 1}]
 
     def test_merge_skipped_rules_both_empty(self):
         """Test merging when neither result has skipped rules."""
@@ -119,7 +119,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -127,7 +127,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -145,7 +145,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -153,7 +153,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -169,7 +169,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -180,7 +180,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -199,7 +199,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -210,7 +210,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -229,7 +229,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -240,7 +240,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -257,7 +257,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=[],
             ),
             results=[],
@@ -266,7 +266,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=[],
             ),
             results=[],
@@ -282,7 +282,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
             ),
             results=[],
@@ -291,7 +291,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=[],
             ),
             results=[],
@@ -308,7 +308,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=[],
             ),
             results=[],
@@ -317,7 +317,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule3", "rule4"],
             ),
             results=[],
@@ -334,7 +334,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
             ),
             results=[],
@@ -343,7 +343,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule3", "rule4"],
             ),
             results=[],
@@ -359,7 +359,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
             ),
             results=[],
@@ -368,7 +368,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule2", "rule3"],
             ),
             results=[],
@@ -385,7 +385,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_passed=["rule1", "rule2"],
             ),
             results=[],
@@ -394,7 +394,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_passed=["rule3", "rule4"],
             ),
             results=[],
@@ -410,7 +410,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_warned=["rule1"],
             ),
             results=[],
@@ -419,7 +419,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_warned=["rule2"],
             ),
             results=[],
@@ -435,7 +435,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_failed=["rule1"],
             ),
             results=[],
@@ -444,7 +444,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_failed=["rule2"],
             ),
             results=[],
@@ -460,7 +460,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_errored=["rule1"],
             ),
             results=[],
@@ -469,7 +469,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_errored=["rule2"],
             ),
             results=[],
@@ -485,7 +485,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 rules_checked=["rule1", "rule2", "rule3"],
                 rules_passed=["rule1"],
                 rules_warned=["rule2"],
@@ -497,7 +497,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=1,
+                total_rule_violations=1,
                 rules_checked=["rule4", "rule5"],
                 rules_passed=["rule4"],
                 rules_errored=["rule5"],
@@ -523,7 +523,7 @@ class TestMergeResults:
             },
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )
@@ -531,7 +531,7 @@ class TestMergeResults:
             metadata={"generated_at": "2024-01-01T10:00:00"},
             summary=AnalysisSummary(
                 total_conversations=0,
-                total_learnings=0,
+                total_rule_violations=0,
             ),
             results=[],
         )

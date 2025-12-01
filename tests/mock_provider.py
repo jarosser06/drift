@@ -17,7 +17,7 @@ class MockProvider(Provider):
         self.model_config = model_config
         self.call_count = 0
         self.calls = []
-        # Return empty JSON array by default (no learnings)
+        # Return empty JSON array by default (no rules)
         self.response = "[]"
 
     def generate(self, prompt: str, **kwargs) -> str:
@@ -28,7 +28,7 @@ class MockProvider(Provider):
             **kwargs: Additional generation parameters
 
         Returns:
-            Mock response (JSON array of learnings)
+            Mock response (JSON array of rules)
         """
         self.call_count += 1
         self.calls.append({"prompt": prompt, "kwargs": kwargs})

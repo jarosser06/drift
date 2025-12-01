@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from drift.core.analyzer import DriftAnalyzer
-from drift.core.types import AnalysisResult, Learning
+from drift.core.types import AnalysisResult, Rule
 
 
 class TestRulesTracking:
@@ -18,11 +18,11 @@ class TestRulesTracking:
         sample_drift_config,
         sample_conversation,
     ):
-        """Test rules tracking when all rules pass (no learnings)."""
+        """Test rules tracking when all rules pass (no rules)."""
         # Setup mocks
         mock_provider = MagicMock()
         mock_provider.is_available.return_value = True
-        mock_provider.generate.return_value = "[]"  # No learnings
+        mock_provider.generate.return_value = "[]"  # No rules
         mock_provider_class.return_value = mock_provider
 
         mock_loader = MagicMock()
@@ -50,11 +50,11 @@ class TestRulesTracking:
         sample_conversation,
         sample_learning,
     ):
-        """Test rules tracking when some rules fail (have learnings)."""
+        """Test rules tracking when some rules fail (have rules)."""
         # Add another rule to the config so we have multiple rules
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
-        sample_drift_config.drift_learning_types["test_rule"] = DriftLearningType(
+        sample_drift_config.rule_definitions["test_rule"] = RuleDefinition(
             description="Test rule",
             scope="conversation_level",
             context="Test",
@@ -75,7 +75,7 @@ class TestRulesTracking:
         mock_provider.generate.side_effect = [
             '[{"turn_number": 1, "observed_behavior": "test", '
             '"expected_behavior": "test", "context": "test"}]',
-            "[]",  # test_rule returns no learnings
+            "[]",  # test_rule returns no rules
         ]
         mock_provider_class.return_value = mock_provider
 
@@ -126,11 +126,11 @@ class TestRulesTracking:
 
     def test_generate_summary_tracks_rules(self, sample_learning, sample_drift_config, tmp_path):
         """Test _generate_summary correctly tracks rules."""
-        from drift.config.models import DriftLearningType, PhaseDefinition
+        from drift.config.models import PhaseDefinition, RuleDefinition
 
         # Create mock learning types
         types_checked = {
-            "rule1": DriftLearningType(
+            "rule1": RuleDefinition(
                 description="Test",
                 scope="conversation_level",
                 context="Test",
@@ -143,7 +143,7 @@ class TestRulesTracking:
                     )
                 ],
             ),
-            "rule2": DriftLearningType(
+            "rule2": RuleDefinition(
                 description="Test",
                 scope="conversation_level",
                 context="Test",
@@ -156,7 +156,7 @@ class TestRulesTracking:
                     )
                 ],
             ),
-            "rule3": DriftLearningType(
+            "rule3": RuleDefinition(
                 description="Test",
                 scope="conversation_level",
                 context="Test",
@@ -172,14 +172,14 @@ class TestRulesTracking:
         }
 
         # Create results with learning from rule1 only
-        learning_rule1 = Learning(
+        learning_rule1 = Rule(
             turn_number=1,
             turn_uuid=None,
             agent_tool="claude-code",
             conversation_file="/test",
             observed_behavior="test",
             expected_behavior="test",
-            learning_type="rule1",
+            rule_type="rule1",
             context="test",
             resources_consulted=[],
             phases_count=1,
@@ -190,7 +190,7 @@ class TestRulesTracking:
                 session_id="test",
                 agent_tool="claude-code",
                 conversation_file="/test",
-                learnings=[learning_rule1],
+                rules=[learning_rule1],
             )
         ]
 
@@ -212,7 +212,7 @@ class TestRulesTracking:
                 session_id="test",
                 agent_tool="claude-code",
                 conversation_file="/test",
-                learnings=[],
+                rules=[],
             )
         ]
 

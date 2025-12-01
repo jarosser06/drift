@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition
 from drift.core.analyzer import DriftAnalyzer
 from drift.core.types import Conversation, ResourceRequest, ResourceResponse, Turn
 
@@ -41,7 +41,7 @@ class TestPromptGeneration:
     @pytest.fixture
     def command_activation_rule(self):
         """Create command_activation_required rule."""
-        return DriftLearningType(
+        return RuleDefinition(
             description="AI failed to activate required skills",
             scope="conversation_level",
             context="Commands require skill activation first",
@@ -73,7 +73,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -104,7 +104,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -137,7 +137,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=1,
             phase_def=phase_def,
@@ -170,7 +170,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=1,
             phase_def=phase_def,
@@ -202,7 +202,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -226,7 +226,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -261,7 +261,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=empty_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -294,7 +294,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=special_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -315,7 +315,7 @@ class TestPromptGeneration:
         for phase_idx, phase_def in enumerate(command_activation_rule.phases):
             prompt = analyzer._build_multi_phase_prompt(
                 conversation=sample_conversation,
-                learning_type="command_activation_required",
+                rule_type="command_activation_required",
                 type_config=command_activation_rule,
                 phase_idx=phase_idx,
                 phase_def=phase_def,
@@ -335,7 +335,7 @@ class TestPromptGeneration:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="command_activation_required",
+            rule_type="command_activation_required",
             type_config=command_activation_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -385,7 +385,7 @@ class TestSinglePhasePromptGeneration:
     @pytest.fixture
     def single_phase_rule(self):
         """Create a single-phase learning type."""
-        return DriftLearningType(
+        return RuleDefinition(
             description="Work left incomplete",
             scope="conversation_level",
             context="Work should be completed",
@@ -450,7 +450,7 @@ class TestMultiPhaseScenarios:
     @pytest.fixture
     def three_phase_rule(self):
         """Create a 3-phase learning type."""
-        return DriftLearningType(
+        return RuleDefinition(
             description="Documentation drift",
             scope="conversation_level",
             context="Docs should match behavior",
@@ -522,7 +522,7 @@ class TestMultiPhaseScenarios:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type="documentation_drift",
+            rule_type="documentation_drift",
             type_config=three_phase_rule,
             phase_idx=1,
             phase_def=phase_def,
@@ -572,7 +572,7 @@ class TestMultiPhaseScenarios:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type="documentation_drift",
+            rule_type="documentation_drift",
             type_config=three_phase_rule,
             phase_idx=1,
             phase_def=phase_def,
@@ -616,7 +616,7 @@ class TestMultiPhaseScenarios:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type="documentation_drift",
+            rule_type="documentation_drift",
             type_config=three_phase_rule,
             phase_idx=2,
             phase_def=phase_def,
@@ -651,7 +651,7 @@ class TestMultiPhaseScenarios:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type="documentation_drift",
+            rule_type="documentation_drift",
             type_config=three_phase_rule,
             phase_idx=0,
             phase_def=phase_def,
@@ -691,7 +691,7 @@ class TestMultiPhaseScenarios:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type="documentation_drift",
+            rule_type="documentation_drift",
             type_config=three_phase_rule,
             phase_idx=0,
             phase_def=phase_def,

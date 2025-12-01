@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from drift.config.models import DriftLearningType, PhaseDefinition
+from drift.config.models import PhaseDefinition, RuleDefinition
 from drift.core.analyzer import DriftAnalyzer
-from drift.core.types import AnalysisResult, CompleteAnalysisResult, Learning
+from drift.core.types import AnalysisResult, CompleteAnalysisResult, Rule
 from tests.mock_provider import MockProvider
 
 
@@ -96,28 +96,28 @@ class TestDriftAnalyzer:
             ]
         )
 
-        learnings = DriftAnalyzer._parse_analysis_response(
+        rules = DriftAnalyzer._parse_analysis_response(
             response,
             sample_conversation,
             "incomplete_work",
         )
 
-        assert len(learnings) == 1
-        assert isinstance(learnings[0], Learning)
-        assert learnings[0].turn_number == 1
-        assert learnings[0].learning_type == "incomplete_work"
+        assert len(rules) == 1
+        assert isinstance(rules[0], Rule)
+        assert rules[0].turn_number == 1
+        assert rules[0].rule_type == "incomplete_work"
 
     def test_parse_analysis_response_empty(self, sample_conversation):
         """Test parsing empty analysis response."""
         response = "[]"
 
-        learnings = DriftAnalyzer._parse_analysis_response(
+        rules = DriftAnalyzer._parse_analysis_response(
             response,
             sample_conversation,
             "incomplete_work",
         )
 
-        assert learnings == []
+        assert rules == []
 
     def test_parse_analysis_response_with_text(self, sample_conversation):
         """Test parsing response with extra text around JSON."""
@@ -128,37 +128,37 @@ class TestDriftAnalyzer:
             "That's all I found."
         )
 
-        learnings = DriftAnalyzer._parse_analysis_response(
+        rules = DriftAnalyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",
         )
 
-        assert len(learnings) == 1
+        assert len(rules) == 1
 
     def test_parse_analysis_response_invalid_json(self, sample_conversation):
         """Test parsing response with invalid JSON."""
         response = "This is not JSON at all"
 
-        learnings = DriftAnalyzer._parse_analysis_response(
+        rules = DriftAnalyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",
         )
 
-        assert learnings == []
+        assert rules == []
 
     def test_parse_analysis_response_no_json_array(self, sample_conversation):
         """Test parsing response without JSON array."""
         response = '{"not": "an array"}'
 
-        learnings = DriftAnalyzer._parse_analysis_response(
+        rules = DriftAnalyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",
         )
 
-        assert learnings == []
+        assert rules == []
 
     def test_generate_summary_no_results(self, sample_drift_config, tmp_path):
         """Test generating summary from empty results."""
@@ -166,7 +166,7 @@ class TestDriftAnalyzer:
         summary = analyzer._generate_summary([])
 
         assert summary.total_conversations == 0
-        assert summary.total_learnings == 0
+        assert summary.total_rule_violations == 0
         assert summary.conversations_with_drift == 0
         assert summary.conversations_without_drift == 0
 
@@ -176,7 +176,7 @@ class TestDriftAnalyzer:
             session_id="session1",
             agent_tool="claude-code",
             conversation_file="/path1",
-            learnings=[sample_learning],
+            rules=[sample_learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -184,7 +184,7 @@ class TestDriftAnalyzer:
             session_id="session2",
             agent_tool="claude-code",
             conversation_file="/path2",
-            learnings=[],  # No drift
+            rules=[],  # No drift
             analysis_timestamp=datetime.now(),
         )
 
@@ -192,7 +192,7 @@ class TestDriftAnalyzer:
         summary = analyzer._generate_summary([result1, result2])
 
         assert summary.total_conversations == 2
-        assert summary.total_learnings == 1
+        assert summary.total_rule_violations == 1
         assert summary.conversations_with_drift == 1
         assert summary.conversations_without_drift == 1
         assert "incomplete_work" in summary.by_type
@@ -268,7 +268,7 @@ class TestDriftAnalyzer:
         assert isinstance(result, CompleteAnalysisResult)
         assert result.summary.total_conversations == 1
         assert len(result.results) == 1
-        assert len(result.results[0].learnings) == 1
+        assert len(result.results[0].rules) == 1
 
     @patch("drift.core.analyzer.ClaudeCodeLoader")
     @patch("drift.core.analyzer.BedrockProvider")
@@ -315,7 +315,7 @@ class TestDriftAnalyzer:
         mock_provider_class.return_value = mock_provider
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        analyzer.analyze(learning_types=["incomplete_work"])
+        analyzer.analyze(rule_types=["incomplete_work"])
 
         # Should only check specified learning types
         assert mock_provider.generate.call_count == 1  # One conversation * one learning type
@@ -385,7 +385,7 @@ class TestDriftAnalyzer:
         # Should return empty result instead of raising
         result = analyzer.analyze()
         assert result.summary.total_conversations == 0
-        assert result.summary.total_learnings == 0
+        assert result.summary.total_rule_violations == 0
         assert "No conversations available" in result.metadata.get("message", "")
 
     @patch("drift.core.analyzer.ClaudeCodeLoader")
@@ -514,7 +514,7 @@ class TestDriftAnalyzer:
         analyzer = DriftAnalyzer(config=sample_drift_config)
         analyzer.providers = {"haiku": mock_provider}
 
-        learnings, error, phase_results = analyzer._run_analysis_pass(
+        rules, error, phase_results = analyzer._run_analysis_pass(
             sample_conversation,
             "incomplete_work",
             sample_learning_type,
@@ -522,8 +522,8 @@ class TestDriftAnalyzer:
         )
 
         assert error is None
-        assert len(learnings) == 1
-        assert learnings[0].learning_type == "incomplete_work"
+        assert len(rules) == 1
+        assert rules[0].rule_type == "incomplete_work"
 
     def test_run_analysis_pass_unknown_model(
         self,
@@ -564,13 +564,13 @@ class TestDriftAnalyzer:
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
 
         # Add mixed learning types
-        sample_drift_config.drift_learning_types = {
-            "turn_type": DriftLearningType(
+        sample_drift_config.rule_definitions = {
+            "turn_type": RuleDefinition(
                 description="Turn level",
                 scope="conversation_level",
                 context="Test",
@@ -584,7 +584,7 @@ class TestDriftAnalyzer:
                     )
                 ],
             ),
-            "doc_type": DriftLearningType(
+            "doc_type": RuleDefinition(
                 description="Document level",
                 scope="project_level",
                 context="Test",
@@ -630,13 +630,13 @@ class TestDriftAnalyzer:
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create document learning type
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test document type",
             scope="project_level",
             context="Test",
@@ -657,7 +657,7 @@ class TestDriftAnalyzer:
                 )
             ],
         )
-        sample_drift_config.drift_learning_types = {"doc_test": doc_type}
+        sample_drift_config.rule_definitions = {"doc_test": doc_type}
 
         # Create mock bundles
         bundle1 = DocumentBundle(
@@ -711,8 +711,8 @@ class TestDriftAnalyzer:
 
         # Should analyze each bundle separately
         assert mock_provider.generate.call_count == 2
-        assert "document_learnings" in result.metadata
-        assert len(result.metadata["document_learnings"]) == 2
+        assert "document_rules" in result.metadata
+        assert len(result.metadata["document_rules"]) == 2
 
     @patch("drift.core.analyzer.DocumentLoader")
     @patch("drift.core.analyzer.BedrockProvider")
@@ -723,13 +723,13 @@ class TestDriftAnalyzer:
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create project-level learning type
-        proj_type = DriftLearningType(
+        proj_type = RuleDefinition(
             description="Test project type",
             scope="project_level",
             context="Test",
@@ -750,7 +750,7 @@ class TestDriftAnalyzer:
                 )
             ],
         )
-        sample_drift_config.drift_learning_types = {"proj_test": proj_type}
+        sample_drift_config.rule_definitions = {"proj_test": proj_type}
 
         # Create mock bundles
         bundle1 = DocumentBundle(
@@ -796,9 +796,9 @@ class TestDriftAnalyzer:
 
         # Should analyze combined bundle once (max 1 for project level)
         assert mock_provider.generate.call_count == 1
-        assert "document_learnings" in result.metadata
+        assert "document_rules" in result.metadata
         # Project level should have max 1 learning
-        assert len(result.metadata["document_learnings"]) == 1
+        assert len(result.metadata["document_rules"]) == 1
 
     @patch("drift.core.analyzer.DocumentLoader")
     @patch("drift.core.analyzer.BedrockProvider")
@@ -809,13 +809,13 @@ class TestDriftAnalyzer:
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
 
         # Create two document learning types
-        sample_drift_config.drift_learning_types = {
-            "type1": DriftLearningType(
+        sample_drift_config.rule_definitions = {
+            "type1": RuleDefinition(
                 description="Type 1",
                 scope="project_level",
                 context="Test",
@@ -836,7 +836,7 @@ class TestDriftAnalyzer:
                     )
                 ],
             ),
-            "type2": DriftLearningType(
+            "type2": RuleDefinition(
                 description="Type 2",
                 scope="project_level",
                 context="Test",
@@ -868,7 +868,7 @@ class TestDriftAnalyzer:
         mock_provider_class.return_value = mock_provider
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
-        analyzer.analyze_documents(learning_types=["type1"])
+        analyzer.analyze_documents(rule_types=["type1"])
 
         # Should only load bundles for type1
         assert mock_loader.load_bundles.call_count == 1
@@ -882,11 +882,11 @@ class TestDriftAnalyzer:
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
 
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -907,7 +907,7 @@ class TestDriftAnalyzer:
                 )
             ],
         )
-        sample_drift_config.drift_learning_types = {"test": doc_type}
+        sample_drift_config.rule_definitions = {"test": doc_type}
 
         mock_loader = MagicMock()
         mock_loader.load_bundles.return_value = []  # No bundles found
@@ -922,19 +922,19 @@ class TestDriftAnalyzer:
 
         # Should not call provider if no bundles
         assert mock_provider.generate.call_count == 0
-        assert result.metadata["document_learnings"] == []
+        assert result.metadata["document_rules"] == []
 
     def test_build_document_analysis_prompt(self, sample_drift_config, temp_dir):
         """Test building document analysis prompt."""
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
-        learning_type = DriftLearningType(
+        rule_type = RuleDefinition(
             description="Test type",
             scope="project_level",
             context="Test context",
@@ -971,10 +971,10 @@ class TestDriftAnalyzer:
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
-        prompt = analyzer._build_document_analysis_prompt(bundle, "test_type", learning_type)
+        prompt = analyzer._build_document_analysis_prompt(bundle, "test_type", rule_type)
 
         assert "test_type" in prompt
-        assert learning_type.description in prompt
+        assert rule_type.description in prompt
         assert "skill" in prompt  # bundle_type
         assert "JSON" in prompt
         assert len(prompt) > 100
@@ -1004,12 +1004,12 @@ class TestDriftAnalyzer:
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
+        rules = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
-        assert len(learnings) == 1
-        assert learnings[0].bundle_id == "test_bundle"
-        assert learnings[0].learning_type == "test_type"
-        assert learnings[0].observed_issue == "Issue found"
+        assert len(rules) == 1
+        assert rules[0].bundle_id == "test_bundle"
+        assert rules[0].rule_type == "test_type"
+        assert rules[0].observed_issue == "Issue found"
 
     def test_parse_document_analysis_response_empty(self, sample_drift_config, temp_dir):
         """Test parsing empty document analysis response."""
@@ -1026,9 +1026,9 @@ class TestDriftAnalyzer:
         response = "[]"
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
+        rules = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
-        assert learnings == []
+        assert rules == []
 
     def test_parse_document_analysis_response_invalid_json(self, sample_drift_config, temp_dir):
         """Test parsing invalid JSON in document analysis response."""
@@ -1045,17 +1045,17 @@ class TestDriftAnalyzer:
         response = "This is not valid JSON"
 
         analyzer = DriftAnalyzer(config=sample_drift_config)
-        learnings = analyzer._parse_document_analysis_response(response, bundle, "test_type")
+        rules = analyzer._parse_document_analysis_response(response, bundle, "test_type")
 
-        assert learnings == []
+        assert rules == []
 
     def test_combine_bundles(self, sample_drift_config, temp_dir):
         """Test combining multiple bundles into collection."""
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
@@ -1086,7 +1086,7 @@ class TestDriftAnalyzer:
             ],
         )
 
-        learning_type = DriftLearningType(
+        rule_type = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1108,7 +1108,7 @@ class TestDriftAnalyzer:
         )
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
-        combined = analyzer._combine_bundles([bundle1, bundle2], learning_type)
+        combined = analyzer._combine_bundles([bundle1, bundle2], rule_type)
 
         assert combined.bundle_strategy == "collection"
         assert len(combined.files) == 2
@@ -1116,48 +1116,48 @@ class TestDriftAnalyzer:
         assert combined.bundle_id == "combined_project_level"
 
     def test_empty_list_learning_types_does_not_run_all_rules(self, sample_drift_config, temp_dir):
-        """Test that passing learning_types=[] doesn't run ALL rules (critical bug fix)."""
+        """Test that passing rule_types=[] doesn't run ALL rules (critical bug fix)."""
         with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
             mock_generate.side_effect = AssertionError(
-                "CRITICAL BUG: generate() was called when learning_types=[]! "
+                "CRITICAL BUG: generate() was called when rule_types=[]! "
                 "Empty list should prevent ALL rule execution."
             )
 
             analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
 
             # Pass empty list - should NOT run any rules or call LLM
-            result = analyzer.analyze(learning_types=[])
+            result = analyzer.analyze(rule_types=[])
 
             # Verify LLM was never called
             assert mock_generate.call_count == 0, (
                 f"generate() was called {mock_generate.call_count} times! "
-                f"When learning_types=[], NO rules should run."
+                f"When rule_types=[], NO rules should run."
             )
 
             # Should return empty result
-            assert result.summary.total_learnings == 0
+            assert result.summary.total_rule_violations == 0
             assert result.summary.total_conversations == 0
 
     def test_empty_list_vs_none_learning_types(self, sample_drift_config, temp_dir):
-        """Test that learning_types=[] behaves differently from learning_types=None."""
+        """Test that rule_types=[] behaves differently from rule_types=None."""
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
 
         # Mock to count rule execution
         with patch.object(analyzer, "_analyze_conversation") as mock_analyze:
             mock_analyze.return_value = MagicMock(
-                learnings=[],
+                rules=[],
                 rule_errors={},
             )
 
             # Empty list should skip analysis entirely
-            result_empty = analyzer.analyze(learning_types=[])
+            result_empty = analyzer.analyze(rule_types=[])
 
             # None should NOT be the same - it should use all configured rules
             # (but we're not testing that here, just that empty list works)
 
             # With empty list, _analyze_conversation should not be called
             # because no conversations match or no rules to check
-            assert result_empty.summary.total_learnings == 0
+            assert result_empty.summary.total_rule_violations == 0
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_analyze_documents_with_programmatic_phases(self, sample_drift_config, temp_dir):
@@ -1165,7 +1165,7 @@ class TestDriftAnalyzer:
         from drift.config.models import PhaseDefinition
 
         # Add a learning type with programmatic phases
-        programmatic_type = DriftLearningType(
+        programmatic_type = RuleDefinition(
             description="Programmatic validation",
             scope="project_level",
             context="Test",
@@ -1183,7 +1183,7 @@ class TestDriftAnalyzer:
         )
 
         config = sample_drift_config
-        config.drift_learning_types["programmatic"] = programmatic_type
+        config.rule_definitions["programmatic"] = programmatic_type
 
         mock_provider = MockProvider()
         mock_provider.set_response(json.dumps([]))
@@ -1192,7 +1192,7 @@ class TestDriftAnalyzer:
             analyzer = DriftAnalyzer(config=config, project_path=str(temp_dir))
 
             result = analyzer.analyze_documents(
-                learning_types=["programmatic"],
+                rule_types=["programmatic"],
             )
 
             assert result is not None
@@ -1219,7 +1219,7 @@ class TestDriftAnalyzer:
         """Test analyze_documents when provider raises API error."""
         from drift.config.models import BundleStrategy, DocumentBundleConfig
 
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1240,7 +1240,7 @@ class TestDriftAnalyzer:
             ],
         )
 
-        sample_drift_config.drift_learning_types["test"] = doc_type
+        sample_drift_config.rule_definitions["test"] = doc_type
 
         # Create a file to analyze
         (temp_dir / "test.md").write_text("test")
@@ -1263,7 +1263,7 @@ class TestDriftAnalyzer:
         """Test analyze_documents handles non-API errors gracefully."""
         from drift.config.models import BundleStrategy, DocumentBundleConfig
 
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1284,7 +1284,7 @@ class TestDriftAnalyzer:
             ],
         )
 
-        sample_drift_config.drift_learning_types["test"] = doc_type
+        sample_drift_config.rule_definitions["test"] = doc_type
 
         # Create a file
         (temp_dir / "test.md").write_text("test")
@@ -1308,7 +1308,7 @@ class TestDriftAnalyzer:
         """Test multi-phase document analysis with no phases configured."""
         from drift.core.types import DocumentBundle, DocumentFile
 
-        bad_type = DriftLearningType(
+        bad_type = RuleDefinition(
             description="No phases",
             scope="project_level",
             context="Test",
@@ -1339,7 +1339,7 @@ class TestDriftAnalyzer:
         """Test multi-phase document analysis when model not found."""
         from drift.core.types import DocumentBundle, DocumentFile
 
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1403,7 +1403,7 @@ class TestDriftAnalyzer:
             ),
         )
 
-        type_config = DriftLearningType(
+        type_config = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1427,12 +1427,10 @@ class TestDriftAnalyzer:
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
 
-        learnings, exec_details = analyzer._execute_validation_rules(
-            bundle, "test", type_config, None
-        )
+        rules, exec_details = analyzer._execute_validation_rules(bundle, "test", type_config, None)
 
         # Should handle errors gracefully
-        assert isinstance(learnings, list)
+        assert isinstance(rules, list)
         assert isinstance(exec_details, list)
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
@@ -1446,7 +1444,7 @@ class TestDriftAnalyzer:
         test_file.write_text("# Test")
 
         # Create a type config with programmatic phases (no validation_rules)
-        type_config = DriftLearningType(
+        type_config = RuleDefinition(
             description="Test with programmatic validation",
             scope="project_level",
             context="Test context",
@@ -1476,12 +1474,12 @@ class TestDriftAnalyzer:
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
 
-        learnings, exec_details = analyzer._analyze_document_bundle(
+        rules, exec_details = analyzer._analyze_document_bundle(
             bundle, "test", type_config, None, None
         )
 
         # Should execute programmatic phases
-        assert isinstance(learnings, list)
+        assert isinstance(rules, list)
         assert isinstance(exec_details, list)
         assert len(exec_details) > 0
         assert exec_details[0]["rule_name"] == "test"
@@ -1496,7 +1494,7 @@ class TestDriftAnalyzer:
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create a type config with programmatic phase that checks nonexistent file
-        type_config = DriftLearningType(
+        type_config = RuleDefinition(
             description="Test with failing validation",
             scope="project_level",
             context="Test context",
@@ -1528,14 +1526,14 @@ class TestDriftAnalyzer:
 
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=str(temp_dir))
 
-        learnings, exec_details = analyzer._analyze_document_bundle(
+        rules, exec_details = analyzer._analyze_document_bundle(
             bundle, "test", type_config, None, None
         )
 
         # Should create learning for failed validation
-        assert isinstance(learnings, list)
-        assert len(learnings) > 0
-        assert learnings[0].learning_type == "test"
+        assert isinstance(rules, list)
+        assert len(rules) > 0
+        assert rules[0].rule_type == "test"
         assert isinstance(exec_details, list)
         assert len(exec_details) > 0
         assert exec_details[0]["status"] == "failed"
@@ -1558,7 +1556,7 @@ class TestDriftAnalyzer:
             test_file.write_text("# Test Content")
 
             # Create type config with prompt phase
-            type_config = DriftLearningType(
+            type_config = RuleDefinition(
                 description="Test document analysis",
                 scope="project_level",
                 context="Test context",
@@ -1587,12 +1585,12 @@ class TestDriftAnalyzer:
                 ],
             )
 
-            learnings, exec_details = analyzer._run_multi_phase_document_analysis(
+            rules, exec_details = analyzer._run_multi_phase_document_analysis(
                 bundle, "test", type_config, None, None
             )
 
             # Should execute LLM-based document analysis
-            assert isinstance(learnings, list)
+            assert isinstance(rules, list)
             assert isinstance(exec_details, list)
             assert mock_provider.call_count == 1
 
@@ -1630,7 +1628,7 @@ class TestDriftAnalyzer:
             ),
         )
 
-        type_config = DriftLearningType(
+        type_config = RuleDefinition(
             description="Test",
             scope="project_level",
             context="Test",
@@ -1660,12 +1658,12 @@ class TestDriftAnalyzer:
             mock_instance.execute_rule.side_effect = Exception("Test error")
             mock_registry.return_value = mock_instance
 
-            learnings, exec_details = analyzer._execute_validation_rules(
+            rules, exec_details = analyzer._execute_validation_rules(
                 bundle, "test", type_config, None
             )
 
             # Should handle error gracefully
-            assert isinstance(learnings, list)
+            assert isinstance(rules, list)
             assert isinstance(exec_details, list)
             assert len(exec_details) > 0
             assert exec_details[0]["status"] == "errored"
@@ -1681,7 +1679,7 @@ class TestAnalyzerEdgeCases:
     ):
         """Test that rules with supported_clients filter correctly."""
         # Create learning type that only supports "other-tool" (not claude-code)
-        filtered_type = DriftLearningType(
+        filtered_type = RuleDefinition(
             description="Filtered by client",
             scope="conversation_level",
             context="Test",
@@ -1690,19 +1688,19 @@ class TestAnalyzerEdgeCases:
         )
 
         config = sample_drift_config
-        config.drift_learning_types["filtered"] = filtered_type
+        config.rule_definitions["filtered"] = filtered_type
 
         analyzer = DriftAnalyzer(config=config)
 
         # Run analysis - should skip the filtered type
         result, exec_details = analyzer._analyze_conversation(
             conversation=sample_conversation,
-            learning_types={"filtered": filtered_type},
+            rule_types={"filtered": filtered_type},
             model_override=None,
         )
 
         # Should return empty since rule was filtered
-        assert len(result.learnings) == 0
+        assert len(result.rules) == 0
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_analyze_with_conversation_load_error(self, sample_drift_config, temp_dir):
@@ -1730,7 +1728,7 @@ class TestAnalyzerEdgeCases:
         """Test _build_multi_phase_prompt includes loaded resources."""
         sample_conversation.project_path = str(temp_dir)
 
-        multi_type = DriftLearningType(
+        multi_type = RuleDefinition(
             description="Multi-phase",
             scope="conversation_level",
             context="Test",
@@ -1754,7 +1752,7 @@ class TestAnalyzerEdgeCases:
 
         prompt = analyzer._build_multi_phase_prompt(
             conversation=sample_conversation,
-            learning_type="test",
+            rule_type="test",
             type_config=multi_type,
             phase_idx=0,
             phase_def=multi_type.phases[0],
@@ -1770,21 +1768,21 @@ class TestAnalyzerEdgeCases:
     def test_document_learnings_should_not_have_turn_number_one(
         self, mock_provider_class, mock_loader_class, sample_drift_config, temp_dir
     ):
-        """Test that document learnings are properly distinguished from conversation learnings.
+        """Test that document rules are properly distinguished from conversation rules.
 
-        This test validates that document-based learnings (from project files) don't
+        This test validates that document-based rules (from project files) don't
         show misleading "Turn: 1" in output, since they're not tied to conversation turns.
         """
         from drift.config.models import (
             BundleStrategy,
             DocumentBundleConfig,
-            DriftLearningType,
             PhaseDefinition,
+            RuleDefinition,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
         # Create document learning type
-        doc_type = DriftLearningType(
+        doc_type = RuleDefinition(
             description="Test document drift",
             scope="project_level",
             context="Testing",
@@ -1805,7 +1803,7 @@ class TestAnalyzerEdgeCases:
                 )
             ],
         )
-        sample_drift_config.drift_learning_types = {"doc_test": doc_type}
+        sample_drift_config.rule_definitions = {"doc_test": doc_type}
 
         # Create mock bundle
         bundle = DocumentBundle(
@@ -1844,17 +1842,17 @@ class TestAnalyzerEdgeCases:
         analyzer = DriftAnalyzer(config=sample_drift_config, project_path=temp_dir)
         result = analyzer.analyze_documents()
 
-        # Verify learnings were created
+        # Verify rules were created
         assert len(result.results) > 0
-        assert len(result.results[0].learnings) > 0
+        assert len(result.results[0].rules) > 0
 
-        # CRITICAL: Document learnings should NOT have turn_number=1
+        # CRITICAL: Document rules should NOT have turn_number=1
         # They should either have turn_number=0 (indicating not turn-based)
-        # or have a source_type field distinguishing them from conversation learnings
+        # or have a source_type field distinguishing them from conversation rules
         for analysis_result in result.results:
-            for learning in analysis_result.learnings:
+            for learning in analysis_result.rules:
                 # This assertion will FAIL with current implementation (turn_number=1)
-                # After fix, document learnings should have turn_number=0 or similar indicator
+                # After fix, document rules should have turn_number=0 or similar indicator
                 assert learning.turn_number != 1 or hasattr(
                     learning, "source_type"
-                ), "Document learnings should not show turn_number=1 as it's misleading"
+                ), "Document rules should not show turn_number=1 as it's misleading"

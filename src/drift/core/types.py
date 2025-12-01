@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class FrequencyType(str, Enum):
-    """Frequency of a drift learning occurrence."""
+    """Frequency of a rule violation occurrence."""
 
     ONE_TIME = "one-time"
     REPEATED = "repeated"
@@ -91,8 +91,8 @@ class Conversation(BaseModel):
     )
 
 
-class Learning(BaseModel):
-    """A single drift learning identified in a conversation."""
+class Rule(BaseModel):
+    """A single rule violation identified in a conversation."""
 
     turn_number: int = Field(..., description="Turn where the drift occurred")
     turn_uuid: Optional[str] = Field(None, description="UUID of the turn")
@@ -102,7 +102,7 @@ class Learning(BaseModel):
         ..., description="What was observed (AI action or user behavior)"
     )
     expected_behavior: str = Field(..., description="What should have happened instead")
-    learning_type: str = Field(..., description="Type of drift learning")
+    rule_type: str = Field(..., description="Type of rule that was violated")
     workflow_element: WorkflowElement = Field(
         WorkflowElement.UNKNOWN, description="What workflow element needs improvement"
     )
@@ -116,15 +116,15 @@ class Learning(BaseModel):
     )
     phases_count: int = Field(1, description="Number of analysis phases")
     source_type: Optional[str] = Field(
-        None, description="Source of the learning: 'conversation' or 'document'"
+        None, description="Source of the rule violation: 'conversation' or 'document'"
     )
     affected_files: Optional[List[str]] = Field(
         default=None,
-        description="Files involved in this learning (for document analysis)",
+        description="Files involved in this rule violation (for document analysis)",
     )
     bundle_id: Optional[str] = Field(
         default=None,
-        description="Bundle identifier (e.g., 'testing_skill') for document learnings",
+        description="Bundle identifier (e.g., 'testing_skill') for document rule violations",
     )
 
 
@@ -135,7 +135,7 @@ class AnalysisResult(BaseModel):
     agent_tool: str = Field(..., description="Agent tool that created the conversation")
     conversation_file: str = Field(..., description="Path to conversation file")
     project_path: Optional[str] = Field(None, description="Project path from conversation")
-    learnings: List[Learning] = Field(default_factory=list, description="All learnings found")
+    rules: List[Rule] = Field(default_factory=list, description="All rule violations found")
     analysis_timestamp: datetime = Field(
         default_factory=datetime.now, description="When this analysis was performed"
     )
@@ -150,10 +150,12 @@ class AnalysisSummary(BaseModel):
     """Summary statistics for a complete analysis run."""
 
     total_conversations: int = Field(0, description="Total conversations analyzed")
-    total_learnings: int = Field(0, description="Total learnings found")
-    by_type: Dict[str, int] = Field(default_factory=dict, description="Learning count by type")
+    total_rule_violations: int = Field(0, description="Total rule violations found")
+    by_type: Dict[str, int] = Field(
+        default_factory=dict, description="Rule violation count by type"
+    )
     by_agent: Dict[str, int] = Field(
-        default_factory=dict, description="Learning count by agent tool"
+        default_factory=dict, description="Rule violation count by agent tool"
     )
     conversations_with_drift: int = Field(0, description="Number of conversations containing drift")
     conversations_without_drift: int = Field(0, description="Number of conversations without drift")
@@ -185,7 +187,7 @@ class CompleteAnalysisResult(BaseModel):
     summary: AnalysisSummary = Field(
         default_factory=lambda: AnalysisSummary(
             total_conversations=0,
-            total_learnings=0,
+            total_rule_violations=0,
             conversations_with_drift=0,
             conversations_without_drift=0,
         ),
@@ -217,15 +219,15 @@ class DocumentBundle(BaseModel):
     project_path: Path = Field(..., description="Project root path")
 
 
-class DocumentLearning(BaseModel):
-    """A learning identified from document analysis."""
+class DocumentRule(BaseModel):
+    """A rule violation identified from document analysis."""
 
     bundle_id: str = Field(..., description="Bundle where issue was found")
     bundle_type: str = Field(..., description="Type of bundle")
     file_paths: List[str] = Field(
-        default_factory=list, description="Files involved in this learning"
+        default_factory=list, description="Files involved in this rule violation"
     )
     observed_issue: str = Field(..., description="What issue was observed")
     expected_quality: str = Field(..., description="What the expected quality/behavior should be")
-    learning_type: str = Field(..., description="Type of drift learning")
+    rule_type: str = Field(..., description="Type of rule that was violated")
     context: str = Field("", description="Additional context about the issue")

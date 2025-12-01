@@ -32,7 +32,7 @@ class TestDetailedFlag:
     def test_config(self, tmp_path):
         """Create a test config file."""
         config_data = {
-            "drift_learning_types": {
+            "rule_definitions": {
                 "test_type": {
                     "description": "Test learning type",
                     "prompt": "Test prompt",
@@ -59,7 +59,7 @@ class TestDetailedFlag:
 
         # Create config with a programmatic rule
         config_content = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "Validates .claude.md files exist"
     scope: "project_level"
@@ -135,7 +135,7 @@ drift_learning_types:
 
         # Create a .drift.yaml config file with claude_md_missing rule
         config_content = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "Validates .claude.md files exist"
     scope: "project_level"
@@ -206,7 +206,7 @@ drift_learning_types:
 
         # Create config
         config_content = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "Validates .claude.md files exist"
     scope: "project_level"
@@ -269,7 +269,7 @@ drift_learning_types:
 
         # Create config with both conversation-level and project-level rules
         config_content = """
-drift_learning_types:
+rule_definitions:
   claude_md_missing:
     description: "Validates .claude.md files exist"
     scope: "project_level"

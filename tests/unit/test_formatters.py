@@ -9,7 +9,7 @@ from drift.core.types import (
     AnalysisResult,
     AnalysisSummary,
     CompleteAnalysisResult,
-    Learning,
+    Rule,
     WorkflowElement,
 )
 
@@ -36,15 +36,15 @@ class TestMarkdownFormatter:
         assert "# Drift Analysis Results" in output
         assert "## Summary" in output
         assert "Total conversations: 0" in output
-        assert "No Drift Detected" in output
+        assert "No Rule Violations Detected" in output
 
     def test_format_no_learnings(self):
-        """Test formatting results with conversations but no learnings."""
+        """Test formatting results with conversations but no rules."""
         result = CompleteAnalysisResult(
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=2,
-                total_learnings=0,
+                total_rule_violations=0,
                 conversations_without_drift=2,
             ),
             results=[],
@@ -54,17 +54,17 @@ class TestMarkdownFormatter:
         output = formatter.format(result)
 
         assert "Total conversations: 2" in output
-        assert "Total learnings: 0" in output
-        assert "No Drift Detected" in output
+        assert "Total rules: 0" in output
+        assert "No Rule Violations Detected" in output
 
     def test_format_with_learnings(self, sample_learning):
-        """Test formatting results with learnings."""
+        """Test formatting results with rules."""
         analysis_result = AnalysisResult(
             session_id="session-123",
             agent_tool="claude-code",
             conversation_file="/path/to/agent-session-123.jsonl",
             project_path="/path/to/project",
-            learnings=[sample_learning],
+            rules=[sample_learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -72,7 +72,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
                 by_agent={"claude-code": 1},
@@ -88,11 +88,11 @@ class TestMarkdownFormatter:
 
         # Check summary
         assert "Total conversations: 1" in output
-        assert "Total learnings: 1" in output
+        assert "Total rules: 1" in output
         assert "incomplete_work (1)" in output
         assert "claude-code (1)" in output
 
-        # Check learnings section (grouped by learning type)
+        # Check rules section (grouped by learning type)
         # incomplete_work is conversation_level scope by default, which maps to WARNING severity
         assert "## Warnings" in output
         assert "### incomplete_work" in output
@@ -103,30 +103,30 @@ class TestMarkdownFormatter:
         assert f"**Expected:** {sample_learning.expected_behavior}" in output
 
     def test_format_multiple_learnings(self):
-        """Test formatting multiple learnings."""
-        learning1 = Learning(
+        """Test formatting multiple rules."""
+        learning1 = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action 1",
             expected_behavior="Intent 1",
-            learning_type="incomplete_work",
+            rule_type="incomplete_work",
         )
 
-        learning2 = Learning(
+        learning2 = Rule(
             turn_number=3,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action 2",
             expected_behavior="Intent 2",
-            learning_type="wrong_assumption",
+            rule_type="wrong_assumption",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning2, learning1],  # Out of order
+            rules=[learning2, learning1],  # Out of order
             analysis_timestamp=datetime.now(),
         )
 
@@ -134,7 +134,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=2,
+                total_rule_violations=2,
             ),
             results=[analysis_result],
         )
@@ -152,13 +152,13 @@ class TestMarkdownFormatter:
 
     def test_format_learning_with_context(self):
         """Test formatting learning with context."""
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test",
+            rule_type="test",
             context="Additional context information",
         )
 
@@ -166,13 +166,13 @@ class TestMarkdownFormatter:
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=1, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -183,13 +183,13 @@ class TestMarkdownFormatter:
 
     def test_format_workflow_element(self):
         """Test formatting with workflow element."""
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test",
+            rule_type="test",
             workflow_element=WorkflowElement.DOCUMENTATION,
         )
 
@@ -197,13 +197,13 @@ class TestMarkdownFormatter:
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=1, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -216,13 +216,13 @@ class TestMarkdownFormatter:
 
     def test_format_with_project_path(self):
         """Test formatting with project path."""
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test",
+            rule_type="test",
         )
 
         analysis_result = AnalysisResult(
@@ -230,13 +230,13 @@ class TestMarkdownFormatter:
             agent_tool="claude-code",
             conversation_file="/path",
             project_path="/home/user/projects/my-project",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=1, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -247,14 +247,14 @@ class TestMarkdownFormatter:
 
     def test_format_with_rules_warned(self):
         """Test formatting with rules that have warnings."""
-        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+        from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition
 
         config = DriftConfig(
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={
-                "test_type": DriftLearningType(
+            rule_definitions={
+                "test_type": RuleDefinition(
                     description="Test",
                     scope="conversation_level",
                     context="Test context",
@@ -267,20 +267,20 @@ class TestMarkdownFormatter:
             agent_tools={},
         )
 
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test_type",
+            rule_type="test_type",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -288,7 +288,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_warned=["rule2"],
@@ -303,14 +303,14 @@ class TestMarkdownFormatter:
 
     def test_format_with_rules_failed(self):
         """Test formatting with rules that have failures."""
-        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+        from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition
 
         config = DriftConfig(
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={
-                "test_type": DriftLearningType(
+            rule_definitions={
+                "test_type": RuleDefinition(
                     description="Test",
                     scope="project_level",
                     context="Test context",
@@ -323,20 +323,20 @@ class TestMarkdownFormatter:
             agent_tools={},
         )
 
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test_type",
+            rule_type="test_type",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -344,7 +344,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_failed=["rule2"],
@@ -363,7 +363,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_errored=["rule2"],
@@ -383,7 +383,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1", "rule2"],
             ),
@@ -403,7 +403,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=0,
+                total_rule_violations=0,
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_errored=["rule2"],
@@ -421,19 +421,14 @@ class TestMarkdownFormatter:
 
     def test_severity_fail_creates_failures_section(self):
         """Test that FAIL severity creates Failures section."""
-        from drift.config.models import (
-            DriftConfig,
-            DriftLearningType,
-            PhaseDefinition,
-            SeverityLevel,
-        )
+        from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition, SeverityLevel
 
         config = DriftConfig(
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={
-                "test_fail": DriftLearningType(
+            rule_definitions={
+                "test_fail": RuleDefinition(
                     description="Test",
                     scope="conversation_level",
                     context="Test context",
@@ -447,20 +442,20 @@ class TestMarkdownFormatter:
             agent_tools={},
         )
 
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test_fail",
+            rule_type="test_fail",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -468,7 +463,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
             ),
             results=[analysis_result],
         )
@@ -481,19 +476,14 @@ class TestMarkdownFormatter:
 
     def test_severity_warning_creates_warnings_section(self):
         """Test that WARNING severity creates Warnings section."""
-        from drift.config.models import (
-            DriftConfig,
-            DriftLearningType,
-            PhaseDefinition,
-            SeverityLevel,
-        )
+        from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition, SeverityLevel
 
         config = DriftConfig(
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={
-                "test_warn": DriftLearningType(
+            rule_definitions={
+                "test_warn": RuleDefinition(
                     description="Test",
                     scope="conversation_level",
                     context="Test context",
@@ -507,20 +497,20 @@ class TestMarkdownFormatter:
             agent_tools={},
         )
 
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="test_warn",
+            rule_type="test_warn",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
@@ -528,7 +518,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
             ),
             results=[analysis_result],
         )
@@ -541,14 +531,14 @@ class TestMarkdownFormatter:
 
     def test_severity_defaults_by_scope(self):
         """Test that severity defaults based on scope."""
-        from drift.config.models import DriftConfig, DriftLearningType, PhaseDefinition
+        from drift.config.models import DriftConfig, PhaseDefinition, RuleDefinition
 
         config = DriftConfig(
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={
-                "project_type": DriftLearningType(
+            rule_definitions={
+                "project_type": RuleDefinition(
                     description="Test",
                     scope="project_level",
                     context="Test context",
@@ -557,7 +547,7 @@ class TestMarkdownFormatter:
                         PhaseDefinition(name="test", type="prompt", prompt="test", model="haiku")
                     ],
                 ),
-                "conv_type": DriftLearningType(
+                "conv_type": RuleDefinition(
                     description="Test",
                     scope="conversation_level",
                     context="Test context",
@@ -570,29 +560,29 @@ class TestMarkdownFormatter:
             agent_tools={},
         )
 
-        learning1 = Learning(
+        learning1 = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action",
             expected_behavior="Intent",
-            learning_type="project_type",
+            rule_type="project_type",
         )
 
-        learning2 = Learning(
+        learning2 = Rule(
             turn_number=2,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action2",
             expected_behavior="Intent2",
-            learning_type="conv_type",
+            rule_type="conv_type",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning1, learning2],
+            rules=[learning1, learning2],
             analysis_timestamp=datetime.now(),
         )
 
@@ -600,7 +590,7 @@ class TestMarkdownFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=2,
+                total_rule_violations=2,
             ),
             results=[analysis_result],
         )
@@ -633,7 +623,7 @@ class TestMarkdownFormatter:
             providers={},
             models={},
             default_model="haiku",
-            drift_learning_types={},
+            rule_definitions={},
             agent_tools={},
         )
 
@@ -693,13 +683,13 @@ class TestJsonFormatter:
         assert data["metadata"]["config_used"]["default_model"] == "haiku"
 
     def test_format_with_learnings(self, sample_learning):
-        """Test formatting results with learnings."""
+        """Test formatting results with rules."""
         analysis_result = AnalysisResult(
             session_id="session-123",
             agent_tool="claude-code",
             conversation_file="/path/to/conversation.jsonl",
             project_path="/path/to/project",
-            learnings=[sample_learning],
+            rules=[sample_learning],
             analysis_timestamp=datetime(2024, 1, 1, 10, 0, 0),
         )
 
@@ -707,7 +697,7 @@ class TestJsonFormatter:
             metadata={},
             summary=AnalysisSummary(
                 total_conversations=1,
-                total_learnings=1,
+                total_rule_violations=1,
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
                 by_agent={"claude-code": 1},
@@ -733,39 +723,39 @@ class TestJsonFormatter:
         assert conv_data["agent_tool"] == "claude-code"
         assert conv_data["project_path"] == "/path/to/project"
 
-        # Check learnings
-        assert len(conv_data["learnings"]) == 1
-        learning_data = conv_data["learnings"][0]
+        # Check rules
+        assert len(conv_data["rules"]) == 1
+        learning_data = conv_data["rules"][0]
         assert learning_data["turn_number"] == sample_learning.turn_number
         assert learning_data["observed_behavior"] == sample_learning.observed_behavior
         assert learning_data["expected_behavior"] == sample_learning.expected_behavior
-        assert learning_data["learning_type"] == sample_learning.learning_type
+        assert learning_data["rule_type"] == sample_learning.rule_type
 
     def test_format_multiple_conversations(self):
         """Test formatting multiple conversations."""
-        learning1 = Learning(
+        learning1 = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path1",
             observed_behavior="Action 1",
             expected_behavior="Intent 1",
-            learning_type="type1",
+            rule_type="type1",
         )
 
-        learning2 = Learning(
+        learning2 = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path2",
             observed_behavior="Action 2",
             expected_behavior="Intent 2",
-            learning_type="type2",
+            rule_type="type2",
         )
 
         result1 = AnalysisResult(
             session_id="session1",
             agent_tool="claude-code",
             conversation_file="/path1",
-            learnings=[learning1],
+            rules=[learning1],
             analysis_timestamp=datetime.now(),
         )
 
@@ -773,13 +763,13 @@ class TestJsonFormatter:
             session_id="session2",
             agent_tool="claude-code",
             conversation_file="/path2",
-            learnings=[learning2],
+            rules=[learning2],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=2, total_learnings=2),
+            summary=AnalysisSummary(total_conversations=2, total_rule_violations=2),
             results=[result1, result2],
         )
 
@@ -794,14 +784,14 @@ class TestJsonFormatter:
 
     def test_format_learning_details(self):
         """Test that all learning fields are included in JSON."""
-        learning = Learning(
+        learning = Rule(
             turn_number=5,
             turn_uuid="turn-uuid-123",
             agent_tool="claude-code",
             conversation_file="/path/to/file",
             observed_behavior="AI action",
             expected_behavior="User intent",
-            learning_type="test_type",
+            rule_type="test_type",
             workflow_element=WorkflowElement.SKILL,
             turns_to_resolve=3,
             turns_involved=[5, 6, 7],
@@ -812,13 +802,13 @@ class TestJsonFormatter:
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=1, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -826,7 +816,7 @@ class TestJsonFormatter:
         output = formatter.format(result)
 
         data = json.loads(output)
-        learning_data = data["results"][0]["learnings"][0]
+        learning_data = data["results"][0]["rules"][0]
 
         assert learning_data["turn_number"] == 5
         assert learning_data["turn_uuid"] == "turn-uuid-123"
@@ -841,7 +831,7 @@ class TestJsonFormatter:
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[],
+            rules=[],
             analysis_timestamp=datetime(2024, 1, 15, 14, 30, 0),
         )
 
@@ -865,7 +855,7 @@ class TestJsonFormatter:
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[],
+            rules=[],
             analysis_timestamp=datetime(2024, 2, 1, 9, 0, 0),
         )
 
@@ -904,26 +894,26 @@ class TestJsonFormatter:
 
     def test_format_unicode_handling(self):
         """Test that unicode characters are handled correctly."""
-        learning = Learning(
+        learning = Rule(
             turn_number=1,
             agent_tool="claude-code",
             conversation_file="/path",
             observed_behavior="Action with émojis 🚀",
             expected_behavior="Intent with ñ and 中文",
-            learning_type="test",
+            rule_type="test",
         )
 
         analysis_result = AnalysisResult(
             session_id="session",
             agent_tool="claude-code",
             conversation_file="/path",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=1, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=1, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -937,17 +927,17 @@ class TestJsonFormatter:
 
         # Should still be valid JSON
         data = json.loads(output)
-        assert data["results"][0]["learnings"][0]["observed_behavior"] == "Action with émojis 🚀"
+        assert data["results"][0]["rules"][0]["observed_behavior"] == "Action with émojis 🚀"
 
     def test_format_document_learning_with_files_in_json(self):
-        """Test that document learnings include affected_files in JSON output."""
-        learning = Learning(
+        """Test that document rules include affected_files in JSON output."""
+        learning = Rule(
             turn_number=0,
             agent_tool="documents",
             conversation_file="N/A",
             observed_behavior="Issue found in skill",
             expected_behavior="Should be correct",
-            learning_type="skill_completeness",
+            rule_type="skill_completeness",
             source_type="document",
             affected_files=[".claude/skills/testing/SKILL.md"],
             bundle_id="testing_skill",
@@ -957,13 +947,13 @@ class TestJsonFormatter:
             session_id="document_analysis",
             agent_tool="documents",
             conversation_file="N/A",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=0, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -971,7 +961,7 @@ class TestJsonFormatter:
         output = formatter.format(result)
 
         data = json.loads(output)
-        learning_data = data["results"][0]["learnings"][0]
+        learning_data = data["results"][0]["rules"][0]
 
         assert "affected_files" in learning_data
         assert learning_data["affected_files"] == [".claude/skills/testing/SKILL.md"]
@@ -979,17 +969,17 @@ class TestJsonFormatter:
 
 
 class TestMarkdownFormatterDocumentLearnings:
-    """Tests for MarkdownFormatter with document learnings."""
+    """Tests for MarkdownFormatter with document rules."""
 
     def test_format_document_learning_single_file(self):
-        """Test that document learnings show single file path."""
-        learning = Learning(
+        """Test that document rules show single file path."""
+        learning = Rule(
             turn_number=0,
             agent_tool="documents",
             conversation_file="N/A",
             observed_behavior="References to external files that don't exist",
             expected_behavior="Should only reference files in bundle",
-            learning_type="skill_completeness",
+            rule_type="skill_completeness",
             source_type="document",
             affected_files=[".claude/skills/testing/SKILL.md"],
             bundle_id="testing_skill",
@@ -1000,13 +990,13 @@ class TestMarkdownFormatterDocumentLearnings:
             agent_tool="documents",
             conversation_file="N/A",
             project_path="/path/to/project",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=0, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -1018,14 +1008,14 @@ class TestMarkdownFormatterDocumentLearnings:
         assert "**Observed:** References to external files that don't exist" in output
 
     def test_format_document_learning_multiple_files(self):
-        """Test that document learnings show multiple files as list."""
-        learning = Learning(
+        """Test that document rules show multiple files as list."""
+        learning = Rule(
             turn_number=0,
             agent_tool="documents",
             conversation_file="N/A",
             observed_behavior="Multiple commands missing execution steps",
             expected_behavior="Commands should have clear execution workflow",
-            learning_type="command_completeness",
+            rule_type="command_completeness",
             source_type="document",
             affected_files=[
                 ".claude/commands/test.md",
@@ -1040,13 +1030,13 @@ class TestMarkdownFormatterDocumentLearnings:
             agent_tool="documents",
             conversation_file="N/A",
             project_path="/path/to/project",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=0, total_rule_violations=1),
             results=[analysis_result],
         )
 
@@ -1060,14 +1050,14 @@ class TestMarkdownFormatterDocumentLearnings:
         assert "**Source:** document_analysis" in output
 
     def test_format_document_learning_no_files(self):
-        """Test document learnings without affected_files still work."""
-        learning = Learning(
+        """Test document rules without affected_files still work."""
+        learning = Rule(
             turn_number=0,
             agent_tool="documents",
             conversation_file="N/A",
             observed_behavior="Issue found",
             expected_behavior="Should be correct",
-            learning_type="test_type",
+            rule_type="test_type",
             source_type="document",
         )
 
@@ -1075,13 +1065,13 @@ class TestMarkdownFormatterDocumentLearnings:
             session_id="document_analysis",
             agent_tool="documents",
             conversation_file="N/A",
-            learnings=[learning],
+            rules=[learning],
             analysis_timestamp=datetime.now(),
         )
 
         result = CompleteAnalysisResult(
             metadata={},
-            summary=AnalysisSummary(total_conversations=0, total_learnings=1),
+            summary=AnalysisSummary(total_conversations=0, total_rule_violations=1),
             results=[analysis_result],
         )
 

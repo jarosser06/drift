@@ -26,11 +26,11 @@ from drift.core.types import (
     CompleteAnalysisResult,
     Conversation,
     DocumentBundle,
-    DocumentLearning,
-    Learning,
+    DocumentRule,
     PhaseAnalysisResult,
     ResourceRequest,
     ResourceResponse,
+    Rule,
     WorkflowElement,
 )
 from drift.documents.loader import DocumentLoader
@@ -120,14 +120,14 @@ class DriftAnalyzer:
     def analyze(
         self,
         agent_tool: Optional[str] = None,
-        learning_types: Optional[List[str]] = None,
+        rule_types: Optional[List[str]] = None,
         model_override: Optional[str] = None,
     ) -> CompleteAnalysisResult:
         """Run drift analysis on conversations.
 
         Args:
             agent_tool: Optional specific agent tool to analyze
-            learning_types: Optional list of specific learning types to check
+            rule_types: Optional list of specific rules to check
             model_override: Optional model to use (overrides all config settings)
 
         Returns:
@@ -143,11 +143,11 @@ class DriftAnalyzer:
                 {agent_tool: self.agent_loaders[agent_tool]} if agent_tool else self.agent_loaders
             )
 
-            # Determine which learning types to check
+            # Determine which rules to check
             all_types = (
-                {lt: self.config.drift_learning_types[lt] for lt in learning_types}
-                if learning_types is not None
-                else self.config.drift_learning_types
+                {lt: self.config.rule_definitions[lt] for lt in rule_types}
+                if rule_types is not None
+                else self.config.rule_definitions
             )
 
             # Filter to only conversation-based rules (turn_level or conversation_level scopes)
@@ -168,7 +168,7 @@ class DriftAnalyzer:
                 ]
                 if filtered_rules:
                     logger.warning(
-                        "No conversation-based learning types configured. "
+                        "No conversation-based rules configured. "
                         f"Skipped document/project-level rules (use --scope project): "
                         f"{', '.join(filtered_rules)}"
                     )
@@ -176,13 +176,13 @@ class DriftAnalyzer:
                     metadata={
                         "generated_at": datetime.now().isoformat(),
                         "session_id": session_id,
-                        "message": "No conversation-based learning types configured",
+                        "message": "No conversation-based rules configured",
                         "skipped_rules": filtered_rules,
                         "execution_details": [],
                     },
                     summary=AnalysisSummary(
                         total_conversations=0,
-                        total_learnings=0,
+                        total_rule_violations=0,
                         conversations_with_drift=0,
                         conversations_without_drift=0,
                         rules_checked=[],
@@ -198,12 +198,10 @@ class DriftAnalyzer:
             # Determine which models will be needed
             models_needed = set()
             for type_name in types_to_check.keys():
-                type_config = self.config.drift_learning_types.get(type_name)
+                type_config = self.config.rule_definitions.get(type_name)
                 type_model = getattr(type_config, "model", None) if type_config else None
                 model_name = (
-                    model_override
-                    or type_model
-                    or self.config.get_model_for_learning_type(type_name)
+                    model_override or type_model or self.config.get_model_for_rule(type_name)
                 )
                 models_needed.add(model_name)
 
@@ -255,7 +253,7 @@ class DriftAnalyzer:
                     },
                     summary=AnalysisSummary(
                         total_conversations=0,
-                        total_learnings=0,
+                        total_rule_violations=0,
                         conversations_with_drift=0,
                         conversations_without_drift=0,
                         rules_checked=[],
@@ -313,7 +311,7 @@ class DriftAnalyzer:
                     "timestamp": datetime.now().isoformat(),
                     "conversations_analyzed": len(all_conversations),
                     "agent_tools": list(tools_to_analyze.keys()),
-                    "learning_types": list(types_to_check.keys()),
+                    "rule_types": list(types_to_check.keys()),
                 }
             )
 
@@ -339,34 +337,34 @@ class DriftAnalyzer:
     def _analyze_conversation(
         self,
         conversation: Conversation,
-        learning_types: Dict[str, Any],
+        rule_types: Dict[str, Any],
         model_override: Optional[str],
     ) -> tuple[AnalysisResult, List[dict]]:
         """Analyze a single conversation using multi-pass approach.
 
         Args:
             conversation: Conversation to analyze
-            learning_types: Learning types to check
+            rule_types: Rule types to check
             model_override: Optional model override
 
         Returns:
             Tuple of (AnalysisResult, execution_details)
         """
-        all_learnings: List[Learning] = []
-        conversation_level_learnings: Dict[str, Learning] = {}
+        all_rules: List[Rule] = []
+        conversation_level_rules: Dict[str, Rule] = {}
         skipped_due_to_client: List[str] = []
         rule_errors: Dict[str, str] = {}
         execution_details: List[dict] = []  # Track all rule executions
 
         # Perform one pass per learning type
-        for type_name, type_config in learning_types.items():
+        for type_name, type_config in rule_types.items():
             # Client filtering: skip if rule doesn't support this agent_tool
             supported_clients = getattr(type_config, "supported_clients", None)
             if supported_clients is not None and conversation.agent_tool not in supported_clients:
                 skipped_due_to_client.append(type_name)
                 continue
 
-            learnings, error, phase_results = self._run_analysis_pass(
+            rules, error, phase_results = self._run_analysis_pass(
                 conversation,
                 type_name,
                 type_config,
@@ -381,7 +379,7 @@ class DriftAnalyzer:
             exec_detail = {
                 "rule_name": type_name,
                 "description": type_config.description,
-                "status": "errored" if error else ("failed" if learnings else "passed"),
+                "status": "errored" if error else ("failed" if rules else "passed"),
             }
 
             # Add phase_results if this was multi-phase
@@ -395,9 +393,9 @@ class DriftAnalyzer:
                     for pr in phase_results
                 ]
 
-                # Add resources_consulted if any learnings have them
-                if learnings:
-                    resources = learnings[0].resources_consulted
+                # Add resources_consulted if any rules have them
+                if rules:
+                    resources = rules[0].resources_consulted
                     if resources:
                         exec_detail["resources_consulted"] = resources
 
@@ -407,21 +405,21 @@ class DriftAnalyzer:
             scope = getattr(type_config, "scope", "turn_level")
             if scope == "conversation_level":
                 # Only keep first learning for conversation-level types
-                if learnings and type_name not in conversation_level_learnings:
-                    conversation_level_learnings[type_name] = learnings[0]
+                if rules and type_name not in conversation_level_rules:
+                    conversation_level_rules[type_name] = rules[0]
             else:
-                # Turn-level learnings: keep all
-                all_learnings.extend(learnings)
+                # Turn-level rules: keep all
+                all_rules.extend(rules)
 
             # Save intermediate results
             self.temp_manager.save_pass_result(
                 conversation.session_id,
                 type_name,
-                learnings,
+                rules,
             )
 
-        # Add conversation-level learnings (max 1 per type)
-        all_learnings.extend(conversation_level_learnings.values())
+        # Add conversation-level rules (max 1 per type)
+        all_rules.extend(conversation_level_rules.values())
 
         # Log skipped rules if any
         if skipped_due_to_client:
@@ -436,7 +434,7 @@ class DriftAnalyzer:
                 agent_tool=conversation.agent_tool,
                 conversation_file=conversation.file_path,
                 project_path=conversation.project_path,
-                learnings=all_learnings,
+                rules=all_rules,
                 analysis_timestamp=datetime.now(),
                 error=None,
                 rule_errors=rule_errors,
@@ -447,20 +445,20 @@ class DriftAnalyzer:
     def _run_analysis_pass(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         model_override: Optional[str],
-    ) -> tuple[List[Learning], Optional[str], Optional[List[PhaseAnalysisResult]]]:
-        """Run a single analysis pass for one learning type.
+    ) -> tuple[List[Rule], Optional[str], Optional[List[PhaseAnalysisResult]]]:
+        """Run a single analysis pass for one rule.
 
         Args:
             conversation: Conversation to analyze
-            learning_type: Name of the learning type
-            type_config: Configuration for this learning type
+            rule_type: Name of the rule
+            type_config: Configuration for this rule
             model_override: Optional model override
 
         Returns:
-            Tuple of (learnings, error_message, phase_results).
+            Tuple of (rules, error_message, phase_results).
             error_message is None if successful.
             phase_results is None for single-phase analysis,
             List[PhaseAnalysisResult] for multi-phase.
@@ -470,14 +468,12 @@ class DriftAnalyzer:
         if len(phases) > 1:
             # Route to multi-phase analysis - returns phase_results
             return self._run_multi_phase_analysis(
-                conversation, learning_type, type_config, model_override
+                conversation, rule_type, type_config, model_override
             )
 
         # Determine which model to use (from phase)
         phase_model = phases[0].model if phases else None
-        model_name = (
-            model_override or phase_model or self.config.get_model_for_learning_type(learning_type)
-        )
+        model_name = model_override or phase_model or self.config.get_model_for_rule(rule_type)
 
         provider = self.providers.get(model_name)
         if not provider:
@@ -489,36 +485,36 @@ class DriftAnalyzer:
                 "Check credentials and configuration."
             )
 
-        # Build prompt for this learning type
-        prompt = self._build_analysis_prompt(conversation, learning_type, type_config)
+        # Build prompt for this rule
+        prompt = self._build_analysis_prompt(conversation, rule_type, type_config)
 
         # Generate analysis
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
         response = provider.generate(prompt)
         logger.debug(f"Raw response from {model_name}:\n{response}")
 
-        # Parse response to extract learnings
-        learnings = self._parse_analysis_response(
+        # Parse response to extract rules
+        rules = self._parse_analysis_response(
             response,
             conversation,
-            learning_type,
+            rule_type,
         )
 
         # Single-phase analysis - no phase_results to return
-        return learnings, None, None
+        return rules, None, None
 
     def _build_analysis_prompt(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
     ) -> str:
         """Build the prompt for analyzing a conversation.
 
         Args:
             conversation: Conversation to analyze
-            learning_type: Name of the learning type
-            type_config: Configuration for this learning type
+            rule_type: Name of the rule
+            type_config: Configuration for this rule
 
         Returns:
             Formatted prompt string
@@ -542,7 +538,7 @@ class DriftAnalyzer:
 
         prompt = f"""You are analyzing an AI agent conversation to identify drift patterns.
 
-**Drift Learning Type:** {learning_type}
+**Drift Rule Type:** {rule_type}
 **Description:** {description}
 
 {project_context_section}**Detection Instructions:**
@@ -552,7 +548,7 @@ class DriftAnalyzer:
 {conversation_text}
 
 **Task:**
-Analyze the above conversation and identify any instances of the "{learning_type}" drift pattern.
+Analyze the above conversation and identify any instances of the "{rule_type}" drift pattern.
 
 IMPORTANT: Only report drift that was NOT resolved in the conversation. If the user had to correct
 the AI or ask for missing work, but it remained unresolved, that's drift. If the issue was fully
@@ -604,17 +600,17 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     def _parse_analysis_response(
         response: str,
         conversation: Conversation,
-        learning_type: str,
-    ) -> List[Learning]:
-        """Parse LLM response to extract learnings.
+        rule_type: str,
+    ) -> List[Rule]:
+        """Parse LLM response to extract rules.
 
         Args:
             response: Raw LLM response
             conversation: Conversation that was analyzed
-            learning_type: Type of learning
+            rule_type: Type of learning
 
         Returns:
-            List of Learning objects
+            List of Rule objects
         """
         import json
         import re
@@ -622,7 +618,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         # Extract JSON from response (in case there's extra text)
         json_match = re.search(r"\[.*\]", response, re.DOTALL)
         if not json_match:
-            # No learnings found
+            # No rules found
             return []
 
         try:
@@ -631,16 +627,16 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             logger.warning(f"Failed to parse analysis response as JSON: {response[:200]}")
             return []
 
-        learnings = []
+        rules = []
         for item in data:
-            learning = Learning(
+            learning = Rule(
                 turn_number=item.get("turn_number", 0),
                 turn_uuid=None,  # Can be populated if we track UUIDs
                 agent_tool=conversation.agent_tool,
                 conversation_file=conversation.file_path,
                 observed_behavior=item.get("observed_behavior", ""),
                 expected_behavior=item.get("expected_behavior", ""),
-                learning_type=learning_type,
+                rule_type=rule_type,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 context=item.get("context", ""),
@@ -648,9 +644,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 phases_count=1,
                 source_type="conversation",  # Mark as conversation-sourced learning
             )
-            learnings.append(learning)
+            rules.append(learning)
 
-        return learnings
+        return rules
 
     def _generate_summary(
         self,
@@ -668,27 +664,27 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         """
         summary = AnalysisSummary(
             total_conversations=len(results),
-            total_learnings=0,
+            total_rule_violations=0,
             conversations_with_drift=0,
             conversations_without_drift=0,
         )
 
-        # Count learnings by type and agent
+        # Count rules by type and agent
         by_type: Dict[str, int] = {}
         by_agent: Dict[str, int] = {}
         all_rule_errors: Dict[str, str] = {}
 
         for result in results:
-            if result.learnings:
+            if result.rules:
                 summary.conversations_with_drift += 1
             else:
                 summary.conversations_without_drift += 1
 
-            for learning in result.learnings:
-                summary.total_learnings += 1
+            for learning in result.rules:
+                summary.total_rule_violations += 1
 
                 # By type
-                by_type[learning.learning_type] = by_type.get(learning.learning_type, 0) + 1
+                by_type[learning.rule_type] = by_type.get(learning.rule_type, 0) + 1
 
                 # By agent
                 by_agent[learning.agent_tool] = by_agent.get(learning.agent_tool, 0) + 1
@@ -710,11 +706,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             rules_warned = []
             rules_failed = []
 
-            for learning_type in by_type.keys():
-                # Get severity for this learning type
+            for rule_type in by_type.keys():
+                # Get severity for this rule
                 severity = SeverityLevel.WARNING  # Default
-                if learning_type in self.config.drift_learning_types:
-                    type_config = self.config.drift_learning_types[learning_type]
+                if rule_type in self.config.rule_definitions:
+                    type_config = self.config.rule_definitions[rule_type]
                     if type_config.severity is not None:
                         severity = type_config.severity
                     elif type_config.scope == "project_level":
@@ -723,10 +719,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                         severity = SeverityLevel.WARNING
 
                 if severity == SeverityLevel.FAIL:
-                    rules_failed.append(learning_type)
+                    rules_failed.append(rule_type)
                 elif severity == SeverityLevel.WARNING:
-                    rules_warned.append(learning_type)
-                # PASS shouldn't produce learnings, but if it does, treat as warning
+                    rules_warned.append(rule_type)
+                # PASS shouldn't produce rules, but if it does, treat as warning
 
             summary.rules_warned = rules_warned
             summary.rules_failed = rules_failed
@@ -742,25 +738,25 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
     def analyze_documents(
         self,
-        learning_types: Optional[List[str]] = None,
+        rule_types: Optional[List[str]] = None,
         model_override: Optional[str] = None,
     ) -> CompleteAnalysisResult:
         """Run drift analysis on project documents.
 
         Args:
-            learning_types: Optional list of specific learning types to check
+            rule_types: Optional list of specific rules to check
             model_override: Optional model to use (overrides all config settings)
 
         Returns:
-            Complete analysis results with document learnings
+            Complete analysis results with document rules
         """
         if not self.project_path:
             raise ValueError("Project path required for document analysis")
 
         all_types = (
-            {lt: self.config.drift_learning_types[lt] for lt in learning_types}
-            if learning_types is not None
-            else self.config.drift_learning_types
+            {lt: self.config.rule_definitions[lt] for lt in rule_types}
+            if rule_types is not None
+            else self.config.rule_definitions
         )
 
         document_types = {}
@@ -788,7 +784,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 },
                 summary=AnalysisSummary(
                     total_conversations=0,
-                    total_learnings=0,
+                    total_rule_violations=0,
                     conversations_with_drift=0,
                     conversations_without_drift=0,
                 ),
@@ -797,7 +793,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         doc_loader = DocumentLoader(self.project_path)
 
-        all_document_learnings: List[DocumentLearning] = []
+        all_document_learnings: List[DocumentRule] = []
         all_execution_details: List[dict] = []
 
         logger.debug(
@@ -855,10 +851,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                             files=[],
                             project_path=self.project_path,
                         )
-                        learnings, exec_details = self._analyze_document_bundle(
+                        rules, exec_details = self._analyze_document_bundle(
                             empty_bundle, type_name, type_config, model_override, doc_loader
                         )
-                        all_document_learnings.extend(learnings)
+                        all_document_learnings.extend(rules)
                         all_execution_details.extend(exec_details)
                     continue
 
@@ -867,19 +863,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 if bundle_config.bundle_strategy == BundleStrategy.INDIVIDUAL:
                     for bundle in bundles:
-                        learnings, exec_details = self._analyze_document_bundle(
+                        rules, exec_details = self._analyze_document_bundle(
                             bundle, type_name, type_config, model_override, doc_loader
                         )
-                        all_document_learnings.extend(learnings)
+                        all_document_learnings.extend(rules)
                         all_execution_details.extend(exec_details)
                 else:
                     if bundles:
                         combined_bundle = self._combine_bundles(bundles, type_config)
-                        learnings, exec_details = self._analyze_document_bundle(
+                        rules, exec_details = self._analyze_document_bundle(
                             combined_bundle, type_name, type_config, model_override, doc_loader
                         )
-                        if learnings:
-                            all_document_learnings.append(learnings[0])
+                        if rules:
+                            all_document_learnings.append(rules[0])
                         all_execution_details.extend(exec_details)
 
             except Exception as e:
@@ -903,15 +899,15 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         # Convert DocumentLearnings to Learnings for compatibility with AnalysisResult
         converted_learnings = []
         for doc_learning in all_document_learnings:
-            # Map DocumentLearning fields to Learning fields
-            learning = Learning(
-                turn_number=0,  # Document learnings aren't tied to specific turns
+            # Map DocumentRule fields to Rule fields
+            learning = Rule(
+                turn_number=0,  # Document rules aren't tied to specific turns
                 turn_uuid=None,
                 agent_tool="documents",
                 conversation_file="N/A",
                 observed_behavior=doc_learning.observed_issue,
                 expected_behavior=doc_learning.expected_quality,
-                learning_type=doc_learning.learning_type,
+                rule_type=doc_learning.rule_type,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],
@@ -929,21 +925,21 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             agent_tool="documents",
             conversation_file="N/A",
             project_path=str(self.project_path),
-            learnings=converted_learnings,
+            rules=converted_learnings,
             analysis_timestamp=datetime.now(),
             error=None,
         )
 
         summary = AnalysisSummary(
             total_conversations=0,
-            total_learnings=len(all_document_learnings),
+            total_rule_violations=len(all_document_learnings),
             conversations_with_drift=0,
             conversations_without_drift=0,
         )
 
         by_type: Dict[str, int] = {}
         for doc_learning in all_document_learnings:
-            by_type[doc_learning.learning_type] = by_type.get(doc_learning.learning_type, 0) + 1
+            by_type[doc_learning.rule_type] = by_type.get(doc_learning.rule_type, 0) + 1
         summary.by_type = by_type
 
         summary.rules_checked = list(document_types.keys())
@@ -952,11 +948,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         rules_warned = []
         rules_failed = []
 
-        for learning_type in by_type.keys():
-            # Get severity for this learning type
+        for rule_type in by_type.keys():
+            # Get severity for this rule
             severity = SeverityLevel.WARNING  # Default
-            if learning_type in self.config.drift_learning_types:
-                type_config = self.config.drift_learning_types[learning_type]
+            if rule_type in self.config.rule_definitions:
+                type_config = self.config.rule_definitions[rule_type]
                 if type_config.severity is not None:
                     severity = type_config.severity
                 elif type_config.scope == "project_level":
@@ -965,9 +961,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     severity = SeverityLevel.WARNING
 
             if severity == SeverityLevel.FAIL:
-                rules_failed.append(learning_type)
+                rules_failed.append(rule_type)
             elif severity == SeverityLevel.WARNING:
-                rules_warned.append(learning_type)
+                rules_warned.append(rule_type)
 
         summary.rules_warned = rules_warned
         summary.rules_failed = rules_failed
@@ -985,9 +981,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 "generated_at": datetime.now().isoformat(),
                 "analysis_type": "documents",
                 "project_path": str(self.project_path),
-                "document_learnings": [
-                    learning.model_dump() for learning in all_document_learnings
-                ],
+                "document_rules": [learning.model_dump() for learning in all_document_learnings],
                 "execution_details": all_execution_details,
             },
             summary=summary,
@@ -997,33 +991,33 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     def _analyze_document_bundle(
         self,
         bundle: DocumentBundle,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         model_override: Optional[str],
         loader: Optional[Any] = None,
-    ) -> tuple[List[DocumentLearning], List[dict]]:
+    ) -> tuple[List[DocumentRule], List[dict]]:
         """Analyze a single document bundle.
 
         Args:
             bundle: Document bundle to analyze
-            learning_type: Name of learning type
-            type_config: Configuration for this learning type
+            rule_type: Name of learning type
+            type_config: Configuration for this rule
             model_override: Optional model override
             loader: Optional document loader for resource access
 
         Returns:
-            Tuple of (learnings, execution_details)
+            Tuple of (rules, execution_details)
         """
         validation_rules = getattr(type_config, "validation_rules", None)
         logger.debug(
-            f"_analyze_document_bundle for {learning_type}: validation_rules={validation_rules}"
+            f"_analyze_document_bundle for {rule_type}: validation_rules={validation_rules}"
         )
 
         if validation_rules is not None:
             logger.debug(
-                f"_analyze_document_bundle: Calling _execute_validation_rules for {learning_type}"
+                f"_analyze_document_bundle: Calling _execute_validation_rules for {rule_type}"
             )
-            return self._execute_validation_rules(bundle, learning_type, type_config, loader)
+            return self._execute_validation_rules(bundle, rule_type, type_config, loader)
 
         phases = getattr(type_config, "phases", [])
 
@@ -1034,7 +1028,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
             if programmatic_phases:
                 registry = ValidatorRegistry()
-                learnings = []
+                rules = []
                 execution_details = []
 
                 for phase in programmatic_phases:
@@ -1051,7 +1045,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                     # Track execution
                     exec_info = {
-                        "rule_name": learning_type,
+                        "rule_name": rule_type,
                         "rule_description": rule.description,
                         "rule_context": type_config.context,
                         "status": "passed" if result is None else "failed",
@@ -1070,22 +1064,20 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     execution_details.append(exec_info)
 
                     if result is not None:
-                        result.learning_type = learning_type
-                        learnings.append(result)
+                        result.rule_type = rule_type
+                        rules.append(result)
 
-                return learnings, execution_details
+                return rules, execution_details
 
         if len(phases) > 1:
             return self._run_multi_phase_document_analysis(
-                bundle, learning_type, type_config, model_override, loader
+                bundle, rule_type, type_config, model_override, loader
             )
 
-        prompt = self._build_document_analysis_prompt(bundle, learning_type, type_config)
+        prompt = self._build_document_analysis_prompt(bundle, rule_type, type_config)
 
         phase_model = phases[0].model if phases else None
-        model_name = (
-            model_override or phase_model or self.config.get_model_for_learning_type(learning_type)
-        )
+        model_name = model_override or phase_model or self.config.get_model_for_rule(rule_type)
 
         provider = self.providers.get(model_name)
         if not provider:
@@ -1095,82 +1087,80 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         response = provider.generate(prompt)
         logger.debug(f"Raw response from {model_name}:\n{response}")
 
-        learnings = self._parse_document_analysis_response(response, bundle, learning_type)
+        rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
         # No programmatic execution details for LLM-based analysis
-        return learnings, []
+        return rules, []
 
     def _run_multi_phase_document_analysis(
         self,
         bundle: DocumentBundle,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         model_override: Optional[str] = None,
         loader: Optional[Any] = None,
-    ) -> tuple[List[DocumentLearning], List[dict]]:
+    ) -> tuple[List[DocumentRule], List[dict]]:
         """Run multi-phase analysis on a document bundle."""
         phases = getattr(type_config, "phases", [])
         if not phases:
             raise ValueError(
-                f"Learning type '{learning_type}' routed to multi-phase analysis "
+                f"Rule type '{rule_type}' routed to multi-phase analysis "
                 "but no phases configured"
             )
 
         # For documents, we just run single-phase for now with the first phase
         # Multi-phase with resource requests doesn't make sense for static documents
         phase_model = phases[0].model if phases else None
-        model_name = (
-            model_override or phase_model or self.config.get_model_for_learning_type(learning_type)
-        )
+        model_name = model_override or phase_model or self.config.get_model_for_rule(rule_type)
 
         provider = self.providers.get(model_name)
         if not provider:
             raise ValueError(f"Model '{model_name}' not found in configured providers")
 
-        prompt = self._build_document_analysis_prompt(bundle, learning_type, type_config)
+        prompt = self._build_document_analysis_prompt(bundle, rule_type, type_config)
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
         response = provider.generate(prompt)
         logger.debug(f"Raw response from {model_name}:\n{response}")
-        learnings = self._parse_document_analysis_response(response, bundle, learning_type)
+        rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
         # No programmatic execution details for LLM-based document analysis
-        return learnings, []
+        return rules, []
 
     def _execute_validation_rules(
         self,
         bundle: DocumentBundle,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         loader: Optional[Any] = None,
-    ) -> tuple[List[DocumentLearning], List[dict]]:
+    ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute rule-based validation on a bundle.
 
         Args:
             bundle: Document bundle to validate
-            learning_type: Name of learning type
-            type_config: Configuration for this learning type
+            rule_type: Name of learning type
+            type_config: Configuration for this rule
             loader: Optional document loader for resource access
 
         Returns:
-            Tuple of (learnings, execution_details).
-            learnings: List of document learnings from failed validations
+            Tuple of (rules, execution_details).
+            rules: List of document rules from failed validations
             execution_details: List of dicts with execution info for ALL rules
         """
-        logger.debug(f"_execute_validation_rules called for {learning_type}")
+        logger.debug(f"_execute_validation_rules called for {rule_type}")
         validation_config = getattr(type_config, "validation_rules", None)
         if not validation_config:
             raise ValueError(
-                f"Learning type '{learning_type}' routed to programmatic validation "
+                f"Rule type '{rule_type}' routed to programmatic validation "
                 "but no validation_rules configured"
             )
 
         registry = ValidatorRegistry(loader)
-        learnings = []
+        rules = []
         execution_details = []
 
         logger.debug(
             f"_validate_document_bundle: Processing {len(validation_config.rules)} rules "
-            f"for {learning_type}"
+            f"for {rule_type}"
         )
 
         for rule in validation_config.rules:
@@ -1181,7 +1171,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 # Track execution info for this rule
                 exec_info = {
-                    "rule_name": learning_type,
+                    "rule_name": rule_type,
                     "rule_description": rule.description,
                     "status": "passed" if result is None else "failed",
                     "execution_context": {
@@ -1200,8 +1190,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 if result is not None:
                     # Validation failed - set the learning type name
-                    result.learning_type = learning_type
-                    learnings.append(result)
+                    result.rule_type = rule_type
+                    rules.append(result)
 
             except Exception as e:
                 # Log error but continue with other rules
@@ -1209,7 +1199,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 # Track error in execution details
                 exec_info = {
-                    "rule_name": learning_type,
+                    "rule_name": rule_type,
                     "rule_description": rule.description,
                     "status": "errored",
                     "error_message": str(e),
@@ -1217,20 +1207,20 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 execution_details.append(exec_info)
                 continue
 
-        return learnings, execution_details
+        return rules, execution_details
 
     def _build_document_analysis_prompt(
         self,
         bundle: DocumentBundle,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
     ) -> str:
         """Build prompt for document analysis.
 
         Args:
             bundle: Document bundle to analyze
-            learning_type: Name of learning type
-            type_config: Configuration for this learning type
+            rule_type: Name of learning type
+            type_config: Configuration for this rule
 
         Returns:
             Formatted prompt string
@@ -1246,7 +1236,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         # Build prompt with template variable substitution
         prompt = f"""You are analyzing project documentation to identify quality issues.
 
-**Analysis Type:** {learning_type}
+**Analysis Type:** {rule_type}
 **Description:** {description}
 
 **Project Root:** {bundle.project_path}
@@ -1260,7 +1250,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 {detection_prompt}
 
 **Task:**
-Analyze the above documentation and identify any instances of the "{learning_type}" pattern.
+Analyze the above documentation and identify any instances of the "{rule_type}" pattern.
 
 For each issue found, extract:
 1. Which file(s) are involved (use relative paths from the Files Being Analyzed section)
@@ -1288,17 +1278,17 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         self,
         response: str,
         bundle: DocumentBundle,
-        learning_type: str,
-    ) -> List[DocumentLearning]:
+        rule_type: str,
+    ) -> List[DocumentRule]:
         """Parse document analysis response from LLM.
 
         Args:
             response: Raw response from LLM
             bundle: Document bundle that was analyzed
-            learning_type: Type of learning
+            rule_type: Type of learning
 
         Returns:
-            List of parsed document learnings
+            List of parsed document rules
         """
         import json
         import re
@@ -1316,26 +1306,26 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         if not isinstance(items, list):
             return []
 
-        # Convert to DocumentLearning objects
-        learnings = []
+        # Convert to DocumentRule objects
+        rules = []
         for item in items:
             if not isinstance(item, dict):
                 continue
 
-            learning = DocumentLearning(
+            learning = DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=item.get("file_paths", []),
                 observed_issue=item.get("observed_issue", ""),
                 expected_quality=item.get("expected_quality", ""),
-                learning_type=learning_type,
+                rule_type=rule_type,
                 context=item.get("context", ""),
             )
-            learnings.append(learning)
+            rules.append(learning)
 
         # ENFORCE: Return only first learning (ONE per rule)
         # This ensures each rule returns exactly one learning, regardless of what LLM returns
-        return learnings[:1] if learnings else []
+        return rules[:1] if rules else []
 
     def _combine_bundles(
         self,
@@ -1346,7 +1336,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         Args:
             bundles: List of bundles to combine
-            type_config: Learning type configuration
+            type_config: Rule type configuration
 
         Returns:
             Combined document bundle
@@ -1379,14 +1369,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     def _run_multi_phase_analysis(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         model_override: Optional[str],
-    ) -> tuple[List[Learning], Optional[str], List[PhaseAnalysisResult]]:
+    ) -> tuple[List[Rule], Optional[str], List[PhaseAnalysisResult]]:
         """Execute multi-phase analysis with resource requests.
 
         Returns:
-            Tuple of (learnings, error_message, phase_results).
+            Tuple of (rules, error_message, phase_results).
             error_message is None if successful.
             phase_results contains all PhaseAnalysisResult objects from execution.
         """
@@ -1394,7 +1384,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         phases = getattr(type_config, "phases", [])
         if not phases:
             raise ValueError(
-                f"Learning type '{learning_type}' routed to multi-phase analysis "
+                f"Rule type '{rule_type}' routed to multi-phase analysis "
                 "but no phases configured"
             )
 
@@ -1408,9 +1398,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         resources_consulted: List[str] = []
         phase_results: List[PhaseAnalysisResult] = []
 
-        logger.info(
-            f"Starting multi-phase analysis for {learning_type} with {len(phases)} phase(s)"
-        )
+        logger.info(f"Starting multi-phase analysis for {rule_type} with {len(phases)} phase(s)")
 
         # Phase 1: Initial analysis
         phase_idx = 0
@@ -1418,7 +1406,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         logger.info(f"Starting phase {phase_idx + 1}: {phase_def.name}")
         prompt = self._build_multi_phase_prompt(
             conversation=conversation,
-            learning_type=learning_type,
+            rule_type=rule_type,
             type_config=type_config,
             phase_idx=phase_idx,
             phase_def=phase_def,
@@ -1442,11 +1430,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             phase_model = (
                 phase_def.model if hasattr(phase_def, "model") and phase_def.model else None
             )
-            model_name = (
-                model_override
-                or phase_model
-                or self.config.get_model_for_learning_type(learning_type)
-            )
+            model_name = model_override or phase_model or self.config.get_model_for_rule(rule_type)
 
             provider = self.providers.get(model_name)
             if not provider:
@@ -1514,10 +1498,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
             # Check if all requests failed
             if resources_loaded and all(not r.found for r in resources_loaded):
-                # All resources missing - create missing resource learnings
+                # All resources missing - create missing resource rules
                 return self._create_missing_resource_learnings(
                     conversation=conversation,
-                    learning_type=learning_type,
+                    rule_type=rule_type,
                     resources_loaded=resources_loaded,
                     phase_results=phase_results,
                 )
@@ -1529,7 +1513,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 logger.info(f"Starting phase {phase_idx + 1}: {phase_def.name}")
                 prompt = self._build_multi_phase_prompt(
                     conversation=conversation,
-                    learning_type=learning_type,
+                    rule_type=rule_type,
                     type_config=type_config,
                     phase_idx=phase_idx,
                     phase_def=phase_def,
@@ -1537,21 +1521,21 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     previous_findings=phase_result.findings,
                 )
 
-        # Finalize learnings from all phases
-        learnings, error = self._finalize_multi_phase_learnings(
+        # Finalize rules from all phases
+        rules, error = self._finalize_multi_phase_learnings(
             conversation=conversation,
-            learning_type=learning_type,
+            rule_type=rule_type,
             phase_results=phase_results,
             resources_consulted=resources_consulted,
         )
 
-        # Return learnings, error, AND phase_results (stop throwing them away!)
-        return learnings, error, phase_results
+        # Return rules, error, AND phase_results (stop throwing them away!)
+        return rules, error, phase_results
 
     def _build_multi_phase_prompt(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         type_config: Any,
         phase_idx: int,
         phase_def: Any,
@@ -1574,7 +1558,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
             prompt = f"""You are analyzing an AI agent conversation to identify drift patterns.
 
-**Analysis Type**: {learning_type}
+**Analysis Type**: {rule_type}
 **Phase**: {phase_name}
 **Description**: {type_config.description}
 **Context**: {context}
@@ -1634,11 +1618,11 @@ If you're confident without additional resources, set final_determination=true.
 
             prompt_prefix = (
                 f'You are in phase "{phase_name}" of multi-phase analysis '
-                f"for drift pattern: {learning_type}"
+                f"for drift pattern: {rule_type}"
             )
             prompt = f"""{prompt_prefix}
 
-**Analysis Type**: {learning_type}
+**Analysis Type**: {rule_type}
 **Description**: {type_config.description}
 **Context**: {context}
 
@@ -1758,22 +1742,22 @@ Return JSON with the same format:
     def _create_missing_resource_learnings(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         resources_loaded: List[ResourceResponse],
         phase_results: List[PhaseAnalysisResult],
-    ) -> tuple[List[Learning], Optional[str], List[PhaseAnalysisResult]]:
-        """Create learnings when requested resources are missing.
+    ) -> tuple[List[Rule], Optional[str], List[PhaseAnalysisResult]]:
+        """Create rules when requested resources are missing.
 
         Returns:
-            Tuple of (learnings, error_message). Always returns None for error since
-            missing resources are valid learnings, not errors.
+            Tuple of (rules, error_message). Always returns None for error since
+            missing resources are valid rules, not errors.
         """
-        learnings = []
+        rules = []
 
         for resource in resources_loaded:
             if not resource.found:
                 # Missing resource IS the drift
-                learning = Learning(
+                learning = Rule(
                     turn_number=0,  # Not turn-specific
                     turn_uuid=None,
                     agent_tool=conversation.agent_tool,
@@ -1787,7 +1771,7 @@ Return JSON with the same format:
                         f"{resource.request.resource_type} "
                         f"'{resource.request.resource_id}' should exist in project"
                     ),
-                    learning_type=f"missing_{resource.request.resource_type}",
+                    rule_type=f"missing_{resource.request.resource_type}",
                     workflow_element=WorkflowElement.UNKNOWN,
                     turns_to_resolve=1,
                     turns_involved=[],
@@ -1798,26 +1782,26 @@ Return JSON with the same format:
                     phases_count=len(phase_results),
                     source_type="resource_missing",  # Mark as resource-missing learning
                 )
-                learnings.append(learning)
+                rules.append(learning)
 
-        return learnings, None, phase_results
+        return rules, None, phase_results
 
     def _finalize_multi_phase_learnings(
         self,
         conversation: Conversation,
-        learning_type: str,
+        rule_type: str,
         phase_results: List[PhaseAnalysisResult],
         resources_consulted: List[str],
-    ) -> tuple[List[Learning], Optional[str]]:
-        """Convert final phase results to Learning objects.
+    ) -> tuple[List[Rule], Optional[str]]:
+        """Convert final phase results to Rule objects.
 
         Returns:
-            Tuple of (learnings, error_message). error_message is set if findings are malformed.
+            Tuple of (rules, error_message). error_message is set if findings are malformed.
         """
         # Get final findings (last phase)
         final_phase = phase_results[-1]
 
-        learnings = []
+        rules = []
         malformed_count = 0
 
         # ENFORCE: Only process first VALID finding (ONE per rule)
@@ -1834,14 +1818,14 @@ Return JSON with the same format:
                 continue
 
             # Found first valid finding - create learning and stop
-            learning = Learning(
+            learning = Rule(
                 turn_number=finding.get("turn_number", 0),
                 turn_uuid=None,
                 agent_tool=conversation.agent_tool,
                 conversation_file=conversation.file_path,
                 observed_behavior=observed,
                 expected_behavior=expected,
-                learning_type=learning_type,
+                rule_type=rule_type,
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],
@@ -1850,7 +1834,7 @@ Return JSON with the same format:
                 phases_count=len(phase_results),
                 source_type="conversation",  # Mark as conversation-sourced learning
             )
-            learnings.append(learning)
+            rules.append(learning)
             break  # ENFORCE: Only one learning per rule
 
         # Return error if we had malformed findings
@@ -1861,7 +1845,7 @@ Return JSON with the same format:
                 f"with missing observed_behavior or expected_behavior fields"
             )
 
-        return learnings, error
+        return rules, error
 
     def cleanup(self) -> None:
         """Clean up temporary files."""

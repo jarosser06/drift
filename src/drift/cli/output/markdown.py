@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple
 
 from drift.cli.output.formatter import OutputFormatter
 from drift.config.models import DriftConfig, SeverityLevel
-from drift.core.types import AnalysisResult, CompleteAnalysisResult, Learning
+from drift.core.types import AnalysisResult, CompleteAnalysisResult, Rule
 
 logger = logging.getLogger(__name__)
 
@@ -57,20 +57,20 @@ class MarkdownFormatter(OutputFormatter):
             return f"{color}{text}{self.RESET}"
         return text
 
-    def _get_severity(self, learning_type: str) -> SeverityLevel:
+    def _get_severity(self, rule_type: str) -> SeverityLevel:
         """Get severity for a learning type.
 
         Args:
-            learning_type: The learning type name
+            rule_type: The learning type name
 
         Returns:
             Severity level (defaults based on scope if not explicitly set)
         """
-        if not self.config or learning_type not in self.config.drift_learning_types:
+        if not self.config or rule_type not in self.config.rule_definitions:
             # Default to WARNING if no config
             return SeverityLevel.WARNING
 
-        type_config = self.config.drift_learning_types[learning_type]
+        type_config = self.config.rule_definitions[rule_type]
 
         # If severity is explicitly set, use it
         if type_config.severity is not None:
@@ -101,8 +101,8 @@ class MarkdownFormatter(OutputFormatter):
         lines.append("## Summary")
         lines.append(f"- Total conversations: {result.summary.total_conversations}")
 
-        # Don't color the total learnings count
-        lines.append(f"- Total learnings: {result.summary.total_learnings}")
+        # Don't color the total rules count
+        lines.append(f"- Total rules: {result.summary.total_rule_violations}")
 
         # Rules checked - show even if 0
         if result.summary.rules_checked is not None:
@@ -132,10 +132,9 @@ class MarkdownFormatter(OutputFormatter):
         # By type
         if result.summary.by_type:
             type_counts = ", ".join(
-                f"{learning_type} ({count})"
-                for learning_type, count in result.summary.by_type.items()
+                f"{rule_type} ({count})" for rule_type, count in result.summary.by_type.items()
             )
-            lines.append(f"- By type: {type_counts}")
+            lines.append(f"- By rule: {type_counts}")
 
         # By agent tool
         if result.summary.by_agent:
@@ -165,9 +164,9 @@ class MarkdownFormatter(OutputFormatter):
                 lines.append(f"- **{rule}**: {error_msg}")
             lines.append("")
 
-        # If no learnings found, show message
-        if result.summary.total_learnings == 0:
-            header = self._colorize("## No Drift Detected", self.GREEN)
+        # If no rules found, show message
+        if result.summary.total_rule_violations == 0:
+            header = self._colorize("## No Rule Violations Detected", self.GREEN)
             lines.append(header)
             lines.append("")
             lines.append("No drift patterns were found in the analyzed data.")
@@ -184,19 +183,19 @@ class MarkdownFormatter(OutputFormatter):
 
             return "\n".join(lines)
 
-        # Collect all learnings and categorize by severity
+        # Collect all rules and categorize by severity
         all_failures = []  # Red - fails
         all_warnings = []  # Yellow - warnings
         all_passes = []  # Green - passes (shouldn't happen, but log if it does)
 
-        # Collect learnings with their analysis results
+        # Collect rules with their analysis results
         for analysis_result in result.results:
-            if not analysis_result.learnings:
+            if not analysis_result.rules:
                 continue
 
-            for learning in analysis_result.learnings:
+            for learning in analysis_result.rules:
                 # Determine severity from config
-                severity = self._get_severity(learning.learning_type)
+                severity = self._get_severity(learning.rule_type)
 
                 if severity == SeverityLevel.FAIL:
                     all_failures.append((analysis_result, learning))
@@ -205,7 +204,7 @@ class MarkdownFormatter(OutputFormatter):
                 else:  # PASS
                     # This shouldn't happen - log a warning
                     logger.warning(
-                        f"Learning type '{learning.learning_type}' has severity=PASS but "
+                        f"Rule type '{learning.rule_type}' has severity=PASS but "
                         f"produced a learning. This indicates a misconfiguration. "
                         f"Session: {analysis_result.session_id}, Turn: {learning.turn_number}"
                     )
@@ -240,12 +239,12 @@ class MarkdownFormatter(OutputFormatter):
         return "\n".join(lines)
 
     def _format_by_type(
-        self, learnings_with_results: List[Tuple[AnalysisResult, Learning]], color: str
+        self, learnings_with_results: List[Tuple[AnalysisResult, Rule]], color: str
     ) -> List[str]:
-        """Format learnings grouped by learning type.
+        """Format rules grouped by learning type.
 
         Args:
-            learnings_with_results: List of (AnalysisResult, Learning) tuples
+            learnings_with_results: List of (AnalysisResult, Rule) tuples
             color: ANSI color code to use for this scope (RED for project, YELLOW for conversation)
 
         Returns:
@@ -254,22 +253,22 @@ class MarkdownFormatter(OutputFormatter):
         lines = []
 
         # Group by learning type
-        by_type: Dict[str, List[Tuple[AnalysisResult, Learning]]] = {}
+        by_type: Dict[str, List[Tuple[AnalysisResult, Rule]]] = {}
         for analysis_result, learning in learnings_with_results:
-            learning_type = learning.learning_type
-            if learning_type not in by_type:
-                by_type[learning_type] = []
-            by_type[learning_type].append((analysis_result, learning))
+            rule_type = learning.rule_type
+            if rule_type not in by_type:
+                by_type[rule_type] = []
+            by_type[rule_type].append((analysis_result, learning))
 
         # Format each learning type
-        for learning_type, items in sorted(by_type.items()):
+        for rule_type, items in sorted(by_type.items()):
             # Type header - use provided color for scope
-            lines.append(self._colorize(f"### {learning_type}", color))
+            lines.append(self._colorize(f"### {rule_type}", color))
             lines.append("")
 
             # Add learning type context/description if available - don't color it
-            if self.config and learning_type in self.config.drift_learning_types:
-                type_config = self.config.drift_learning_types[learning_type]
+            if self.config and rule_type in self.config.rule_definitions:
+                type_config = self.config.rule_definitions[rule_type]
                 lines.append(f"*{type_config.context}*")
                 lines.append("")
 
@@ -286,7 +285,7 @@ class MarkdownFormatter(OutputFormatter):
 
                 # Show Turn or Source based on learning source type
                 if hasattr(learning, "source_type") and learning.source_type == "document":
-                    # Show affected files for document learnings
+                    # Show affected files for document rules
                     if hasattr(learning, "affected_files") and learning.affected_files:
                         if len(learning.affected_files) == 1:
                             # Single file - use singular "File:"

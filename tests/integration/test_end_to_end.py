@@ -13,11 +13,11 @@ from drift.config.models import (
     ConversationMode,
     ConversationSelection,
     DriftConfig,
-    DriftLearningType,
     ModelConfig,
     PhaseDefinition,
     ProviderConfig,
     ProviderType,
+    RuleDefinition,
 )
 from drift.core.analyzer import DriftAnalyzer
 
@@ -43,8 +43,8 @@ class TestEndToEndWorkflow:
                 )
             },
             default_model="test-model",
-            drift_learning_types={
-                "incomplete_work": DriftLearningType(
+            rule_definitions={
+                "incomplete_work": RuleDefinition(
                     description="AI stopped before completing work",
                     scope="conversation_level",
                     context="Test context",
@@ -164,13 +164,13 @@ class TestEndToEndWorkflow:
 
             # Verify results
             assert result.summary.total_conversations == 1
-            assert result.summary.total_learnings == 1
+            assert result.summary.total_rule_violations == 1
             assert result.summary.conversations_with_drift == 1
 
             # Check learning details
-            learning = result.results[0].learnings[0]
+            learning = result.results[0].rules[0]
             assert learning.turn_number == 1
-            assert learning.learning_type == "incomplete_work"
+            assert learning.rule_type == "incomplete_work"
 
     def test_loader_integration(self, e2e_conversation_dir):
         """Test Claude Code loader with real conversation files."""
@@ -366,7 +366,7 @@ class TestEndToEndWorkflow:
             assert "metadata" in data
             assert "summary" in data
             assert "results" in data
-            assert data["summary"]["total_learnings"] == 1
+            assert data["summary"]["total_rule_violations"] == 1
 
     def test_temp_directory_management(self, e2e_config, e2e_conversation_dir):
         """Test temporary directory creation and cleanup."""
@@ -430,9 +430,9 @@ class TestEndToEndWorkflow:
 
             # Should complete with zero conversations
             assert result.summary.total_conversations == 0
-            assert result.summary.total_learnings == 0
+            assert result.summary.total_rule_violations == 0
 
-    def test_learning_type_override(self, e2e_config, e2e_conversation_dir):
+    def test_rule_definition_override(self, e2e_config, e2e_conversation_dir):
         """Test model override for specific learning types."""
         # Add a second model
         e2e_config.models["powerful-model"] = ModelConfig(
@@ -442,7 +442,7 @@ class TestEndToEndWorkflow:
         )
 
         # Set learning type to use different model
-        e2e_config.drift_learning_types["incomplete_work"].phases[0].model = "powerful-model"
+        e2e_config.rule_definitions["incomplete_work"].phases[0].model = "powerful-model"
 
         with patch("drift.providers.bedrock.boto3") as mock_boto3:
             mock_client = MagicMock()

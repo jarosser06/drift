@@ -7,7 +7,7 @@ from drift.config.models import (
     BundleStrategy,
     DocumentBundleConfig,
     DriftConfig,
-    DriftLearningType,
+    RuleDefinition,
     ValidationRule,
     ValidationRulesConfig,
 )
@@ -28,8 +28,8 @@ class TestDocumentValidationExecutionDetails:
 
             # Create a config with document-level validation
             config = DriftConfig(
-                drift_learning_types={
-                    "claude_md_missing": DriftLearningType(
+                rule_definitions={
+                    "claude_md_missing": RuleDefinition(
                         description="Test if .claude.md exists",
                         scope="project_level",
                         context="Test if .claude.md exists",
@@ -113,8 +113,8 @@ class TestDocumentValidationExecutionDetails:
             (project_path / ".claude.md").write_text("# Test\n")
 
             config = DriftConfig(
-                drift_learning_types={
-                    "test_rule": DriftLearningType(
+                rule_definitions={
+                    "test_rule": RuleDefinition(
                         description="Test rule",
                         scope="project_level",
                         context="Test rule",
