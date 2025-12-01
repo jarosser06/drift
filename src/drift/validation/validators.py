@@ -1,6 +1,7 @@
 """Validators for rule-based document validation."""
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, List, Optional
 
 from drift.config.models import ValidationRule, ValidationType
@@ -420,6 +421,241 @@ class ListRegexMatchValidator(BaseValidator):
         )
 
 
+class DependencyDuplicateValidator(BaseValidator):
+    """Validator for detecting duplicate dependencies in Claude Code resources."""
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentRule]:
+        """Detect duplicate resource declarations in dependency chain.
+
+        Args:
+            rule: ValidationRule with params for agent_tool and resource_dirs
+            bundle: Document bundle being validated (command/skill/agent)
+            all_bundles: List of all bundles (needed for cross-bundle analysis)
+
+        Returns:
+            DocumentRule if duplicates found, None otherwise
+        """
+        from pathlib import Path
+
+        from drift.utils.dependency_graph import DependencyGraph
+
+        # Extract params
+        # agent_tool = rule.params.get("agent_tool", "claude-code")  # For future use
+        resource_dirs = rule.params.get("resource_dirs", [])
+
+        if not all_bundles:
+            # Need all bundles for cross-bundle analysis
+            return None
+
+        if not resource_dirs:
+            raise ValueError("DependencyDuplicateValidator requires 'resource_dirs' param")
+
+        # Build dependency graph from all bundles
+        project_path = bundle.project_path
+        graph = DependencyGraph(project_path)
+
+        # Load all resources from all bundles
+        for b in all_bundles:
+            for file in b.files:
+                # Determine resource type from path
+                file_path = Path(file.file_path)
+                resource_type = self._determine_resource_type(file_path)
+                if resource_type:
+                    try:
+                        graph.load_resource(file_path, resource_type)
+                    except Exception:
+                        # Skip files that can't be loaded
+                        continue
+
+        # Check current bundle for duplicates
+        duplicates_found = []
+        for file in bundle.files:
+            file_path = Path(file.file_path)
+            resource_type = self._determine_resource_type(file_path)
+            if not resource_type:
+                continue
+
+            resource_id = graph._extract_resource_id(file_path, resource_type)
+
+            try:
+                duplicates = graph.find_transitive_duplicates(resource_id)
+                if duplicates:
+                    for dup_resource, declared_by in duplicates:
+                        duplicates_found.append((file.relative_path, dup_resource, declared_by))
+            except KeyError:
+                # Resource not in graph
+                continue
+
+        if duplicates_found:
+            # Build detailed message
+            messages = []
+            for file_rel_path, dup_resource, declared_by in duplicates_found:
+                messages.append(
+                    f"{file_rel_path}: '{dup_resource}' is redundant "
+                    f"(already declared by '{declared_by}')"
+                )
+
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[d[0] for d in duplicates_found],
+                observed_issue=rule.failure_message + ": " + "; ".join(messages),
+                expected_quality=rule.expected_behavior,
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+            )
+
+        return None
+
+    def _determine_resource_type(self, file_path: Path) -> Optional[str]:
+        """Determine resource type from file path.
+
+        Args:
+            file_path: Path to resource file
+
+        Returns:
+            Resource type (skill, command, agent) or None
+        """
+        path_str = str(file_path)
+        if "/skills/" in path_str and file_path.name == "SKILL.md":
+            return "skill"
+        elif "/commands/" in path_str and file_path.suffix == ".md":
+            return "command"
+        elif "/agents/" in path_str and file_path.suffix == ".md":
+            return "agent"
+        return None
+
+
+class MarkdownLinkValidator(BaseValidator):
+    """Validator for checking links in markdown content."""
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentRule]:
+        """Validate all links in markdown files.
+
+        Args:
+            rule: ValidationRule with params for link types to check
+            bundle: Document bundle being validated
+            all_bundles: Not used
+
+        Returns:
+            DocumentRule if broken links found, None otherwise
+        """
+        from pathlib import Path as PathLib
+
+        from drift.utils.link_validator import LinkValidator
+
+        # Extract params
+        check_local_files = rule.params.get("check_local_files", True)
+        check_external_urls = rule.params.get("check_external_urls", True)
+        check_resource_refs = rule.params.get("check_resource_refs", False)
+        resource_patterns = rule.params.get("resource_patterns", [])
+
+        validator = LinkValidator()
+        broken_links = []
+
+        for file in bundle.files:
+            file_path = PathLib(file.file_path)
+            file_dir = file_path.parent
+
+            # Extract all file references from content (markdown links and plain paths)
+            file_refs = validator.extract_all_file_references(file.content)
+
+            for ref in file_refs:
+                # Categorize the reference
+                link_type = validator.categorize_link(ref)
+
+                # Validate based on type and settings
+                if link_type == "local" and check_local_files:
+                    # Try both relative to file's directory and project root
+                    # First try relative to file's directory (for local resources)
+                    found_relative_to_file = validator.validate_local_file(ref, file_dir)
+                    # Then try relative to project root (for project-wide references)
+                    found_relative_to_project = validator.validate_local_file(
+                        ref, bundle.project_path
+                    )
+
+                    # Only report as broken if not found in either location
+                    if not found_relative_to_file and not found_relative_to_project:
+                        broken_links.append((file.relative_path, ref, "local file not found"))
+                elif link_type == "external" and check_external_urls:
+                    if not validator.validate_external_url(ref):
+                        broken_links.append((file.relative_path, ref, "external URL unreachable"))
+
+            # Also check resource references if enabled
+            if check_resource_refs and resource_patterns:
+                # Extract markdown links for resource checking
+                markdown_links = validator.extract_links(file.content)
+
+                for link_text, link_url in markdown_links:
+                    # Check if link matches any resource pattern
+                    import re
+
+                    for pattern in resource_patterns:
+                        match = re.search(pattern, link_text)
+                        if match:
+                            # Extract resource name from match
+                            resource_name = match.group(1) if match.groups() else link_text
+                            # Try to determine resource type
+                            resource_type = self._guess_resource_type(pattern)
+                            if resource_type:
+                                if not validator.validate_resource_reference(
+                                    resource_name, bundle.project_path, resource_type
+                                ):
+                                    broken_links.append(
+                                        (
+                                            file.relative_path,
+                                            resource_name,
+                                            f"{resource_type} reference not found",
+                                        )
+                                    )
+
+        if broken_links:
+            # Build detailed message
+            messages = []
+            for file_rel_path, link, reason in broken_links:
+                messages.append(f"{file_rel_path}: [{link}] - {reason}")
+
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=list(set(bl[0] for bl in broken_links)),
+                observed_issue=rule.failure_message + ": " + "; ".join(messages),
+                expected_quality=rule.expected_behavior,
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+            )
+
+        return None
+
+    def _guess_resource_type(self, pattern: str) -> Optional[str]:
+        """Guess resource type from pattern.
+
+        Args:
+            pattern: Regex pattern used to match resource
+
+        Returns:
+            Resource type (skill, command, agent) or None
+        """
+        pattern_lower = pattern.lower()
+        if "skill" in pattern_lower:
+            return "skill"
+        elif "command" in pattern_lower or "/" in pattern_lower:
+            return "command"
+        elif "agent" in pattern_lower:
+            return "agent"
+        return None
+
+
 class ValidatorRegistry:
     """Registry mapping rule types to validator implementations."""
 
@@ -435,6 +671,8 @@ class ValidatorRegistry:
             ValidationType.REGEX_MATCH: RegexMatchValidator(loader),
             ValidationType.LIST_MATCH: ListMatchValidator(loader),
             ValidationType.LIST_REGEX_MATCH: ListRegexMatchValidator(loader),
+            ValidationType.DEPENDENCY_DUPLICATE: DependencyDuplicateValidator(loader),
+            ValidationType.MARKDOWN_LINK: MarkdownLinkValidator(loader),
         }
 
     def execute_rule(

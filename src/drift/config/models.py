@@ -69,6 +69,8 @@ class ValidationType(str, Enum):
     CROSS_FILE_REFERENCE = "cross_file_reference"
     LIST_MATCH = "list_match"
     LIST_REGEX_MATCH = "list_regex_match"
+    DEPENDENCY_DUPLICATE = "dependency_duplicate"
+    MARKDOWN_LINK = "markdown_link"
 
 
 class ParamType(str, Enum):
