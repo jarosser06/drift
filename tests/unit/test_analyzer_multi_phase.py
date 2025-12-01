@@ -41,10 +41,21 @@ class TestMultiPhaseAnalysis:
         )
 
     @pytest.fixture
-    def config_with_multi_phase(self, sample_drift_config, multi_phase_learning_type):
+    def config_with_multi_phase(self, sample_drift_config, multi_phase_learning_type, temp_dir):
         """Config with multi-phase learning type."""
         config = sample_drift_config
         config.rule_definitions["multi_phase_test"] = multi_phase_learning_type
+
+        # Set up a temporary conversation path to avoid FileNotFoundError
+        # Create the directory structure that claude-code loader expects
+        # The loader looks for JSONL files, so we need to set up the parent directory
+        conversations_dir = temp_dir / "conversations"
+        conversations_dir.mkdir(parents=True, exist_ok=True)
+
+        # Update agent_tools config to use temp directory
+        if "claude-code" in config.agent_tools:
+            config.agent_tools["claude-code"].conversation_path = str(conversations_dir)
+
         return config
 
     @pytest.fixture
@@ -61,11 +72,20 @@ class TestMultiPhaseAnalysis:
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_multi_phase_basic_execution(
-        self, config_with_multi_phase, sample_conversation_jsonl, project_with_resources
+        self, config_with_multi_phase, sample_conversation_jsonl, project_with_resources, temp_dir
     ):
         """Test basic multi-phase analysis."""
         # Set up conversation with project path
         sample_conversation_jsonl.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy the sample conversation to the conversations directory so the loader can find it
+        # Claude Code loader expects conversations in subdirectories (one per project)
+        conversations_dir = temp_dir / "conversations"
+        project_subdir = conversations_dir / "test-project"
+        project_subdir.mkdir(parents=True, exist_ok=True)
+        import shutil
+
+        shutil.copy(sample_conversation_jsonl, project_subdir / "test-session.jsonl")
 
         mock_provider = MockProvider()
         mock_provider.set_response(json.dumps([]))
@@ -76,21 +96,25 @@ class TestMultiPhaseAnalysis:
             # Get conversations
             conversations = analyzer.agent_loaders["claude-code"].load_conversations()
 
-            if conversations:
-                conversation = conversations[0]
-                conversation.project_path = str(project_with_resources)
+            # Should have found at least one conversation
+            assert len(conversations) > 0, "No conversations found - test setup failed"
 
-                # Run multi-phase analysis
-                rules, error, phase_results = analyzer._run_multi_phase_analysis(
-                    conversation=conversation,
-                    rule_type="multi_phase_test",
-                    type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
-                    model_override=None,
-                )
+            conversation = conversations[0]
+            conversation.project_path = str(project_with_resources)
 
-                # Should complete without fatal error
-                assert isinstance(rules, list)
-                assert isinstance(phase_results, list)
+            # Run multi-phase analysis
+            rules, error, phase_results = analyzer._run_multi_phase_analysis(
+                conversation=conversation,
+                rule_type="multi_phase_test",
+                type_config=config_with_multi_phase.rule_definitions["multi_phase_test"],
+                model_override=None,
+            )
+
+            # Should complete without fatal error
+            assert isinstance(rules, list), f"Expected list of rules, got {type(rules)}"
+            assert isinstance(
+                phase_results, list
+            ), f"Expected list of phase_results, got {type(phase_results)}"
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     def test_multi_phase_no_phases_error(self, sample_drift_config, sample_conversation):

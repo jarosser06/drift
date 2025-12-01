@@ -1,6 +1,7 @@
 """Integration test for CLI on the REAL drift project."""
 
 import subprocess
+from pathlib import Path
 
 
 class TestRealProjectCLI:
@@ -8,10 +9,16 @@ class TestRealProjectCLI:
 
     def test_detailed_flag_shows_execution_details_for_real_project(self):
         """Test that --detailed shows execution details when run on the REAL drift project."""
+        # Find project root by looking for pyproject.toml
+        project_root = Path(__file__).parent.parent.parent
+        if not (project_root / "pyproject.toml").exists():
+            # Fallback to cwd if we can't find it
+            project_root = Path.cwd()
+
         # Run drift with --detailed and --no-llm on the ACTUAL drift project
         result = subprocess.run(
             ["uv", "run", "drift", "--detailed", "--no-llm"],
-            cwd="/Users/jim/Projects/drift",
+            cwd=str(project_root),
             capture_output=True,
             text=True,
         )
