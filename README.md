@@ -123,13 +123,87 @@ drift --model sonnet
 
 Default config auto-generates at `~/.config/drift/config.yaml`. Override per-project with `.drift.yaml`.
 
-**Supported rules:**
+### Conversation Analysis Rules
+
+These rules analyze AI agent conversations:
 - `incomplete_work` - AI stopped before completing full scope
 - `agent_delegation_miss` - AI did work manually instead of using agents (Claude Code only)
 - `skill_ignored` - AI didn't use available skills (Claude Code only)
 - `workflow_bypass` - User manually executed steps that commands automate
 - `prescriptive_deviation` - AI ignored explicit workflow documentation
 - `no_agents_configured` - Project lacks agent definitions (Claude Code only)
+
+### Programmatic Validation Rules
+
+Drift also includes programmatic validators that analyze your project files directly:
+
+#### Dependency Duplicate Validator
+
+Detects redundant transitive dependencies in Claude Code resources (commands, skills, agents). If Command A depends on Skill X, and Skill X depends on Skill Y, then Command A should not also list Skill Y as a direct dependency.
+
+**Usage in .drift.yaml:**
+```yaml
+rule_definitions:
+  command_duplicate_dependencies:
+    description: "Commands have redundant transitive skill dependencies"
+    scope: project_level
+    document_bundle:
+      bundle_type: mixed
+      file_patterns:
+        - .claude/commands/*.md
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_duplicates
+        type: dependency_duplicate
+        description: "Check for redundant transitive dependencies"
+        failure_message: "Found redundant skill dependencies"
+        expected_behavior: "Only declare direct dependencies"
+        params:
+          resource_dirs:
+            - .claude/commands
+            - .claude/skills
+```
+
+#### Markdown Link Validator
+
+Validates all file references and links in markdown files. Detects:
+- Broken local file references (both markdown links and plain paths like `./test.sh`)
+- Broken external URLs (optional)
+- Missing resource references (skills, commands, agents)
+
+**Usage in .drift.yaml:**
+```yaml
+rule_definitions:
+  command_broken_links:
+    description: "Commands contain broken file references or links"
+    scope: project_level
+    document_bundle:
+      bundle_type: command
+      file_patterns:
+        - .claude/commands/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_links
+        type: markdown_link
+        description: "Check for broken links"
+        failure_message: "Found broken links"
+        expected_behavior: "All file references should be valid"
+        params:
+          check_local_files: true      # Check local file paths
+          check_external_urls: false   # Skip external URL validation
+```
+
+**What it validates:**
+- Markdown links: `[text](path/to/file.md)`
+- Relative paths: `./script.sh`, `../docs/guide.md`
+- Absolute paths: `/path/to/file`
+- Path references: `path/to/file.ext`
+
+**Examples of detected issues:**
+- `[Guide](missing.md)` - file doesn't exist
+- `See ./test.sh for details` - script not found
+- `docs/api.md` - broken reference in text
 
 ## License
 

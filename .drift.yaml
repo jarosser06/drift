@@ -285,3 +285,139 @@ rule_definitions:
         file_path: CLAUDE.md
         failure_message: "CLAUDE.md file is missing from project root"
         expected_behavior: "Project should have CLAUDE.md file documenting structure and conventions"
+
+  command_duplicate_dependencies:
+    description: "Commands have redundant transitive skill dependencies"
+    scope: project_level
+    context: "Commands should only declare direct skill dependencies. Transitive dependencies are automatically included."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: mixed
+      file_patterns:
+        - .claude/commands/*.md
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_duplicates
+        type: dependency_duplicate
+        description: "Check for redundant transitive dependencies in commands"
+        failure_message: "Found redundant skill dependencies in commands"
+        expected_behavior: "Commands should only declare direct dependencies, not transitive ones"
+        params:
+          resource_dirs:
+            - .claude/commands
+            - .claude/skills
+
+  skill_duplicate_dependencies:
+    description: "Skills have redundant transitive skill dependencies"
+    scope: project_level
+    context: "Skills should only declare direct dependencies on other skills. Transitive dependencies are automatically included."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: skill
+      file_patterns:
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_duplicates
+        type: dependency_duplicate
+        description: "Check for redundant transitive dependencies in skills"
+        failure_message: "Found redundant skill dependencies in skills"
+        expected_behavior: "Skills should only declare direct dependencies, not transitive ones"
+        params:
+          resource_dirs:
+            - .claude/skills
+
+  agent_duplicate_dependencies:
+    description: "Agents have redundant transitive skill dependencies"
+    scope: project_level
+    context: "Agents should only declare direct skill dependencies. Transitive dependencies are automatically included."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: agent
+      file_patterns:
+        - .claude/agents/*.md
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_duplicates
+        type: dependency_duplicate
+        description: "Check for redundant transitive dependencies in agents"
+        failure_message: "Found redundant skill dependencies in agents"
+        expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
+        params:
+          resource_dirs:
+            - .claude/agents
+            - .claude/skills
+
+  command_broken_links:
+    description: "Commands contain broken file references or links"
+    scope: project_level
+    context: "Commands must reference valid files and resources. Broken links cause confusion and errors."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: command
+      file_patterns:
+        - .claude/commands/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_links
+        type: markdown_link
+        description: "Check for broken links in command documentation"
+        failure_message: "Found broken links in commands"
+        expected_behavior: "All file references and links should be valid"
+        params:
+          check_local_files: true
+          check_external_urls: false
+
+  skill_broken_links:
+    description: "Skills contain broken file references or links"
+    scope: project_level
+    context: "Skills must reference valid files and resources. Broken links cause confusion and errors."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: skill
+      file_patterns:
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_links
+        type: markdown_link
+        description: "Check for broken links in skill documentation"
+        failure_message: "Found broken links in skills"
+        expected_behavior: "All file references and links should be valid"
+        params:
+          check_local_files: true
+          check_external_urls: false
+
+  agent_broken_links:
+    description: "Agents contain broken file references or links"
+    scope: project_level
+    context: "Agents must reference valid files and resources. Broken links cause confusion and errors."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: agent
+      file_patterns:
+        - .claude/agents/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_links
+        type: markdown_link
+        description: "Check for broken links in agent documentation"
+        failure_message: "Found broken links in agents"
+        expected_behavior: "All file references and links should be valid"
+        params:
+          check_local_files: true
+          check_external_urls: false

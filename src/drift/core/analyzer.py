@@ -52,6 +52,8 @@ PROGRAMMATIC_PHASE_TYPES = [
     "cross_file_reference",
     "list_match",
     "list_regex_match",
+    "dependency_duplicate",
+    "markdown_link",
 ]
 
 
