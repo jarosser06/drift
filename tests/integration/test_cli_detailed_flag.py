@@ -1,11 +1,18 @@
 """Integration tests for --detailed CLI flag."""
 
 import json
+import re
 
 import pytest
 from typer.testing import CliRunner
 
 from drift.cli.main import app
+
+
+def strip_ansi_codes(text: str) -> str:
+    """Strip ANSI escape codes from text."""
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    return ansi_escape.sub("", text)
 
 
 class TestDetailedFlag:
@@ -48,7 +55,9 @@ class TestDetailedFlag:
         """Test that --detailed flag is available."""
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "--detailed" in result.stdout
+        # Strip ANSI codes before checking for flag
+        clean_stdout = strip_ansi_codes(result.stdout)
+        assert "--detailed" in clean_stdout
 
     def test_json_output_always_includes_execution_details(self, runner, tmp_path):
         """Test that JSON output includes execution_details regardless of --detailed flag."""
@@ -114,7 +123,9 @@ rule_definitions:
         # For now, just test that the flag exists and is recognized
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "--detailed" in result.stdout
+        # Strip ANSI codes before checking for flag
+        clean_stdout = strip_ansi_codes(result.stdout)
+        assert "--detailed" in clean_stdout
 
     def test_markdown_output_without_detailed_flag(
         self, runner, test_log_file, test_config, tmp_path
@@ -124,7 +135,9 @@ rule_definitions:
         # For now, just test that the flag exists and is recognized
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "--detailed" in result.stdout
+        # Strip ANSI codes before checking for flag
+        clean_stdout = strip_ansi_codes(result.stdout)
+        assert "--detailed" in clean_stdout
 
     def test_detailed_flag_shows_execution_context_for_document_validation(self, runner, tmp_path):
         """Test that --detailed shows execution context when running document validation."""
