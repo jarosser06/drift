@@ -5,8 +5,6 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import typer
-
 from drift.cli.logging_config import setup_logging
 from drift.cli.output.formatter import OutputFormatter
 from drift.cli.output.json import JsonFormatter
@@ -17,6 +15,29 @@ from drift.core.analyzer import DriftAnalyzer
 from drift.core.types import CompleteAnalysisResult
 
 logger = logging.getLogger(__name__)
+
+# ANSI color codes for terminal output
+RED = "\033[91m"
+YELLOW = "\033[93m"
+GREEN = "\033[92m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
+
+
+def print_error(message: str) -> None:
+    """Print error message to stderr with red color.
+
+    -- message: Error message to print
+    """
+    print(f"{RED}{message}{RESET}", file=sys.stderr)
+
+
+def print_warning(message: str) -> None:
+    """Print warning message to stderr with yellow color.
+
+    -- message: Warning message to print
+    """
+    print(f"{YELLOW}{message}{RESET}", file=sys.stderr)
 
 
 def _merge_results(
@@ -110,75 +131,17 @@ def _merge_results(
 
 
 def analyze_command(
-    format: str = typer.Option(
-        "markdown",
-        "--format",
-        "-f",
-        help="Output format (markdown or json)",
-    ),
-    scope: str = typer.Option(
-        "project",
-        "--scope",
-        "-s",
-        help="Analysis scope: conversation, project, or all",
-    ),
-    agent_tool: Optional[str] = typer.Option(
-        None,
-        "--agent-tool",
-        "-a",
-        help="Specific agent tool to analyze (e.g., claude-code)",
-    ),
-    rules: Optional[str] = typer.Option(
-        None,
-        "--types",
-        "-t",
-        help="Comma-separated list of rules to check",
-    ),
-    latest: bool = typer.Option(
-        False,
-        "--latest",
-        help="Analyze only the latest conversation",
-    ),
-    days: Optional[int] = typer.Option(
-        None,
-        "--days",
-        "-d",
-        help="Analyze conversations from last N days",
-    ),
-    all_conversations: bool = typer.Option(
-        False,
-        "--all",
-        help="Analyze all conversations",
-    ),
-    model: Optional[str] = typer.Option(
-        None,
-        "--model",
-        "-m",
-        help="Override model for all analysis (e.g., sonnet, haiku)",
-    ),
-    no_llm: bool = typer.Option(
-        False,
-        "--no-llm",
-        help="Skip rules that require LLM calls (only run programmatic validation)",
-    ),
-    project: Optional[str] = typer.Option(
-        None,
-        "--project",
-        "-p",
-        help="Project path (defaults to current directory)",
-    ),
-    verbose: int = typer.Option(
-        0,
-        "--verbose",
-        "-v",
-        count=True,
-        help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
-    ),
-    detailed: bool = typer.Option(
-        False,
-        "--detailed",
-        help="Show detailed test execution information (markdown format only)",
-    ),
+    format: str = "markdown",
+    scope: str = "project",
+    agent_tool: Optional[str] = None,
+    rules: Optional[str] = None,
+    latest: bool = False,
+    days: Optional[int] = None,
+    all_conversations: bool = False,
+    model: Optional[str] = None,
+    no_llm: bool = False,
+    project: Optional[str] = None,
+    verbose: int = 0,
 ) -> None:
     """Analyze AI agent conversations to identify drift patterns.
 
@@ -216,27 +179,21 @@ def analyze_command(
         # Determine project path
         project_path = Path(project) if project else Path.cwd()
         if not project_path.exists():
-            typer.secho(
-                f"Error: Project path does not exist: {project_path}", fg=typer.colors.RED, err=True
-            )
-            raise typer.Exit(1)
+            print_error(f"Error: Project path does not exist: {project_path}")
+            sys.exit(1)
 
         # Load configuration
         try:
             config = ConfigLoader.load_config(project_path)
         except ValueError as e:
-            typer.secho(f"Configuration error: {e}", fg=typer.colors.RED, err=True)
-            raise typer.Exit(1)
+            print_error(f"Configuration error: {e}")
+            sys.exit(1)
 
         # Override conversation mode if specified
         conversation_mode_count = sum([latest, bool(days), all_conversations])
         if conversation_mode_count > 1:
-            typer.secho(
-                "Error: Only one of --latest, --days, or --all can be specified",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            raise typer.Exit(1)
+            print_error("Error: Only one of --latest, --days, or --all can be specified")
+            sys.exit(1)
 
         if latest:
             config.conversations.mode = ConversationMode.LATEST
@@ -253,63 +210,31 @@ def analyze_command(
             # Validate learning types exist in config
             invalid_types = [t for t in rule_names_list if t not in config.rule_definitions]
             if invalid_types:
-                typer.secho(
-                    f"Error: Unknown rules: {', '.join(invalid_types)}",
-                    fg=typer.colors.RED,
-                    err=True,
-                )
-                typer.secho(
-                    f"Available rules: {', '.join(config.rule_definitions.keys())}",
-                    fg=typer.colors.YELLOW,
-                    err=True,
-                )
-                raise typer.Exit(1)
+                print_error(f"Error: Unknown rules: {', '.join(invalid_types)}")
+                print_warning(f"Available rules: {', '.join(config.rule_definitions.keys())}")
+                sys.exit(1)
 
         # Validate agent tool if specified
         if agent_tool and agent_tool not in config.agent_tools:
-            typer.secho(
-                f"Error: Unknown agent tool: {agent_tool}",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            typer.secho(
-                f"Available tools: {', '.join(config.agent_tools.keys())}",
-                fg=typer.colors.YELLOW,
-                err=True,
-            )
-            raise typer.Exit(1)
+            print_error(f"Error: Unknown agent tool: {agent_tool}")
+            print_warning(f"Available tools: {', '.join(config.agent_tools.keys())}")
+            sys.exit(1)
 
         # Validate model override if specified
         if model and model not in config.models:
-            typer.secho(
-                f"Error: Unknown model: {model}",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            typer.secho(
-                f"Available models: {', '.join(config.models.keys())}",
-                fg=typer.colors.YELLOW,
-                err=True,
-            )
-            raise typer.Exit(1)
+            print_error(f"Error: Unknown model: {model}")
+            print_warning(f"Available models: {', '.join(config.models.keys())}")
+            sys.exit(1)
 
         # Validate output format
         if format not in ["markdown", "json"]:
-            typer.secho(
-                f"Error: Invalid format: {format}. Use 'markdown' or 'json'",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            raise typer.Exit(1)
+            print_error(f"Error: Invalid format: {format}. Use 'markdown' or 'json'")
+            sys.exit(1)
 
         # Validate scope
         if scope not in ["conversation", "project", "all"]:
-            typer.secho(
-                f"Error: Invalid scope: {scope}. Use 'conversation', 'project', or 'all'",
-                fg=typer.colors.RED,
-                err=True,
-            )
-            raise typer.Exit(1)
+            print_error(f"Error: Invalid scope: {scope}. Use 'conversation', 'project', or 'all'")
+            sys.exit(1)
 
         # Filter LLM-based rules if --no-llm flag is set
         llm_skipped_rules = []
@@ -361,24 +286,14 @@ def analyze_command(
             # Warn if rules were skipped
             if llm_skipped_rules:
                 programmatic_count = len(filtered_types) if filtered_types else 0
-                typer.secho(
+                print_warning(
                     f"Warning: Skipping {len(llm_skipped_rules)} LLM-based rule(s) "
-                    f"due to --no-llm flag (running {programmatic_count} programmatic rule(s)):",
-                    fg=typer.colors.YELLOW,
-                    err=True,
+                    f"due to --no-llm flag (running {programmatic_count} programmatic rule(s)):"
                 )
-                typer.secho(
-                    f"  Skipped: {', '.join(llm_skipped_rules)}",
-                    fg=typer.colors.YELLOW,
-                    err=True,
-                )
+                print_warning(f"  Skipped: {', '.join(llm_skipped_rules)}")
                 if filtered_types:
-                    typer.secho(
-                        f"  Running: {', '.join(filtered_types)}",
-                        fg=typer.colors.GREEN,
-                        err=True,
-                    )
-                typer.secho("", err=True)
+                    print(f"{GREEN}  Running: {', '.join(filtered_types)}{RESET}", file=sys.stderr)
+                print("", file=sys.stderr)
 
             rule_names_list = filtered_types if filtered_types else []
 
@@ -437,61 +352,48 @@ def analyze_command(
                 result.metadata["skipped_rules"] = existing_skipped + llm_skipped_rules
 
         except FileNotFoundError as e:
-            typer.secho(f"Error: {e}", fg=typer.colors.RED, err=True)
-            typer.secho(
-                "\nTip: Ensure the agent tool's conversation path is configured correctly.",
-                fg=typer.colors.YELLOW,
-                err=True,
+            print_error(f"Error: {e}")
+            print_warning(
+                "\nTip: Ensure the agent tool's conversation path is " "configured correctly."
             )
-            raise typer.Exit(1)
+            sys.exit(1)
         except Exception as e:
-            typer.secho(f"Analysis failed: {e}", fg=typer.colors.RED, err=True)
-            raise typer.Exit(1)
+            print_error(f"Analysis failed: {e}")
+            sys.exit(1)
 
         # Check if this is because there are NO rules at all configured
         if not config.rule_definitions:
-            typer.secho(
-                "Error: No drift learning types configured.",
-                fg=typer.colors.RED,
-                err=True,
+            print_error("Error: No drift learning types configured.")
+            print_warning(
+                "\nTip: Create a .drift.yaml file in your project or " "global config directory."
             )
-            typer.secho(
-                "\nTip: Create a .drift.yaml file in your project or global config directory.",
-                fg=typer.colors.YELLOW,
-                err=True,
+            print(
+                f"{BLUE}See: https://github.com/your-repo/drift for "
+                f"configuration examples{RESET}",
+                file=sys.stderr,
             )
-            typer.secho(
-                "See: https://github.com/your-repo/drift for configuration examples",
-                fg=typer.colors.BLUE,
-                err=True,
-            )
-            raise typer.Exit(1)
+            sys.exit(1)
 
         # Output rule errors to stderr first
         if result.summary.rules_errored:
-            typer.secho("\nRule Errors:", fg=typer.colors.RED, bold=True, err=True)
+            print(f"\n{RED}Rule Errors:{RESET}", file=sys.stderr)
             for rule in sorted(result.summary.rules_errored):
                 error_msg = result.summary.rule_errors.get(rule, "Unknown error")
-                typer.secho(f"  {rule}: {error_msg}", fg=typer.colors.RED, err=True)
-            typer.secho("", err=True)  # Blank line
+                print(f"{RED}  {rule}: {error_msg}{RESET}", file=sys.stderr)
+            print("", file=sys.stderr)  # Blank line
 
         # Output skipped rules warning to stderr
         skipped_rules = result.metadata.get("skipped_rules", [])
         if skipped_rules:
-            typer.secho(
-                f"\nSkipped {len(skipped_rules)} rule(s):",
-                fg=typer.colors.YELLOW,
-                bold=True,
-                err=True,
-            )
+            print(f"\n{YELLOW}Skipped {len(skipped_rules)} rule(s):{RESET}", file=sys.stderr)
             for rule in sorted(skipped_rules):
-                typer.secho(f"  {rule}", fg=typer.colors.YELLOW, err=True)
-            typer.secho("", err=True)  # Blank line
+                print(f"{YELLOW}  {rule}{RESET}", file=sys.stderr)
+            print("", file=sys.stderr)  # Blank line
 
         # Format and output results
         formatter: OutputFormatter
         if format == "markdown":
-            formatter = MarkdownFormatter(config=config, detailed=detailed)
+            formatter = MarkdownFormatter(config=config)
         else:
             formatter = JsonFormatter()
 
@@ -507,12 +409,9 @@ def analyze_command(
         else:
             sys.exit(0)
 
-    except typer.Exit:
-        # Re-raise typer exits (already handled)
-        raise
     except KeyboardInterrupt:
-        typer.secho("\nAnalysis interrupted by user", fg=typer.colors.YELLOW, err=True)
-        raise typer.Exit(130)
+        print_warning("\nAnalysis interrupted by user")
+        sys.exit(130)
     except Exception as e:
-        typer.secho(f"Unexpected error: {e}", fg=typer.colors.RED, err=True)
-        raise typer.Exit(1)
+        print_error(f"Unexpected error: {e}")
+        sys.exit(1)

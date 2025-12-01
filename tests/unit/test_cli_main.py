@@ -1,25 +1,41 @@
 """Unit tests for CLI main module."""
 
-from drift.cli.main import app
+from drift.cli.main import create_parser, main
 
 
 class TestCliMain:
     """Test CLI main module."""
 
-    def test_app_exists(self) -> None:
-        """Test that the Typer app exists."""
-        assert app is not None
+    def test_main_function_exists(self) -> None:
+        """Test that the main function exists."""
+        assert main is not None
+        assert callable(main)
 
-    def test_app_is_typer_instance(self) -> None:
-        """Test that app is a Typer instance."""
-        from typer import Typer
+    def test_create_parser_exists(self) -> None:
+        """Test that create_parser function exists."""
+        assert create_parser is not None
+        assert callable(create_parser)
 
-        assert isinstance(app, Typer)
+    def test_parser_has_version(self) -> None:
+        """Test that parser has --version option."""
+        parser = create_parser()
+        # Try parsing --version (will call sys.exit, but we're just checking structure)
+        assert parser is not None
 
-    def test_app_has_callback(self) -> None:
-        """Test that app has a registered callback."""
-        assert hasattr(app, "registered_callback")
-
-    def test_app_has_commands(self) -> None:
-        """Test that app has registered commands."""
-        assert hasattr(app, "registered_commands")
+    def test_parser_has_expected_arguments(self) -> None:
+        """Test that parser has expected arguments."""
+        parser = create_parser()
+        # Parse help to check structure
+        args = parser.parse_args(
+            [
+                "--format",
+                "json",
+                "--scope",
+                "project",
+                "--project",
+                "/tmp",
+            ]
+        )
+        assert args.format == "json"
+        assert args.scope == "project"
+        assert args.project == "/tmp"

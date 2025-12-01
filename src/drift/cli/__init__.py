@@ -1,5 +1,5 @@
 """CLI interface for drift."""
 
-from drift.cli.main import app
+from drift.cli.main import main
 
-__all__ = ["app"]
+__all__ = ["main"]

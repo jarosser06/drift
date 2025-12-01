@@ -3,11 +3,11 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
 
-from drift.cli.main import app
+from drift.cli.main import main
 from drift.core.types import AnalysisSummary, CompleteAnalysisResult
 from tests.mock_provider import MockProvider
+from tests.test_utils import CliRunner
 
 
 @pytest.fixture
@@ -39,14 +39,14 @@ class TestAnalyzeCommand:
 
     def test_version_option(self, cli_runner):
         """Test --version option."""
-        result = cli_runner.invoke(app, ["--version"])
+        result = cli_runner.invoke(main, ["--version"])
 
         assert result.exit_code == 0
         assert "drift version" in result.stdout
 
     def test_help_option(self, cli_runner):
         """Test --help option."""
-        result = cli_runner.invoke(app, ["--help"])
+        result = cli_runner.invoke(main, ["--help"])
 
         assert result.exit_code == 0
         assert "drift" in result.stdout.lower()
@@ -64,7 +64,7 @@ class TestAnalyzeCommand:
         """Test analyze command with default options."""
         mock_load_config.return_value = sample_drift_config
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         assert result.exit_code == 0
         assert "# Drift Analysis Results" in result.stdout
@@ -91,7 +91,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--format", "json", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--format", "json", "--project", str(temp_dir)])
 
         assert result.exit_code == 0
         assert '"metadata"' in result.stdout
@@ -119,7 +119,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--scope", "conversation", "--agent-tool", "claude-code", "--project", str(temp_dir)],
         )
 
@@ -148,7 +148,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--scope", "conversation", "--rules", "incomplete_work", "--project", str(temp_dir)],
         )
 
@@ -177,7 +177,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--rules", "incomplete_work,wrong_assumption", "--project", str(temp_dir)],
         )
 
@@ -205,7 +205,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--latest", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--latest", "--project", str(temp_dir)])
 
         assert result.exit_code == 0
         # Config should be modified to use latest mode
@@ -232,7 +232,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--days", "5", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--days", "5", "--project", str(temp_dir)])
 
         assert result.exit_code == 0
         config = mock_config_loader.load_config.return_value
@@ -259,7 +259,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--all", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--all", "--project", str(temp_dir)])
 
         assert result.exit_code == 0
         config = mock_config_loader.load_config.return_value
@@ -280,7 +280,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--latest", "--all", "--project", str(temp_dir)],
         )
 
@@ -308,7 +308,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--scope", "conversation", "--model", "haiku", "--project", str(temp_dir)],
         )
 
@@ -326,7 +326,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--project", "/nonexistent/path/to/project"],
         )
 
@@ -346,7 +346,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--format", "xml", "--project", str(temp_dir)],
         )
 
@@ -366,7 +366,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--agent-tool", "nonexistent", "--project", str(temp_dir)],
         )
 
@@ -386,7 +386,7 @@ class TestAnalyzeCommand:
         mock_config_loader.ensure_global_config_exists.return_value = None
 
         result = cli_runner.invoke(
-            app,
+            main,
             ["--model", "nonexistent", "--project", str(temp_dir)],
         )
 
@@ -411,7 +411,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.side_effect = FileNotFoundError("Path not found")
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         assert result.exit_code == 1
         assert "Path not found" in result.stderr
@@ -434,7 +434,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.side_effect = Exception("Something went wrong")
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         assert result.exit_code == 1
         assert "Analysis failed" in result.stderr
@@ -450,7 +450,7 @@ class TestAnalyzeCommand:
         mock_config_loader.load_config.side_effect = ValueError("Invalid config")
         mock_config_loader.ensure_global_config_exists.return_value = None
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         assert result.exit_code == 1
         assert "Configuration error" in result.stderr
@@ -494,7 +494,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = result_with_learnings
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         # Exit code 2 indicates drift was found
         assert result.exit_code == 2
@@ -519,7 +519,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         # Exit code 0 indicates success with no drift
         assert result.exit_code == 0
@@ -567,7 +567,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze.return_value = empty_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         # Should exit with error code 1
         assert result.exit_code == 1
@@ -607,7 +607,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = result_with_skipped
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--project", str(temp_dir)])
 
         # Should exit with error code 0 since no rules
         assert result.exit_code == 0
@@ -674,7 +674,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+            main, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
         )
 
         # Should show warning about skipping LLM rule
@@ -758,7 +758,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = result_empty
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--scope", "all", "--no-llm", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--scope", "all", "--no-llm", "--project", str(temp_dir)])
 
         # Should show LLM rule was skipped due to --no-llm
         assert "Skipping 1 LLM-based rule(s)" in result.stderr
@@ -829,7 +829,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app, ["--no-llm", "--scope", "project", "--project", str(temp_dir)]
+            main, ["--no-llm", "--scope", "project", "--project", str(temp_dir)]
         )
 
         # Should show warning with counts
@@ -905,7 +905,7 @@ class TestAnalyzeCommand:
         mock_analyzer_class.return_value = mock_analyzer
 
         result = cli_runner.invoke(
-            app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+            main, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
         )
 
         # Should show warning that all rules are skipped
@@ -1016,7 +1016,7 @@ class TestAnalyzeCommand:
         mock_analyzer.analyze_documents.return_value = mock_complete_result
         mock_analyzer_class.return_value = mock_analyzer
 
-        result = cli_runner.invoke(app, ["--no-llm", "--scope", "all", "--project", str(temp_dir)])
+        result = cli_runner.invoke(main, ["--no-llm", "--scope", "all", "--project", str(temp_dir)])
 
         # Should skip 2 LLM rules and run 2 programmatic rules
         assert "Skipping 2 LLM-based rule(s)" in result.stderr
@@ -1110,7 +1110,7 @@ class TestAnalyzeCommand:
                 # Mock the provider's generate method to ensure it's NEVER called
                 with patch("drift.providers.bedrock.BedrockProvider.generate") as mock_generate:
                     cli_runner.invoke(
-                        app, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
+                        main, ["--scope", "conversation", "--no-llm", "--project", str(temp_dir)]
                     )
 
                     # CRITICAL: LLM generate should NEVER be called with --no-llm
@@ -1185,7 +1185,7 @@ class TestAnalyzeCommand:
             )
 
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--no-llm", "--project", str(claude_code_project_dir)],
             )
 
@@ -1239,7 +1239,7 @@ class TestAnalyzeCommand:
 
             # Run without explicit --scope (should default to 'project')
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--project", str(claude_code_project_dir)],
             )
 
@@ -1299,7 +1299,7 @@ class TestAnalyzeCommand:
             mock_generate.side_effect = AssertionError("LLM should not be called with --no-llm!")
 
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--no-llm", "--scope", "project", "--project", str(claude_code_project_dir)],
             )
 
@@ -1366,7 +1366,7 @@ class TestAnalyzeCommand:
             mock_generate.side_effect = AssertionError("LLM should not be called!")
 
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--no-llm", "--scope", "all", "--project", str(claude_code_project_dir)],
             )
 
@@ -1421,7 +1421,7 @@ class TestAnalyzeCommand:
             mock_generate.side_effect = AssertionError("LLM should not be called!")
 
             result = cli_runner.invoke(
-                app,
+                main,
                 [
                     "--no-llm",
                     "--scope",
@@ -1491,7 +1491,7 @@ class TestAnalyzeCommand:
             mock_generate.side_effect = AssertionError("No LLM calls expected!")
 
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--no-llm", "--scope", "project", "--project", str(claude_code_project_dir)],
             )
 
