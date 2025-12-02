@@ -64,7 +64,32 @@ drift --rules command_broken_links,skill_duplicate_dependencies
 
 # Use different model for analysis
 drift --model sonnet
+
+# Disable caching for fresh analysis
+drift --no-cache
+
+# Use custom cache directory
+drift --cache-dir /tmp/my-cache
 ```
+
+### Response Caching
+
+Drift automatically caches LLM responses to reduce API costs and speed up re-analysis:
+- **Smart invalidation**: Cache automatically invalidates when file content changes
+- **Content-based**: Uses SHA-256 hashing to detect changes
+- **TTL support**: Default 24-hour cache expiration (configurable)
+- **Per-file caching**: Each file + rule combination cached separately
+
+Configure in `.drift.yaml`:
+```yaml
+cache_enabled: true          # Enable/disable caching (default: true)
+cache_dir: .drift/cache      # Cache directory (default: .drift/cache)
+cache_ttl: 86400             # TTL in seconds (default: 86400 = 24 hours)
+```
+
+CLI overrides:
+- `--no-cache`: Disable caching for this run
+- `--cache-dir <path>`: Use custom cache directory
 
 ## Example Output
 

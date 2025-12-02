@@ -444,6 +444,9 @@ class TestEndToEndWorkflow:
         # Set learning type to use different model
         e2e_config.rule_definitions["incomplete_work"].phases[0].model = "powerful-model"
 
+        # Disable cache to ensure LLM is actually called
+        e2e_config.cache_enabled = False
+
         with patch("drift.providers.bedrock.boto3") as mock_boto3:
             mock_client = MagicMock()
             mock_client._client_config = {}

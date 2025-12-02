@@ -6,32 +6,32 @@ from drift.providers.base import Provider
 class MockProvider(Provider):
     """Mock provider that returns canned responses for testing."""
 
-    def __init__(self, provider_config=None, model_config=None):
+    def __init__(self, provider_config=None, model_config=None, cache=None):
         """Initialize mock provider.
 
         Args:
             provider_config: Provider configuration (ignored)
             model_config: Model configuration (ignored)
+            cache: Cache instance (ignored)
         """
-        self.provider_config = provider_config
-        self.model_config = model_config
+        super().__init__(provider_config, model_config, cache)
         self.call_count = 0
         self.calls = []
         # Return empty JSON array by default (no rules)
         self.response = "[]"
 
-    def generate(self, prompt: str, **kwargs) -> str:
-        """Generate a mock response.
+    def _generate_impl(self, prompt: str, system_prompt: str = None) -> str:
+        """Generate a mock response (implementation).
 
         Args:
             prompt: The prompt to generate from
-            **kwargs: Additional generation parameters
+            system_prompt: System prompt (ignored)
 
         Returns:
             Mock response (JSON array of rules)
         """
         self.call_count += 1
-        self.calls.append({"prompt": prompt, "kwargs": kwargs})
+        self.calls.append({"prompt": prompt, "system_prompt": system_prompt})
         return self.response
 
     def is_available(self) -> bool:

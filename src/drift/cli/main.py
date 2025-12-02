@@ -109,6 +109,18 @@ Examples:
     )
 
     parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable LLM response caching",
+    )
+
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Custom cache directory location (defaults to .drift/cache)",
+    )
+
+    parser.add_argument(
         "--project",
         "-p",
         default=None,
@@ -145,6 +157,8 @@ def main() -> None:
         all_conversations=args.all_conversations,
         model=args.model,
         no_llm=args.no_llm,
+        no_cache=args.no_cache,
+        cache_dir=args.cache_dir,
         project=args.project,
         verbose=args.verbose,
     )
