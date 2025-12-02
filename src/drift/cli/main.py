@@ -1,151 +1,153 @@
 """Main CLI application for drift."""
 
-import typer
+import argparse
 
 from drift.cli.commands import analyze
 
-# Create the main Typer app - use analyze_command directly as the default
-app = typer.Typer(
-    name="drift",
-    help=(
-        "AI agent conversation drift analyzer - identifies gaps between "
-        "what AI agents did and what users wanted"
-    ),
-    add_completion=False,
-)
+__version__ = "0.1.0"
 
 
-def version_callback(value: bool) -> None:
-    """Handle --version flag."""
-    if value:
-        print("drift version 0.1.0")
-        raise typer.Exit(0)
+def create_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser.
 
+    Returns the configured ArgumentParser with all CLI options.
+    """
+    parser = argparse.ArgumentParser(
+        prog="drift",
+        description=(
+            "AI agent conversation drift analyzer - identifies gaps between "
+            "what AI agents did and what users wanted"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze latest conversation in current project
+  drift
 
-# Make analyze the default command by registering it at the root level
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
-    version: bool = typer.Option(
-        False,
+  # Output as JSON
+  drift --format json
+
+  # Analyze only incomplete_work and documentation_gap
+  drift --rules incomplete_work,documentation_gap
+
+  # Analyze last 3 days of conversations
+  drift --days 3
+
+  # Use sonnet model for all analysis
+  drift --model sonnet
+        """,
+    )
+
+    parser.add_argument(
         "--version",
+        action="version",
+        version=f"drift version {__version__}",
         help="Show version and exit",
-        callback=version_callback,
-        is_eager=True,
-    ),
-    format: str = typer.Option(
-        "markdown",
+    )
+
+    parser.add_argument(
         "--format",
         "-f",
+        default="markdown",
         help="Output format (markdown or json)",
-    ),
-    scope: str = typer.Option(
-        "project",
+    )
+
+    parser.add_argument(
         "--scope",
         "-s",
+        default="project",
         help="Analysis scope: conversation, project, or all",
-    ),
-    agent_tool: str = typer.Option(
-        None,
+    )
+
+    parser.add_argument(
         "--agent-tool",
         "-a",
+        default=None,
         help="Specific agent tool to analyze (e.g., claude-code)",
-    ),
-    rules: str = typer.Option(
-        None,
+    )
+
+    parser.add_argument(
         "--rules",
         "-r",
+        default=None,
         help="Comma-separated list of rules to check",
-    ),
-    latest: bool = typer.Option(
-        False,
+    )
+
+    parser.add_argument(
         "--latest",
+        action="store_true",
         help="Analyze only the latest conversation",
-    ),
-    days: int = typer.Option(
-        None,
+    )
+
+    parser.add_argument(
         "--days",
         "-d",
+        type=int,
+        default=None,
         help="Analyze conversations from last N days",
-    ),
-    all_conversations: bool = typer.Option(
-        False,
+    )
+
+    parser.add_argument(
         "--all",
+        action="store_true",
+        dest="all_conversations",
         help="Analyze all conversations",
-    ),
-    model: str = typer.Option(
-        None,
+    )
+
+    parser.add_argument(
         "--model",
         "-m",
+        default=None,
         help="Override model for all analysis (e.g., sonnet, haiku)",
-    ),
-    no_llm: bool = typer.Option(
-        False,
+    )
+
+    parser.add_argument(
         "--no-llm",
+        action="store_true",
         help="Skip rules that require LLM calls (only run programmatic validation)",
-    ),
-    project: str = typer.Option(
-        None,
+    )
+
+    parser.add_argument(
         "--project",
         "-p",
+        default=None,
         help="Project path (defaults to current directory)",
-    ),
-    verbose: int = typer.Option(
-        0,
+    )
+
+    parser.add_argument(
         "--verbose",
         "-v",
-        count=True,
+        action="count",
+        default=0,
         help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
-    ),
-    detailed: bool = typer.Option(
-        False,
-        "--detailed",
-        help="Show detailed test execution information (markdown format only)",
-    ),
-) -> None:
-    """Analyze AI agent conversations to identify drift patterns.
+    )
 
-    Runs multi-pass analysis on conversations to detect gaps between what AI agents
-    did and what users actually wanted. Outputs actionable insights for improving
-    documentation, workflows, and context.
+    return parser
 
-    Examples
-    --------
-    # Analyze latest conversation in current project
-    drift
 
-    # Output as JSON
-    drift --format json
+def main() -> None:
+    """Parse command-line arguments and run drift analysis.
 
-    # Analyze only incomplete_work and documentation_gap
-    drift --rules incomplete_work,documentation_gap
-
-    # Analyze last 3 days of conversations
-    drift --days 3
-
-    # Use sonnet model for all analysis
-    drift --model sonnet
+    Entry point for the drift CLI that delegates to the analyze command.
     """
-    # If a subcommand is invoked, don't run analyze
-    if ctx.invoked_subcommand is not None:
-        return
+    parser = create_parser()
+    args = parser.parse_args()
 
-    # Run the analyze command directly
+    # Call analyze command with parsed arguments
     analyze.analyze_command(
-        format=format,
-        scope=scope,
-        agent_tool=agent_tool,
-        rules=rules,
-        latest=latest,
-        days=days,
-        all_conversations=all_conversations,
-        model=model,
-        no_llm=no_llm,
-        project=project,
-        verbose=verbose,
-        detailed=detailed,
+        format=args.format,
+        scope=args.scope,
+        agent_tool=args.agent_tool,
+        rules=args.rules,
+        latest=args.latest,
+        days=args.days,
+        all_conversations=args.all_conversations,
+        model=args.model,
+        no_llm=args.no_llm,
+        project=args.project,
+        verbose=args.verbose,
     )
 
 
 if __name__ == "__main__":
-    app()
+    main()

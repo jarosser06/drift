@@ -23,15 +23,13 @@ class MarkdownFormatter(OutputFormatter):
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
-    def __init__(self, config: Optional[DriftConfig] = None, detailed: bool = False):
+    def __init__(self, config: Optional[DriftConfig] = None):
         """Initialize formatter.
 
         Args:
             config: Optional drift configuration for accessing learning type metadata
-            detailed: Whether to include detailed execution information
         """
         self.config = config
-        self.detailed = detailed
         # Check if stdout supports colors
         self.use_colors = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
@@ -173,14 +171,6 @@ class MarkdownFormatter(OutputFormatter):
             lines.append("This means the AI agent behavior aligned well with user expectations.")
             lines.append("")
 
-            # Still show execution details if detailed flag is set
-            if self.detailed:
-                execution_details = result.metadata.get("execution_details", [])
-                if execution_details:
-                    lines.append("## Test Execution Details")
-                    lines.append("")
-                    lines.extend(self._format_execution_details(execution_details))
-
             return "\n".join(lines)
 
         # Collect all rules and categorize by severity
@@ -227,14 +217,6 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(self._colorize("## Unexpected Passes", self.GREEN))
             lines.append("")
             lines.extend(self._format_by_type(all_passes, color=self.GREEN))
-
-        # Add execution details if detailed flag is set
-        if self.detailed:
-            execution_details = result.metadata.get("execution_details", [])
-            if execution_details:
-                lines.append("## Test Execution Details")
-                lines.append("")
-                lines.extend(self._format_execution_details(execution_details))
 
         return "\n".join(lines)
 
@@ -319,134 +301,5 @@ class MarkdownFormatter(OutputFormatter):
                     lines.append(f"**Context:** {learning.context}")
 
                 lines.append("")
-
-        return lines
-
-    def _format_execution_details(self, execution_details: List[dict]) -> List[str]:
-        """Format execution details for markdown output.
-
-        Args:
-            execution_details: List of execution detail dictionaries
-
-        Returns:
-            List of formatted lines
-        """
-        lines = []
-
-        # Group by status
-        passed = [d for d in execution_details if d.get("status") == "passed"]
-        failed = [d for d in execution_details if d.get("status") == "failed"]
-        errored = [d for d in execution_details if d.get("status") == "errored"]
-
-        # Show passed rules
-        if passed:
-            lines.append(self._colorize("### Passed Rules ✓", self.GREEN))
-            lines.append("")
-            for detail in passed:
-                lines.append(f"- **{detail['rule_name']}**")
-
-                # Show rule description
-                rule_desc = detail.get(
-                    "rule_description", detail.get("description", "No description")
-                )
-                lines.append(f"  - Description: {rule_desc}")
-
-                # Show rule context (why it's important)
-                rule_context = detail.get("rule_context")
-                if rule_context:
-                    lines.append(f"  - Context: {rule_context}")
-
-                # Show execution context if available
-                exec_context = detail.get("execution_context")
-                if exec_context:
-                    bundle_type = exec_context.get("bundle_type", "unknown")
-                    bundle_id = exec_context.get("bundle_id", "unknown")
-                    lines.append(f"  - Bundle: {bundle_type} ({bundle_id})")
-
-                    files = exec_context.get("files", [])
-                    if files:
-                        files_str = ", ".join(files[:5])  # Show first 5 files
-                        if len(files) > 5:
-                            files_str += f" ... ({len(files)} total)"
-                        lines.append(f"  - Files checked: {files_str}")
-
-                # Show validation details if available
-                validation = detail.get("validation_results")
-                if validation:
-                    rule_type = validation.get("rule_type", "unknown")
-                    lines.append(f"  - Validation: {rule_type}")
-
-                    params = validation.get("params", {})
-                    if params:
-                        # Show key validation parameters
-                        for key, value in params.items():
-                            lines.append(f"    - {key}: {value}")
-
-            lines.append("")
-
-        # Show failed rules with details
-        if failed:
-            lines.append(self._colorize("### Failed Rules ✗", self.RED))
-            lines.append("")
-            for detail in failed:
-                lines.append(f"- **{detail['rule_name']}**")
-
-                # Show rule description
-                rule_desc = detail.get(
-                    "rule_description", detail.get("description", "No description")
-                )
-                lines.append(f"  - Description: {rule_desc}")
-
-                # Show rule context (why it's important)
-                rule_context = detail.get("rule_context")
-                if rule_context:
-                    lines.append(f"  - Context: {rule_context}")
-
-                # Show execution context if available
-                exec_context = detail.get("execution_context")
-                if exec_context:
-                    bundle_type = exec_context.get("bundle_type", "unknown")
-                    bundle_id = exec_context.get("bundle_id", "unknown")
-                    lines.append(f"  - Bundle: {bundle_type} ({bundle_id})")
-
-                    files = exec_context.get("files", [])
-                    if files:
-                        files_str = ", ".join(files[:5])  # Show first 5 files
-                        if len(files) > 5:
-                            files_str += f" ... ({len(files)} total)"
-                        lines.append(f"  - Files checked: {files_str}")
-                    else:
-                        lines.append("  - Files checked: none")
-
-                # Show validation details if available
-                validation = detail.get("validation_results")
-                if validation:
-                    rule_type = validation.get("rule_type", "unknown")
-                    lines.append(f"  - Validation: {rule_type}")
-
-                    params = validation.get("params", {})
-                    if params:
-                        # Show key validation parameters
-                        for key, value in params.items():
-                            lines.append(f"    - {key}: {value}")
-
-                # Show phase results if available
-                if "phase_results" in detail:
-                    for phase in detail["phase_results"]:
-                        findings_count = phase.get("findings_count", 0)
-                        lines.append(
-                            f"  - Phase {phase['phase_number']}: {findings_count} findings"
-                        )
-            lines.append("")
-
-        # Show errored rules
-        if errored:
-            lines.append(self._colorize("### Errored Rules ⚠", self.YELLOW))
-            lines.append("")
-            for detail in errored:
-                lines.append(
-                    f"- **{detail['rule_name']}**: {detail.get('description', 'No description')}"
-                )
-            lines.append("")
 
         return lines

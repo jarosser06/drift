@@ -13,10 +13,10 @@ from unittest.mock import patch
 
 import pytest
 import yaml
-from typer.testing import CliRunner
 
-from drift.cli.main import app
+from drift.cli.main import main
 from tests.mock_provider import MockProvider
+from tests.test_utils import CliRunner
 
 
 class SequentialMockProvider(MockProvider):
@@ -866,7 +866,7 @@ class TestComprehensiveE2E:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "markdown"]
+                main, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "markdown"]
             )
 
         # Verify exit code (2 = drift found)
@@ -978,7 +978,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --format json (NO --detailed flag)
             result = cli_runner.invoke(
-                app, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "json"]
+                main, ["--scope", "all", "--project", str(e2e_project_dir), "--format", "json"]
             )
 
         # Verify exit code
@@ -1070,114 +1070,6 @@ class TestComprehensiveE2E:
             f"Expected at least 2 conversation rules, " f"got {len(conversation_learnings)}"
         )
 
-    def test_detailed_flag_shows_execution_context(self, cli_runner, e2e_project_dir):
-        """Test --detailed flag adds execution details section to markdown output.
-
-        With --detailed flag, markdown output should include a section showing
-        what rules were executed, what bundles/files were checked, and execution context.
-        """
-        # Create mock provider with responses
-        mock_provider = SequentialMockProvider(
-            [
-                # Response for incomplete_work
-                json.dumps(
-                    [
-                        {
-                            "turn_number": 3,
-                            "observed_behavior": (
-                                "AI implemented only login functionality "
-                                "without logout or session management components"
-                            ),
-                            "expected_behavior": (
-                                "Complete authentication system should include "
-                                "login, logout, and session management in initial "
-                                "implementation"
-                            ),
-                            "resolved": False,
-                            "still_needs_action": True,
-                            "context": (
-                                "User had to explicitly ask for missing logout "
-                                "and session components in turn 3"
-                            ),
-                        }
-                    ]
-                ),
-                # Response for skill_ignored
-                json.dumps(
-                    [
-                        {
-                            "turn_number": 2,
-                            "observed_behavior": (
-                                "AI wrote custom Flask API endpoint code instead "
-                                "of using the existing api-design skill pattern"
-                            ),
-                            "expected_behavior": (
-                                "AI should have consulted and used the "
-                                "api-design skill for API endpoint implementation"
-                            ),
-                            "resolved": True,
-                            "still_needs_action": False,
-                            "context": (
-                                "Project has api-design skill but AI reinvented "
-                                "the pattern, user corrected in turn 3"
-                            ),
-                        }
-                    ]
-                ),
-                # Response for no-drift conversation
-                "[]",
-            ]
-        )
-
-        with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
-            # Run with --detailed flag
-            result = cli_runner.invoke(
-                app, ["--scope", "all", "--project", str(e2e_project_dir), "--detailed"]
-            )
-
-        # Verify exit code
-        assert result.exit_code == 2, (
-            f"Expected exit code 2 (drift found), got {result.exit_code}\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
-        # Should show execution details section
-        assert (
-            "Test Execution Details" in result.stdout or "Execution Details" in result.stdout
-        ), f"No execution details section found in output:\n{result.stdout}"
-
-        # Should show the rules that were executed
-        assert (
-            "incomplete_work" in result.stdout
-        ), f"incomplete_work rule not found in output:\n{result.stdout}"
-        assert (
-            "skill_ignored" in result.stdout
-        ), f"skill_ignored rule not found in output:\n{result.stdout}"
-        assert (
-            "claude_md_missing" in result.stdout
-        ), f"claude_md_missing rule not found in output:\n{result.stdout}"
-
-        # Should show execution context (bundle info, files checked, etc.)
-        # For programmatic rules, this includes what was validated
-        assert any(
-            keyword in result.stdout
-            for keyword in ["Bundle", "bundle", "Files", "Validated", "Validation"]
-        ), f"No execution context found in output:\n{result.stdout}"
-
-        # Should show what files/resources were checked
-        assert (
-            "CLAUDE.md" in result.stdout or ".claude.md" in result.stdout
-        ), f"CLAUDE.md not mentioned in output:\n{result.stdout}"
-
-        # Should show status (passed/failed/skipped)
-        assert any(
-            status in result.stdout.lower() for status in ["passed", "failed", "skipped", "error"]
-        ), f"No status information found in output:\n{result.stdout}"
-
-        # Should still have the regular analysis results
-        assert "# Drift Analysis Results" in result.stdout
-        assert "## Summary" in result.stdout
-
     def test_no_llm_flag_filters_correctly(self, cli_runner, e2e_project_dir):
         """Test --no-llm flag only runs programmatic rules.
 
@@ -1197,7 +1089,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --no-llm flag and --scope all to test both conversation and project rules
             result = cli_runner.invoke(
-                app, ["--scope", "all", "--project", str(e2e_project_dir), "--no-llm"]
+                main, ["--scope", "all", "--project", str(e2e_project_dir), "--no-llm"]
             )
 
         # Should succeed (exit code 0 because CLAUDE.md exists, so programmatic rule passes)
@@ -1291,7 +1183,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope conversation
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--project", str(e2e_project_dir), "--scope", "conversation", "--format", "json"],
             )
 
@@ -1359,7 +1251,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope project
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--project", str(e2e_project_dir), "--scope", "project", "--format", "json"],
             )
 
@@ -1462,7 +1354,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --scope all (or omit, as it's the default)
             result = cli_runner.invoke(
-                app, ["--project", str(e2e_project_dir), "--scope", "all", "--format", "json"]
+                main, ["--project", str(e2e_project_dir), "--scope", "all", "--format", "json"]
             )
 
         # Parse JSON output
@@ -1571,7 +1463,7 @@ class TestComprehensiveE2E:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run analysis with --format json to get detailed metadata
             result = cli_runner.invoke(
-                app,
+                main,
                 [
                     "--scope",
                     "conversation",
@@ -1711,7 +1603,7 @@ rule_definitions:
 
         # Run with --no-llm (only programmatic rules)
         result_pass = cli_runner.invoke(
-            app, ["--project", str(project_with_file), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_with_file), "--no-llm", "--format", "json"]
         )
 
         # Should pass (exit code 0)
@@ -1742,7 +1634,7 @@ rule_definitions:
         (project_without_file / ".drift.yaml").write_text(config_content)
 
         result_fail = cli_runner.invoke(
-            app, ["--project", str(project_without_file), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_without_file), "--no-llm", "--format", "json"]
         )
 
         # Should fail (exit code 2 = drift found)
@@ -1811,7 +1703,7 @@ rule_definitions:
 
         # Run validation (should pass)
         result = cli_runner.invoke(
-            app, ["--project", str(project_dir), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_dir), "--no-llm", "--format", "json"]
         )
 
         # Should pass
@@ -1827,7 +1719,7 @@ rule_definitions:
         (project_dir / "README.md").write_text("# Test Project\n\nNo version here.")
 
         result_fail = cli_runner.invoke(
-            app, ["--project", str(project_dir), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_dir), "--no-llm", "--format", "json"]
         )
 
         # Should fail
@@ -1869,7 +1761,7 @@ rule_definitions:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --rules to filter to only incomplete_work
             result = cli_runner.invoke(
-                app,
+                main,
                 [
                     "--scope",
                     "conversation",
@@ -1926,7 +1818,7 @@ rule_definitions:
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             # Run with --model sonnet (override default haiku)
             result = cli_runner.invoke(
-                app,
+                main,
                 ["--project", str(e2e_project_dir), "--model", "sonnet", "--format", "json"],
             )
 
@@ -1978,7 +1870,7 @@ rule_definitions:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
+                main, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
             )
 
         output = json.loads(result.stdout)
@@ -1998,7 +1890,7 @@ rule_definitions:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app,
+                main,
                 [
                     "--scope",
                     "conversation",
@@ -2053,7 +1945,7 @@ rule_definitions:
 
         with patch("drift.core.analyzer.BedrockProvider", return_value=mock_provider):
             result = cli_runner.invoke(
-                app, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
+                main, ["--scope", "conversation", "--project", str(project_dir), "--format", "json"]
             )
 
         output = json.loads(result.stdout)
@@ -2092,7 +1984,7 @@ rule_definitions:
 """
         (project_no_drift / ".drift.yaml").write_text(config_pass)
 
-        result_0 = cli_runner.invoke(app, ["--project", str(project_no_drift), "--no-llm"])
+        result_0 = cli_runner.invoke(main, ["--project", str(project_no_drift), "--no-llm"])
         assert result_0.exit_code == 0, f"Expected exit code 0, got {result_0.exit_code}"
 
         # Exit code 2: Drift found
@@ -2101,12 +1993,12 @@ rule_definitions:
         # Don't create CLAUDE.md so validation fails
         (project_with_drift / ".drift.yaml").write_text(config_pass)
 
-        result_2 = cli_runner.invoke(app, ["--project", str(project_with_drift), "--no-llm"])
+        result_2 = cli_runner.invoke(main, ["--project", str(project_with_drift), "--no-llm"])
         assert result_2.exit_code == 2, f"Expected exit code 2, got {result_2.exit_code}"
 
         # Exit code 1: Error scenarios
         # Invalid path
-        result_1_path = cli_runner.invoke(app, ["--project", str(temp_dir / "nonexistent")])
+        result_1_path = cli_runner.invoke(main, ["--project", str(temp_dir / "nonexistent")])
         assert result_1_path.exit_code == 1, (
             f"Expected exit code 1 for invalid path, " f"got {result_1_path.exit_code}"
         )
@@ -2116,7 +2008,7 @@ rule_definitions:
         project_bad_config.mkdir()
         (project_bad_config / ".drift.yaml").write_text("invalid: yaml: content: [")
 
-        result_1_config = cli_runner.invoke(app, ["--project", str(project_bad_config)])
+        result_1_config = cli_runner.invoke(main, ["--project", str(project_bad_config)])
         assert result_1_config.exit_code == 1, (
             f"Expected exit code 1 for invalid config, " f"got {result_1_config.exit_code}"
         )
@@ -2167,7 +2059,7 @@ rule_definitions:
         (project_individual / ".drift.yaml").write_text(config_individual)
 
         result_individual = cli_runner.invoke(
-            app, ["--project", str(project_individual), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_individual), "--no-llm", "--format", "json"]
         )
 
         # With individual strategy, should get separate rules for each file
@@ -2211,7 +2103,7 @@ rule_definitions:
         (project_collection / ".drift.yaml").write_text(config_collection)
 
         result_collection = cli_runner.invoke(
-            app, ["--project", str(project_collection), "--no-llm", "--format", "json"]
+            main, ["--project", str(project_collection), "--no-llm", "--format", "json"]
         )
 
         # With collection strategy, should get single analysis
