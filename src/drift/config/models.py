@@ -290,6 +290,9 @@ class DriftConfig(BaseModel):
         description="Conversation selection settings",
     )
     temp_dir: str = Field("/tmp/drift", description="Temporary directory for analysis")
+    cache_enabled: bool = Field(True, description="Enable LLM response caching")
+    cache_dir: str = Field(".drift/cache", description="Directory for cache files")
+    cache_ttl: int = Field(86400, description="Cache TTL in seconds (default: 24 hours)")
 
     @field_validator("default_model")
     @classmethod

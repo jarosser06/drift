@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from drift.agent_tools.base import AgentLoader
 from drift.agent_tools.claude_code import ClaudeCodeLoader
+from drift.cache import ResponseCache
 from drift.config.loader import ConfigLoader
 from drift.config.models import (
     BundleStrategy,
@@ -88,6 +89,16 @@ class DriftAnalyzer:
         self.agent_loaders: Dict[str, AgentLoader] = {}
         self.temp_manager = TempManager(self.config.temp_dir)
 
+        # Initialize response cache
+        cache_dir = Path(self.config.cache_dir).expanduser()
+        if self.project_path:
+            cache_dir = self.project_path / cache_dir
+        self.cache = ResponseCache(
+            cache_dir=cache_dir,
+            default_ttl=self.config.cache_ttl,
+            enabled=self.config.cache_enabled,
+        )
+
         self._initialize_providers()
         self._initialize_agent_loaders()
 
@@ -105,10 +116,14 @@ class DriftAnalyzer:
 
             # Create provider instance based on provider type
             if provider_config.provider == ProviderType.BEDROCK:
-                self.providers[model_name] = BedrockProvider(provider_config, model_config)
+                self.providers[model_name] = BedrockProvider(
+                    provider_config, model_config, self.cache
+                )
             # Future: Add OpenAI and other providers
             # elif provider_config.provider == ProviderType.OPENAI:
-            #     self.providers[model_name] = OpenAIProvider(provider_config, model_config)
+            #     self.providers[model_name] = OpenAIProvider(
+            #         provider_config, model_config, self.cache
+            #     )
 
     def _initialize_agent_loaders(self) -> None:
         """Initialize agent loaders based on config."""
@@ -490,9 +505,19 @@ class DriftAnalyzer:
         # Build prompt for this rule
         prompt = self._build_analysis_prompt(conversation, rule_type, type_config)
 
+        # Prepare cache parameters
+        conversation_text = self._format_conversation(conversation)
+        content_hash = ResponseCache.compute_content_hash(conversation_text)
+        cache_key = f"{conversation.session_id}_{rule_type}"
+
         # Generate analysis
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
-        response = provider.generate(prompt)
+        response = provider.generate(
+            prompt,
+            cache_key=cache_key,
+            content_hash=content_hash,
+            drift_type=rule_type,
+        )
         logger.debug(f"Raw response from {model_name}:\n{response}")
 
         # Parse response to extract rules
@@ -1085,8 +1110,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         if not provider:
             raise ValueError(f"Model '{model_name}' not found in configured providers")
 
+        # Prepare cache parameters for document analysis
+        doc_loader = DocumentLoader(bundle.project_path)
+        bundle_content = doc_loader.format_bundle_for_llm(bundle)
+        content_hash = ResponseCache.compute_content_hash(bundle_content)
+        cache_key = f"{bundle.bundle_id}_{rule_type}"
+
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
-        response = provider.generate(prompt)
+        response = provider.generate(
+            prompt,
+            cache_key=cache_key,
+            content_hash=content_hash,
+            drift_type=rule_type,
+        )
         logger.debug(f"Raw response from {model_name}:\n{response}")
 
         rules = self._parse_document_analysis_response(response, bundle, rule_type)
@@ -1120,8 +1156,20 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             raise ValueError(f"Model '{model_name}' not found in configured providers")
 
         prompt = self._build_document_analysis_prompt(bundle, rule_type, type_config)
+
+        # Prepare cache parameters for document analysis
+        doc_loader = DocumentLoader(bundle.project_path)
+        bundle_content = doc_loader.format_bundle_for_llm(bundle)
+        content_hash = ResponseCache.compute_content_hash(bundle_content)
+        cache_key = f"{bundle.bundle_id}_{rule_type}"
+
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
-        response = provider.generate(prompt)
+        response = provider.generate(
+            prompt,
+            cache_key=cache_key,
+            content_hash=content_hash,
+            drift_type=rule_type,
+        )
         logger.debug(f"Raw response from {model_name}:\n{response}")
         rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
@@ -1444,9 +1492,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     "Check credentials and configuration."
                 )
 
+            # Prepare cache parameters for multi-phase analysis
+            conversation_text = self._format_conversation(conversation)
+            content_hash = ResponseCache.compute_content_hash(conversation_text)
+            cache_key = f"{conversation.session_id}_{rule_type}_phase{phase_idx + 1}"
+
             # Call LLM
             logger.debug(f"Sending phase {phase_idx + 1} prompt to {model_name}:\n{prompt}")
-            response = provider.generate(prompt)
+            response = provider.generate(
+                prompt,
+                cache_key=cache_key,
+                content_hash=content_hash,
+                drift_type=rule_type,
+            )
             logger.debug(f"Raw response from {model_name} (phase {phase_idx + 1}):\n{response}")
 
             # Parse response

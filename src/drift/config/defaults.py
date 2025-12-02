@@ -76,4 +76,7 @@ def get_default_config() -> DriftConfig:
         agent_tools=DEFAULT_AGENT_TOOLS,
         conversations=DEFAULT_CONVERSATION_SELECTION,
         temp_dir="/tmp/drift",
+        cache_enabled=True,
+        cache_dir=".drift/cache",
+        cache_ttl=86400,
     )

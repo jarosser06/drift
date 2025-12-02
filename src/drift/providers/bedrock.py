@@ -13,14 +13,20 @@ from drift.providers.base import Provider
 class BedrockProvider(Provider):
     """AWS Bedrock LLM provider."""
 
-    def __init__(self, provider_config: ProviderConfig, model_config: ModelConfig):
+    def __init__(
+        self,
+        provider_config: ProviderConfig,
+        model_config: ModelConfig,
+        cache: Optional[Any] = None,
+    ):
         """Initialize Bedrock provider.
 
         Args:
             provider_config: Provider configuration (region, etc)
             model_config: Model configuration
+            cache: Optional response cache
         """
-        super().__init__(provider_config, model_config)
+        super().__init__(provider_config, model_config, cache)
         self.client: Optional[Any] = None
         self._initialize_client()
 
@@ -64,8 +70,8 @@ class BedrockProvider(Provider):
             # Catch any other issues with client config access
             return False
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        """Generate a response using Bedrock.
+    def _generate_impl(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+        """Generate a response using Bedrock (implementation).
 
         Args:
             prompt: User prompt

@@ -140,6 +140,8 @@ def analyze_command(
     all_conversations: bool = False,
     model: Optional[str] = None,
     no_llm: bool = False,
+    no_cache: bool = False,
+    cache_dir: Optional[str] = None,
     project: Optional[str] = None,
     verbose: int = 0,
 ) -> None:
@@ -188,6 +190,12 @@ def analyze_command(
         except ValueError as e:
             print_error(f"Configuration error: {e}")
             sys.exit(1)
+
+        # Override cache settings if flags provided
+        if no_cache:
+            config.cache_enabled = False
+        if cache_dir:
+            config.cache_dir = cache_dir
 
         # Override conversation mode if specified
         conversation_mode_count = sum([latest, bool(days), all_conversations])
