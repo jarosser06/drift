@@ -15,8 +15,9 @@ def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="drift",
         description=(
-            "AI agent conversation drift analyzer - identifies gaps between "
-            "what AI agents did and what users wanted"
+            "AI-augmented codebase validator - ensures your project follows "
+            "best practices for AI agent collaboration, from conversation quality "
+            "to dependency management and documentation"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
