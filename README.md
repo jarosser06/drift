@@ -1,17 +1,39 @@
 # Drift
 
-AI agent conversation analyzer that identifies gaps between AI actions and user intent.
+Quality assurance for AI-augmented codebases - validates that your project follows best practices for effective AI agent collaboration.
 
 ## What It Does
 
-Drift analyzes AI agent conversations to find patterns where the AI diverged from what the user wanted. It detects issues like incomplete work, missed workflow opportunities, and ignored project features - helping you improve documentation, prompts, and agent configuration.
+Drift ensures your AI-augmented development environment is optimized for productivity. It validates both the **quality of AI interactions** and the **health of your project configuration**.
 
-**Key capabilities:**
-- **Project-aware analysis**: Scans your project for available commands, skills, and MCP servers
-- **6 rules**: Detects incomplete work, delegation misses, skill ignorance, workflow bypasses, and more
-- **Multi-provider**: AWS Bedrock (Claude models)
-- **Multi-agent**: Claude Code support
-- **Structured output**: Markdown or JSON, grouped by issue type
+**Think of it as:** A comprehensive testing and linting tool for AI-first development - catching issues in conversation patterns, documentation quality, dependency management, and project structure.
+
+### Two-Level Validation
+
+**1. Conversation Quality Analysis**
+Analyzes AI agent conversation logs to detect patterns where work diverged from user intent:
+- Incomplete work and premature task abandonment
+- Missed delegation opportunities to specialized agents
+- Ignored skills, commands, or workflow automation
+- Deviation from documented project guidelines
+
+**2. Project Structure Validation**
+Programmatically validates your AI collaboration setup:
+- **Dependency health**: Detects redundant transitive dependencies in commands, skills, and agents
+- **Link integrity**: Validates all file references and resource links in documentation
+- **Completeness checks**: Ensures skills, commands, and agents have required structure
+- **Consistency validation**: Detects contradictions between commands and project guidelines
+- **Required files**: Verifies essential configuration files exist (e.g., CLAUDE.md)
+
+### Key Features
+
+- **Multi-layered analysis**: Combines LLM-based conversation analysis with fast programmatic validation
+- **Project-aware**: Automatically discovers and validates commands, skills, agents, and MCP servers
+- **Flexible execution**: Run all checks, or use `--no-llm` for fast programmatic-only validation
+- **Multi-provider**: AWS Bedrock with Claude models (Sonnet, Haiku)
+- **Multi-agent support**: Currently supports Claude Code
+- **Rich output**: Markdown with colors (for terminals) or structured JSON
+- **Configurable rules**: Extensible YAML-based rule system for custom validations
 
 ## Installation
 
@@ -28,16 +50,19 @@ uv pip install -e ".[dev]"
 # Configure AWS credentials for Bedrock
 aws configure
 
-# Run analysis on latest conversation
+# Run full analysis on latest conversation
 drift
+
+# Fast programmatic-only validation (no LLM calls)
+drift --no-llm
 
 # Analyze last 7 days with JSON output
 drift --days 7 --format json
 
-# Analyze specific rules only
-drift --rules incomplete_work,documentation_gap
+# Check specific rules only
+drift --rules command_broken_links,skill_duplicate_dependencies
 
-# Use different model
+# Use different model for analysis
 drift --model sonnet
 ```
 
@@ -48,63 +73,120 @@ drift --model sonnet
 
 ## Summary
 - Total conversations: 3
-- Total rule violations: 3
-- Rules checked: 6
-- Rules passed: 3
+- Total rule violations: 5
+- Rules checked: 12
+- Rules passed: 7
 - Rules warned: 2
-- Rules failed: 1
-- By type: incomplete_work (1), agent_delegation_miss (1), workflow_bypass (1)
-- By agent tool: claude-code (3)
+- Rules failed: 3
 
 ## Rules Passed ✓
 
 - **documentation_gap**: No issues found
-- **prescriptive_deviation**: No issues found
-- **no_agents_configured**: No issues found
+- **command_broken_links**: All file references valid
+- **skill_duplicate_dependencies**: No redundant dependencies
+- **claude_md_missing**: CLAUDE.md exists
 
 ## Failures
 
-### agent_delegation_miss
+### command_duplicate_dependencies
 
-*When agents are available to handle specialized work, using them reduces errors and maintains consistent workflow patterns.*
+*Commands should only declare direct dependencies. Transitive dependencies are automatically included.*
 
-**Session:** def-456
-**Agent Tool:** claude-code
-**Turn:** 5
-**Observed:** AI manually wrote test boilerplate
-**Expected:** AI should have spawned test-runner agent
-**Frequency:** repeated
-**Workflow element:** agent_task_delegation
-**Context:** Project has test-runner agent configured in .claude/agents/
+**Bundle:** create-pr command
+**Files:** .claude/commands/create-pr.md
+**Issue:** Command declares both `pr-writing` skill and `github-operations` skill, but `pr-writing` already depends on `github-operations`
+**Expected:** Remove `github-operations` from command dependencies
+
+### skill_completeness
+
+*Incomplete skills create confusion and slow development. Skills must be self-contained with clear examples.*
+
+**Bundle:** testing skill
+**Files:** .claude/skills/testing/SKILL.md
+**Issue:** Skill references `./examples/test_example.py` which doesn't exist
+**Expected:** Include referenced examples or remove broken references
 
 ## Warnings
 
 ### incomplete_work
 
-*AI stopping before completing full scope wastes user time and breaks workflow momentum. Clear completion expectations improve efficiency.*
+*AI stopping before completing full scope wastes user time and breaks workflow momentum.*
 
 **Session:** abc-123
 **Agent Tool:** claude-code
 **Turn:** 3
 **Observed:** Implemented login form without validation
 **Expected:** Complete login system with validation and error handling
-**Frequency:** one-time
-**Workflow element:** task_completion
 **Context:** User had to explicitly request validation in next turn
-
-### workflow_bypass
-
-*Defined workflows and commands exist to streamline common operations. Using them improves consistency and reduces user effort.*
-
-**Session:** ghi-789
-**Agent Tool:** claude-code
-**Turn:** 2
-**Observed:** User manually described PR creation steps
-**Expected:** User should have used /create-pr command
-**Frequency:** one-time
-**Workflow element:** slash_command
-**Context:** Project has /create-pr slash command available
 ```
+
+## Configuration
+
+Default config auto-generates at `~/.config/drift/config.yaml`. Override per-project with `.drift.yaml`.
+
+### Validation Categories
+
+#### Conversation Analysis Rules (LLM-based)
+Analyze AI agent conversation patterns:
+- `incomplete_work` - AI stopped before completing full scope
+- `agent_delegation_miss` - AI did work manually instead of using agents
+- `skill_ignored` - AI didn't use available skills
+- `workflow_bypass` - User manually executed steps that commands automate
+- `prescriptive_deviation` - AI ignored explicit workflow documentation
+- `no_agents_configured` - Project lacks agent definitions
+
+#### Project Validation Rules (Programmatic)
+Fast validation without LLM calls:
+- `command_duplicate_dependencies` - Redundant transitive skill dependencies in commands
+- `skill_duplicate_dependencies` - Redundant transitive dependencies in skills
+- `agent_duplicate_dependencies` - Redundant transitive dependencies in agents
+- `command_broken_links` - Broken file references in command documentation
+- `skill_broken_links` - Broken file references in skill documentation
+- `agent_broken_links` - Broken file references in agent documentation
+- `claude_md_missing` - Missing CLAUDE.md configuration file
+- `skill_completeness` - Skills missing essential structure or examples
+- `agent_completeness` - Agents missing scope definition or dependencies
+- `command_completeness` - Commands missing execution steps or prerequisites
+- `command_consistency` - Commands contradicting project guidelines
+
+### Custom Rule Example
+
+Add custom rules to `.drift.yaml`:
+
+```yaml
+rule_definitions:
+  command_broken_links:
+    description: "Commands contain broken file references"
+    scope: project_level
+    document_bundle:
+      bundle_type: command
+      file_patterns:
+        - .claude/commands/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_links
+        type: markdown_link
+        description: "Validate all markdown links and file paths"
+        failure_message: "Found broken links"
+        expected_behavior: "All file references should be valid"
+        params:
+          check_local_files: true
+          check_external_urls: false
+```
+
+## CLI Options
+
+- `--format` (`-f`): Output format (markdown or json)
+- `--scope` (`-s`): Analysis scope (conversation, project, or all)
+- `--agent-tool` (`-a`): Specific agent tool to analyze (e.g., claude-code)
+- `--rules` (`-r`): Comma-separated list of specific rules to check
+- `--latest`: Analyze only the latest conversation
+- `--days` (`-d`): Analyze conversations from last N days
+- `--all`: Analyze all conversations
+- `--model` (`-m`): Override model for analysis (sonnet, haiku)
+- `--no-llm`: Skip LLM-based rules, run only programmatic validation (fast)
+- `--project` (`-p`): Project path (defaults to current directory)
+- `--verbose` (`-v`): Increase verbosity (-v, -vv, -vvv)
 
 ## Development
 
@@ -119,91 +201,25 @@ drift --model sonnet
 ./lint.sh --fix
 ```
 
-## Configuration
+## Use Cases
 
-Default config auto-generates at `~/.config/drift/config.yaml`. Override per-project with `.drift.yaml`.
+**During Development:**
+- Run `drift --no-llm` before commits to catch broken links and dependency issues
+- Validate skill/command documentation is complete and consistent
 
-### Conversation Analysis Rules
+**In CI/CD:**
+- Enforce documentation quality standards
+- Prevent broken resource references from merging
 
-These rules analyze AI agent conversations:
-- `incomplete_work` - AI stopped before completing full scope
-- `agent_delegation_miss` - AI did work manually instead of using agents (Claude Code only)
-- `skill_ignored` - AI didn't use available skills (Claude Code only)
-- `workflow_bypass` - User manually executed steps that commands automate
-- `prescriptive_deviation` - AI ignored explicit workflow documentation
-- `no_agents_configured` - Project lacks agent definitions (Claude Code only)
+**Periodic Reviews:**
+- Analyze conversation patterns to identify workflow improvements
+- Find opportunities to better leverage agents, skills, and commands
+- Ensure project customizations are being utilized
 
-### Programmatic Validation Rules
-
-Drift also includes programmatic validators that analyze your project files directly:
-
-#### Dependency Duplicate Validator
-
-Detects redundant transitive dependencies in Claude Code resources (commands, skills, agents). If Command A depends on Skill X, and Skill X depends on Skill Y, then Command A should not also list Skill Y as a direct dependency.
-
-**Usage in .drift.yaml:**
-```yaml
-rule_definitions:
-  command_duplicate_dependencies:
-    description: "Commands have redundant transitive skill dependencies"
-    scope: project_level
-    document_bundle:
-      bundle_type: mixed
-      file_patterns:
-        - .claude/commands/*.md
-        - .claude/skills/*/SKILL.md
-      bundle_strategy: individual
-    phases:
-      - name: check_duplicates
-        type: dependency_duplicate
-        description: "Check for redundant transitive dependencies"
-        failure_message: "Found redundant skill dependencies"
-        expected_behavior: "Only declare direct dependencies"
-        params:
-          resource_dirs:
-            - .claude/commands
-            - .claude/skills
-```
-
-#### Markdown Link Validator
-
-Validates all file references and links in markdown files. Detects:
-- Broken local file references (both markdown links and plain paths like `./test.sh`)
-- Broken external URLs (optional)
-- Missing resource references (skills, commands, agents)
-
-**Usage in .drift.yaml:**
-```yaml
-rule_definitions:
-  command_broken_links:
-    description: "Commands contain broken file references or links"
-    scope: project_level
-    document_bundle:
-      bundle_type: command
-      file_patterns:
-        - .claude/commands/*.md
-      bundle_strategy: individual
-    phases:
-      - name: check_links
-        type: markdown_link
-        description: "Check for broken links"
-        failure_message: "Found broken links"
-        expected_behavior: "All file references should be valid"
-        params:
-          check_local_files: true      # Check local file paths
-          check_external_urls: false   # Skip external URL validation
-```
-
-**What it validates:**
-- Markdown links: `[text](path/to/file.md)`
-- Relative paths: `./script.sh`, `../docs/guide.md`
-- Absolute paths: `/path/to/file`
-- Path references: `path/to/file.ext`
-
-**Examples of detected issues:**
-- `[Guide](missing.md)` - file doesn't exist
-- `See ./test.sh for details` - script not found
-- `docs/api.md` - broken reference in text
+**Project Setup:**
+- Validate new AI agent configurations
+- Ensure documentation follows best practices
+- Catch structural issues before they impact productivity
 
 ## License
 
