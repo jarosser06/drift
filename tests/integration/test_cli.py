@@ -50,7 +50,7 @@ class TestAnalyzeCommand:
 
         assert result.exit_code == 0
         assert "drift" in result.stdout.lower()
-        assert "analyzer" in result.stdout.lower()
+        assert "validator" in result.stdout.lower()
 
     @patch("drift.core.analyzer.BedrockProvider", MockProvider)
     @patch("drift.config.loader.ConfigLoader.load_config")
