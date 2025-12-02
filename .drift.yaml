@@ -48,25 +48,30 @@ rule_definitions:
         - "**/*.md"
         - "**/*.ts"
     phases:
-      - name: basic_structure
+      - name: structural_quality
         type: prompt
         model: sonnet
         prompt: |
-          Check if the skill has basic structure: clear title, purpose, examples.
-          Look for obvious missing components or vague instructions.
+          Evaluate the skill's structural quality per Anthropic's Agent Skills best practices.
 
-          Focus on:
-          - References to external files that don't exist in the skill bundle
-          - Missing practical examples or walkthroughs demonstrating usage
-          - Broken or dangling references to resources
+          CRITICAL ISSUES (report these):
+          1. Frontmatter description COMPLETELY MISSING "when to use" or "use when" phrase
+          2. Multi-page templates or large reference content dumped inline (>100 lines of template/boilerplate)
+          3. Entire skill is just vague responsibilities with NO actionable instructions anywhere
 
-          Do NOT flag:
-          - Missing MCP function call syntax explanations - AI can figure this out
-          - Missing explicit "activation criteria" sections - description is enough
-          - Missing "when NOT to use" sections - optional nice-to-have
+          ACCEPTABLE (do NOT report):
+          - Any "Use when..." phrase in frontmatter, even if brief (e.g., "Use when writing tests" is FINE)
+          - Skills that start with brief intro then dive into instructions
+          - "Core Responsibilities" sections IF followed by actionable content
+          - References to project files/scripts (assume they exist)
+          - Missing examples IF the skill content is self-explanatory
 
-          CONSOLIDATION: If multiple skills have the same type of issue, consolidate them.
-          Return ONE finding that lists all affected skills, not separate findings per skill.
+          EXAMPLES OF WHAT TO IGNORE:
+          - "Use when writing or structuring issues" ✓ ACCEPTABLE
+          - "Use when fixing linting errors" ✓ ACCEPTABLE
+          - "Expert in X" then actionable content ✓ ACCEPTABLE
+
+          ONLY REPORT if there's a REAL structural problem, not style nitpicks.
         available_resources:
           - skill
       - name: verify_dependencies
@@ -74,24 +79,24 @@ rule_definitions:
         model: sonnet
         prompt: |
           If the skill references other skills, verify they exist by requesting them.
-          Only flag missing references to actual files/resources, not missing metadata sections.
-
-          CONSOLIDATION: If multiple skills have missing dependencies, consolidate into one finding.
+          Only flag missing references to actual dependency skills.
         available_resources:
           - skill
       - name: final_quality_check
         type: prompt
         model: sonnet
         prompt: |
-          Review all findings from previous phases and make final determination.
+          Review all findings from previous phases.
 
-          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
-          If multiple skills have similar issues, consolidate them into one finding.
+          ONLY report CRITICAL structural problems:
+          - Missing "use when" activation criteria entirely
+          - Massive content dumps (templates >100 lines inline)
+          - No actionable instructions anywhere
 
-          Format your response as a JSON array with ONE element:
-          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
-
-          If no issues found, return empty array: []
+          IGNORE minor style issues:
+          - Slight wording variations in "use when" phrases
+          - Brief introductory sections
+          - "Core Responsibilities" if actionable content follows
         available_resources:
           - skill
 
@@ -109,23 +114,24 @@ rule_definitions:
       bundle_strategy: individual
       resource_patterns: []
     phases:
-      - name: basic_structure
+      - name: workflow_quality
         type: prompt
         model: sonnet
         prompt: |
-          Check if the agent has basic structure: clear purpose, tool declarations, examples.
-          Look for obvious missing components or vague task descriptions.
+          Evaluate the agent's workflow guidance and task delegation clarity.
 
-          Focus on structural gaps like:
-          - Missing workflow guidance (how to approach tasks systematically)
-          - Missing decision criteria for choosing between strategies
-          - Unexplained custom tools or dependencies that aren't standard
+          CRITICAL ISSUES (report these):
+          - Agent has NO purpose or scope explanation anywhere
+          - Agent provides ZERO workflow guidance (doesn't explain how to approach tasks at all)
+          - Agent is completely missing examples
 
-          Do NOT flag:
-          - References to standard project scripts (./lint.sh, ./test.sh) - assume they exist
-          - Lack of detailed MCP tool parameter documentation - AI can figure this out
+          ACCEPTABLE (do NOT report):
+          - References to MCP tools without explaining setup
+          - Brief or general workflow descriptions (some guidance is better than none)
+          - Agent lists responsibilities without exhaustive decision criteria
+          - References to standard project scripts/tools
 
-          CONSOLIDATION: If multiple agents have the same issue, consolidate into one finding.
+          ONLY REPORT if there's a REAL problem, not style nitpicks.
         available_resources:
           - agent
       - name: verify_references
@@ -133,8 +139,7 @@ rule_definitions:
         model: sonnet
         prompt: |
           If the agent references other agents or skills, verify they exist by requesting them.
-
-          CONSOLIDATION: If multiple agents have missing references, consolidate into one finding.
+          Only flag missing references to actual dependency agents or skills.
         available_resources:
           - agent
           - skill
@@ -142,15 +147,14 @@ rule_definitions:
         type: prompt
         model: sonnet
         prompt: |
-          Review all findings from previous phases and make final determination.
+          Review all findings from previous phases.
 
-          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
-          If multiple agents have similar issues, consolidate them into one finding.
+          ONLY report CRITICAL problems:
+          - Missing workflow guidance entirely
+          - No purpose/scope explanation at all
+          - Completely missing examples
 
-          Format your response as a JSON array with ONE element:
-          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
-
-          If no issues found, return empty array: []
+          IGNORE minor issues and style preferences.
         available_resources:
           - agent
           - skill
@@ -169,24 +173,25 @@ rule_definitions:
       bundle_strategy: individual
       resource_patterns: []
     phases:
-      - name: basic_structure
+      - name: execution_clarity
         type: prompt
         model: sonnet
         prompt: |
-          Check if the command has basic structure: clear purpose, execution steps, examples.
+          Evaluate the command's execution clarity and usability.
 
-          Focus on:
-          - Missing step-by-step execution workflow
-          - Missing error handling guidance or prerequisites
-          - Unclear command parameters or invocation
+          CRITICAL ISSUES (report these):
+          - Command has NO purpose explanation anywhere
+          - Command provides ZERO execution guidance (no steps at all)
+          - Invocation syntax completely missing or totally unclear
 
-          Do NOT flag:
-          - Missing detailed MCP tool parameter docs - AI can infer these
-          - Missing example output formats - nice-to-have, not required
-          - Missing explanation of obvious variables like $ARGUMENTS
-          - Missing "Required skills:" section - optional metadata
+          ACCEPTABLE (do NOT report):
+          - References to project scripts (./test.sh, ./lint.sh)
+          - References to MCP tools by name
+          - Parameter placeholders like <issue_number>, $ARGUMENTS
+          - Brief execution steps (some guidance is better than none)
+          - Missing exhaustive success criteria (nice-to-have)
 
-          CONSOLIDATION: If multiple commands have the same issue, consolidate into one finding.
+          ONLY REPORT if there's a REAL problem, not style nitpicks.
         available_resources:
           - command
           - skill
@@ -196,9 +201,7 @@ rule_definitions:
         model: sonnet
         prompt: |
           If the command references other commands, skills, or agents, verify they exist.
-          Request command, skill, or agent resources as needed.
-
-          CONSOLIDATION: If multiple commands have missing dependencies, consolidate into one finding.
+          Only flag missing references to actual dependencies.
         available_resources:
           - command
           - skill
@@ -207,15 +210,14 @@ rule_definitions:
         type: prompt
         model: sonnet
         prompt: |
-          Review all findings from previous phases and make final determination.
+          Review all findings from previous phases.
 
-          CRITICAL: Return EXACTLY ONE finding that represents the MOST IMPORTANT issue.
-          If multiple commands have similar issues, consolidate them into one finding.
+          ONLY report CRITICAL problems:
+          - Missing purpose entirely
+          - Zero execution guidance
+          - Completely unclear invocation
 
-          Format your response as a JSON array with ONE element:
-          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
-
-          If no issues found, return empty array: []
+          IGNORE minor issues and style preferences.
         available_resources:
           - command
           - skill
@@ -236,40 +238,24 @@ rule_definitions:
       bundle_strategy: collection
       resource_patterns: []
     phases:
-      - name: detection
+      - name: consistency_check
         type: prompt
         model: haiku
         prompt: |
-          Analyze these command documents for consistency and contradictions.
+          Analyze commands for consistency and contradictions.
 
           Project root: {project_root}
+          Files: {files_with_paths}
 
-          Files being analyzed:
-          {files_with_paths}
+          CRITICAL ISSUES (report these):
+          - Commands give contradictory guidance (Command A says X, Command B says opposite)
+          - Commands contradict CLAUDE.md guidelines
+          - Major inconsistencies that would confuse users
 
-          Focus on these patterns:
-          - Commands that contradict CLAUDE.md guidelines
-          - Inconsistent parameter naming across commands
-          - Conflicting approaches to similar tasks
-          - Different terminology for the same concepts
-
-          When reporting, cite specific files and conflicting content.
-
-          CONSOLIDATION: If you find multiple contradictions, consolidate them into ONE finding.
-          List all affected files in the file_paths array.
-
-          CRITICAL: Return EXACTLY ONE finding total for this rule.
-          If multiple contradictions exist, pick the MOST IMPORTANT one and report only that.
-
-          Format your response as a JSON array with ONE element:
-          [{"observed_issue": "...", "expected_quality": "...", "file_paths": [...], "context": "..."}]
-
-          Example contradictions:
-          - Command A says "always run tests first" but Command B runs lint first
-          - One command uses --force flag, another uses --skip-checks for same purpose
-          - CLAUDE.md says use skill X, but command implements custom solution
-
-          If no contradictions found, return empty array: []
+          ACCEPTABLE (do NOT report):
+          - Minor wording variations
+          - Different approaches to different problems
+          - Redundant information (context efficiency is nice-to-have)
         available_resources: []
 
   claude_md_missing:
