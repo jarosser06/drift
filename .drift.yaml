@@ -262,22 +262,35 @@ rule_definitions:
     phases:
       - name: consistency_check
         type: prompt
-        model: haiku
+        model: sonnet
         prompt: |
-          Analyze commands for consistency and contradictions.
+          Analyze commands for ACTUAL contradictions, not cosmetic differences.
 
           Project root: {project_root}
           Files: {files_with_paths}
 
-          CRITICAL ISSUES (report these):
-          - Commands give contradictory guidance (Command A says X, Command B says opposite)
-          - Commands contradict CLAUDE.md guidelines
-          - Major inconsistencies that would confuse users
+          ONLY report if you find CONTRADICTIONS:
+          1. Command A says "do X before Y", Command B says "do Y before X" (for the same task)
+          2. Commands require mutually exclusive tools or conflicting workflows
+          3. Commands explicitly contradict CLAUDE.md guidelines
 
-          ACCEPTABLE (do NOT report):
-          - Minor wording variations
-          - Different approaches to different problems
-          - Redundant information (context efficiency is nice-to-have)
+          DO NOT REPORT (these are NOT issues):
+          - All commands say "activate skills at step 1" - this is PERFECT consistency
+          - All commands say "activate before proceeding" + show activation at step 1 - this is CLEAR and CONSISTENT
+          - Wording variations like "MUST activate" vs "must activate" vs "Activate" - meaningless difference
+          - Commands for different tasks have different workflow steps - this is EXPECTED and CORRECT
+          - "before proceeding" appearing in multiple commands - this is CONSISTENCY, not inconsistency
+
+          EXAMPLE OF REAL CONTRADICTION (report this):
+          - Command A: "Activate skills before gathering info"
+          - Command B: "Gather info before activating skills"
+
+          EXAMPLE OF NON-ISSUE (DO NOT report this):
+          - Command A: "MUST activate skills before proceeding. Steps: 1. Activate skills 2. Do work"
+          - Command B: "MUST activate skills before proceeding. Steps: 1. Activate skills 2. Do work"
+          - These are IDENTICAL behaviors with the same wording - perfectly consistent!
+
+          If all commands follow the same activation pattern (step 1 = activate), do NOT report any issue.
         available_resources: []
 
   claude_md_missing:

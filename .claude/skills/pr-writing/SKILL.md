@@ -15,75 +15,33 @@ Expert in creating well-structured, reviewable pull requests using the GitHub MC
 - Link to related issues
 - Make PRs easy to review
 
-## PR Template
+## PR Template Structure
 
+All PRs should include these sections:
+- **Summary** - 3-5 bullet points covering what changed and why
+- **Test Plan** - Specific tests run, coverage %, manual testing scenarios
+- **Changes** - Organized by Added/Modified/Removed with file paths
+- **Related Issues** - Links to relevant issues
+
+**Example (brief):**
 ```markdown
 ## Summary
-
-- <Brief overview of changes>
-- <Key implementation details>
-- <Any architectural decisions or trade-offs>
-
-Example:
-- Added multi-drift-type analysis support to CLI
-- Implemented sequential processing for each drift type
-- Combined results in unified output format
-- Added comprehensive tests with 92% coverage
+- Added multi-drift-type analysis support
+- Implemented sequential processing
 
 ## Test Plan
-
-- [ ] Unit tests added/updated
-- [ ] Coverage at 90%+
-- [ ] Manual testing completed
-- [ ] All linters passing
-- [ ] <Specific test scenarios>
-
-Example:
-- [ ] Unit tests for multi-type parsing (test_cli.py)
-- [ ] Integration tests for combined output (test_integration.py)
-- [ ] Coverage at 92% (above 90% threshold)
-- [ ] Manual testing with 2, 3, and 5 drift types
-- [ ] All linters passing (flake8, black, isort, mypy)
+- [x] Unit tests added (10 new tests)
+- [x] Coverage at 92%
 
 ## Changes
-
 ### Added
-- <New files or major new functionality>
+- `drift/multi_analyzer.py` - Multi-pass analysis
 
 ### Modified
-- <Changed files and what was changed>
-
-### Removed
-- <Deleted files or removed functionality>
-
-Example:
-### Added
-- `drift/multi_analyzer.py` - Multi-pass analysis orchestration
-- Tests in `tests/integration/test_multi_pass.py`
-
-### Modified
-- `drift/cli.py:45-67` - Added multiple drift-type support
-- `drift/formatter.py:23-45` - Enhanced output for multiple types
-- `README.md` - Added multi-type usage examples
-
-### Removed
-- None
-
-## Related Issues
-
-Closes #<issue_number>
-Relates to #<issue_number>
-
-Example:
-Closes #42
-Relates to #15 (configuration improvements)
-
----
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
+- `drift/cli.py:45-67` - Multi-type support
 ```
+
+📖 **See [resources/template.md](resources/template.md) for complete PR template with detailed examples.**
 
 ## PR Quality Guidelines
 
