@@ -560,7 +560,18 @@ class MarkdownLinkValidator(BaseValidator):
         check_resource_refs = rule.params.get("check_resource_refs", False)
         resource_patterns = rule.params.get("resource_patterns", [])
 
-        validator = LinkValidator()
+        # Extract filtering params (with defaults matching LinkValidator defaults)
+        skip_example_domains = rule.params.get("skip_example_domains", True)
+        skip_code_blocks = rule.params.get("skip_code_blocks", True)
+        skip_placeholder_paths = rule.params.get("skip_placeholder_paths", True)
+        custom_skip_patterns = rule.params.get("custom_skip_patterns", [])
+
+        validator = LinkValidator(
+            skip_example_domains=skip_example_domains,
+            skip_code_blocks=skip_code_blocks,
+            skip_placeholder_paths=skip_placeholder_paths,
+            custom_skip_patterns=custom_skip_patterns,
+        )
         broken_links = []
 
         for file in bundle.files:
