@@ -1,4 +1,18 @@
-"""Main analysis orchestration for drift detection."""
+"""Main analysis orchestration for drift detection.
+
+Parallel Execution
+------------------
+Validation rules execute in parallel by default when multiple rules are present.
+Single rules execute sequentially to avoid async overhead.
+
+Configuration:
+    parallel_execution:
+      enabled: true  # Default
+
+Thread Safety:
+    Each parallel task gets its own ValidatorRegistry instance to prevent
+    race conditions during file I/O.
+"""
 
 import asyncio
 import hashlib
@@ -1256,16 +1270,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute rule-based validation on a bundle.
 
-        Router method that chooses between parallel and sequential execution.
+        Routes to parallel or sequential execution based on rule count and config.
+        Single rules use sequential execution to avoid async overhead.
 
-        -- bundle: Document bundle to validate
-        -- rule_type: Name of learning type
-        -- type_config: Configuration for this rule
-        -- loader: Optional document loader for resource access
+        Args:
+            bundle: Document bundle to validate
+            rule_type: Name of learning type
+            type_config: Configuration for this rule
+            loader: Optional document loader for resource access
 
-        Returns tuple of (rules, execution_details).
-        rules: List of document rules from failed validations
-        execution_details: List of dicts with execution info for ALL rules
+        Returns:
+            Tuple of (rules, execution_details).
+            rules: List of document rules from failed validations
+            execution_details: List of dicts with execution info for ALL rules
         """
         logger.debug(f"_execute_validation_rules called for {rule_type}")
         validation_config = getattr(type_config, "validation_rules", None)
@@ -1300,12 +1317,14 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute validation rules sequentially.
 
-        -- rules: List of validation rules to execute
-        -- bundle: Document bundle to validate
-        -- rule_type: Name of learning type
-        -- loader: Optional document loader for resource access
+        Args:
+            rules: List of validation rules to execute
+            bundle: Document bundle to validate
+            rule_type: Name of learning type
+            loader: Optional document loader for resource access
 
-        Returns tuple of (rules, execution_details).
+        Returns:
+            Tuple of (rules, execution_details).
         """
         registry = ValidatorRegistry(loader)
         doc_rules = []
@@ -1368,12 +1387,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute validation rules in parallel using asyncio.
 
-        -- rules: List of validation rules to execute
-        -- bundle: Document bundle to validate
-        -- rule_type: Name of learning type
-        -- loader: Optional document loader for resource access
+        Uses asyncio.gather() with return_exceptions=True so individual
+        rule failures don't stop other rules from executing.
 
-        Returns tuple of (rules, execution_details).
+        Args:
+            rules: List of validation rules to execute
+            bundle: Document bundle to validate
+            rule_type: Name of learning type
+            loader: Optional document loader for resource access
+
+        Returns:
+            Tuple of (rules, execution_details).
+            rules: List of DocumentRule objects from failed validations
+            execution_details: List of dicts with execution info for all rules
         """
         logger.debug(f"_execute_rules_parallel: Processing {len(rules)} rules for {rule_type}")
 
@@ -1416,13 +1442,17 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     ) -> tuple[Optional[DocumentRule], dict]:
         """Execute a single validation rule asynchronously.
 
-        -- rule: Validation rule to execute
-        -- bundle: Document bundle to validate
-        -- rule_type: Name of learning type
-        -- loader: Optional document loader for resource access
+        Uses asyncio.to_thread() to offload synchronous file I/O to a thread pool.
 
-        Returns tuple of (document_rule, execution_info).
-        document_rule is None if validation passed, otherwise contains failure info.
+        Args:
+            rule: Validation rule to execute
+            bundle: Document bundle to validate
+            rule_type: Name of learning type
+            loader: Optional document loader for resource access
+
+        Returns:
+            Tuple of (document_rule, execution_info).
+            document_rule is None if validation passed, otherwise contains failure info.
         """
         try:
             # Create a new registry for this task to avoid sharing state
