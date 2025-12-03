@@ -1,5 +1,8 @@
 # Drift
 
+[![PyPI version](https://badge.fury.io/py/ai-drift.svg)](https://pypi.org/project/ai-drift/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
 Quality assurance for AI-augmented codebases - validates that your project follows best practices for effective AI agent collaboration.
 
 ## What It Does
@@ -37,9 +40,20 @@ Programmatically validates your AI collaboration setup:
 
 ## Installation
 
+**[View on PyPI: ai-drift](https://pypi.org/project/ai-drift/)**
+
 ```bash
-# Clone and install with uv (recommended)
-git clone <repository-url>
+# Install from PyPI
+pip install ai-drift
+
+# Or with uv
+uv pip install ai-drift
+```
+
+For development:
+```bash
+# Clone repository
+git clone https://github.com/jarosser06/drift.git
 cd drift
 uv pip install -e ".[dev]"
 ```

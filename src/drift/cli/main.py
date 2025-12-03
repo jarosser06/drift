@@ -1,10 +1,11 @@
 """Main CLI application for drift."""
 
 import argparse
+from importlib.metadata import version
 
 from drift.cli.commands import analyze
 
-__version__ = "0.1.0"
+__version__ = version("ai-drift")
 
 
 def create_parser() -> argparse.ArgumentParser:
