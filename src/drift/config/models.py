@@ -74,6 +74,7 @@ class ValidationType(str, Enum):
     REGEX_NOT_MATCH = "regex_not_match"
     FILE_COUNT = "file_count"
     FILE_SIZE = "file_size"
+    TOKEN_COUNT = "token_count"
     CROSS_FILE_REFERENCE = "cross_file_reference"
     LIST_MATCH = "list_match"
     LIST_REGEX_MATCH = "list_regex_match"
