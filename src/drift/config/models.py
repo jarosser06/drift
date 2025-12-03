@@ -280,6 +280,12 @@ class ConversationSelection(BaseModel):
         return v
 
 
+class ParallelExecutionConfig(BaseModel):
+    """Configuration for parallel rule execution."""
+
+    enabled: bool = Field(True, description="Enable parallel execution of validation rules")
+
+
 class DriftConfig(BaseModel):
     """Complete drift configuration."""
 
@@ -304,6 +310,10 @@ class DriftConfig(BaseModel):
     cache_enabled: bool = Field(True, description="Enable LLM response caching")
     cache_dir: str = Field(".drift/cache", description="Directory for cache files")
     cache_ttl: int = Field(86400, description="Cache TTL in seconds (default: 24 hours)")
+    parallel_execution: ParallelExecutionConfig = Field(
+        default_factory=lambda: ParallelExecutionConfig(enabled=True),
+        description="Parallel execution configuration for validation rules",
+    )
 
     @field_validator("default_model")
     @classmethod

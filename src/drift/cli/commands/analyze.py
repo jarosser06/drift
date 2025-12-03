@@ -142,6 +142,7 @@ def analyze_command(
     no_llm: bool = False,
     no_cache: bool = False,
     cache_dir: Optional[str] = None,
+    no_parallel: bool = False,
     project: Optional[str] = None,
     verbose: int = 0,
 ) -> None:
@@ -196,6 +197,10 @@ def analyze_command(
             config.cache_enabled = False
         if cache_dir:
             config.cache_dir = cache_dir
+
+        # Override parallel execution if flag provided
+        if no_parallel:
+            config.parallel_execution.enabled = False
 
         # Override conversation mode if specified
         conversation_mode_count = sum([latest, bool(days), all_conversations])

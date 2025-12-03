@@ -1,5 +1,6 @@
 """Main analysis orchestration for drift detection."""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -1255,16 +1256,16 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute rule-based validation on a bundle.
 
-        Args:
-            bundle: Document bundle to validate
-            rule_type: Name of learning type
-            type_config: Configuration for this rule
-            loader: Optional document loader for resource access
+        Router method that chooses between parallel and sequential execution.
 
-        Returns:
-            Tuple of (rules, execution_details).
-            rules: List of document rules from failed validations
-            execution_details: List of dicts with execution info for ALL rules
+        -- bundle: Document bundle to validate
+        -- rule_type: Name of learning type
+        -- type_config: Configuration for this rule
+        -- loader: Optional document loader for resource access
+
+        Returns tuple of (rules, execution_details).
+        rules: List of document rules from failed validations
+        execution_details: List of dicts with execution info for ALL rules
         """
         logger.debug(f"_execute_validation_rules called for {rule_type}")
         validation_config = getattr(type_config, "validation_rules", None)
@@ -1274,20 +1275,49 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 "but no validation_rules configured"
             )
 
+        # Determine if we should use parallel execution
+        parallel_enabled = self.config.parallel_execution.enabled
+        num_rules = len(validation_config.rules)
+
+        # Use parallel execution if enabled and more than one rule
+        if parallel_enabled and num_rules > 1:
+            logger.debug(f"Using parallel execution for {num_rules} rules")
+            return asyncio.run(
+                self._execute_rules_parallel(validation_config.rules, bundle, rule_type, loader)
+            )
+        else:
+            logger.debug(f"Using sequential execution for {num_rules} rules")
+            return self._execute_rules_sequential(
+                validation_config.rules, bundle, rule_type, loader
+            )
+
+    def _execute_rules_sequential(
+        self,
+        rules: List[ValidationRule],
+        bundle: DocumentBundle,
+        rule_type: str,
+        loader: Optional[Any] = None,
+    ) -> tuple[List[DocumentRule], List[dict]]:
+        """Execute validation rules sequentially.
+
+        -- rules: List of validation rules to execute
+        -- bundle: Document bundle to validate
+        -- rule_type: Name of learning type
+        -- loader: Optional document loader for resource access
+
+        Returns tuple of (rules, execution_details).
+        """
         registry = ValidatorRegistry(loader)
-        rules = []
+        doc_rules = []
         execution_details = []
 
-        logger.debug(
-            f"_validate_document_bundle: Processing {len(validation_config.rules)} rules "
-            f"for {rule_type}"
-        )
+        logger.debug(f"_execute_rules_sequential: Processing {len(rules)} rules for {rule_type}")
 
-        for rule in validation_config.rules:
+        for rule in rules:
             try:
-                logger.debug(f"_validate_document_bundle: Executing rule {rule.description}")
+                logger.debug(f"_execute_rules_sequential: Executing rule {rule.description}")
                 result = registry.execute_rule(rule, bundle)
-                logger.debug(f"_validate_document_bundle: Rule result: {result}")
+                logger.debug(f"_execute_rules_sequential: Rule result: {result}")
 
                 # Track execution info for this rule
                 exec_info = {
@@ -1311,7 +1341,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 if result is not None:
                     # Validation failed - set the learning type name
                     result.rule_type = rule_type
-                    rules.append(result)
+                    doc_rules.append(result)
 
             except Exception as e:
                 # Log error but continue with other rules
@@ -1327,7 +1357,118 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 execution_details.append(exec_info)
                 continue
 
-        return rules, execution_details
+        return doc_rules, execution_details
+
+    async def _execute_rules_parallel(
+        self,
+        rules: List[ValidationRule],
+        bundle: DocumentBundle,
+        rule_type: str,
+        loader: Optional[Any] = None,
+    ) -> tuple[List[DocumentRule], List[dict]]:
+        """Execute validation rules in parallel using asyncio.
+
+        -- rules: List of validation rules to execute
+        -- bundle: Document bundle to validate
+        -- rule_type: Name of learning type
+        -- loader: Optional document loader for resource access
+
+        Returns tuple of (rules, execution_details).
+        """
+        logger.debug(f"_execute_rules_parallel: Processing {len(rules)} rules for {rule_type}")
+
+        # Create tasks for all rules
+        tasks = [self._execute_single_rule_async(rule, bundle, rule_type, loader) for rule in rules]
+
+        # Execute all rules concurrently, collecting exceptions
+        results: list[Any] = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        doc_rules = []
+        execution_details = []
+
+        for result_item in results:
+            if isinstance(result_item, Exception):
+                # Task raised an exception
+                logger.error(f"Rule execution raised exception: {result_item}")
+                exec_info = {
+                    "rule_name": rule_type,
+                    "rule_description": "Unknown rule",
+                    "status": "errored",
+                    "error_message": str(result_item),
+                }
+                execution_details.append(exec_info)
+            else:
+                # Unpack the result tuple
+                doc_rule, exec_info = result_item
+                execution_details.append(exec_info)
+                if doc_rule is not None:
+                    doc_rules.append(doc_rule)
+
+        return doc_rules, execution_details
+
+    async def _execute_single_rule_async(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        rule_type: str,
+        loader: Optional[Any] = None,
+    ) -> tuple[Optional[DocumentRule], dict]:
+        """Execute a single validation rule asynchronously.
+
+        -- rule: Validation rule to execute
+        -- bundle: Document bundle to validate
+        -- rule_type: Name of learning type
+        -- loader: Optional document loader for resource access
+
+        Returns tuple of (document_rule, execution_info).
+        document_rule is None if validation passed, otherwise contains failure info.
+        """
+        try:
+            # Create a new registry for this task to avoid sharing state
+            registry = ValidatorRegistry(loader)
+
+            # Execute rule in thread pool (file I/O is synchronous)
+            logger.debug(f"_execute_single_rule_async: Executing rule {rule.description}")
+            result = await asyncio.to_thread(registry.execute_rule, rule, bundle)
+            logger.debug(f"_execute_single_rule_async: Rule result: {result}")
+
+            # Build execution info
+            exec_info = {
+                "rule_name": rule_type,
+                "rule_description": rule.description,
+                "status": "passed" if result is None else "failed",
+                "execution_context": {
+                    "bundle_id": bundle.bundle_id,
+                    "bundle_type": bundle.bundle_type,
+                    "files": [f.relative_path for f in bundle.files],
+                },
+                "validation_results": {
+                    "rule_type": rule.rule_type.value
+                    if hasattr(rule.rule_type, "value")
+                    else str(rule.rule_type),
+                    "params": rule.params if hasattr(rule, "params") else {},
+                },
+            }
+
+            # Set the learning type name if validation failed
+            if result is not None:
+                result.rule_type = rule_type
+
+            return result, exec_info
+
+        except Exception as e:
+            # Log error and return error info
+            logger.warning(f"Validation rule '{rule.description}' failed: {e}")
+
+            exec_info = {
+                "rule_name": rule_type,
+                "rule_description": rule.description,
+                "status": "errored",
+                "error_message": str(e),
+            }
+
+            return None, exec_info
 
     def _build_document_analysis_prompt(
         self,
