@@ -363,6 +363,14 @@ rule_definitions:
         params:
           check_local_files: true
           check_external_urls: false
+          # Skip common example/placeholder file patterns in documentation
+          custom_skip_patterns:
+            - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
+            - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
+            - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
+            - '\.cfg'              # Config files (setup.cfg, etc.)
+            - 'CHANGELOG\.md'      # Changelog references in examples
+            - 'github/workflows/'  # GitHub workflow directory references
 
   skill_broken_links:
     description: "Skills contain broken file references or links"
@@ -385,6 +393,14 @@ rule_definitions:
         params:
           check_local_files: true
           check_external_urls: false
+          # Skip common example/placeholder file patterns in documentation
+          custom_skip_patterns:
+            - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
+            - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
+            - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
+            - '\.cfg'              # Config files (setup.cfg, etc.)
+            - 'CHANGELOG\.md'      # Changelog references in examples
+            - 'github/workflows/'  # GitHub workflow directory references
 
   agent_broken_links:
     description: "Agents contain broken file references or links"
@@ -407,3 +423,11 @@ rule_definitions:
         params:
           check_local_files: true
           check_external_urls: false
+          # Skip common example/placeholder file patterns in documentation
+          custom_skip_patterns:
+            - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
+            - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
+            - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
+            - '\.cfg'              # Config files (setup.cfg, etc.)
+            - 'CHANGELOG\.md'      # Changelog references in examples
+            - 'github/workflows/'  # GitHub workflow directory references

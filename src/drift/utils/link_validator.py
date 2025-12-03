@@ -2,9 +2,31 @@
 
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import requests
+
+# RFC 2606 reserved example domains and localhost addresses
+EXAMPLE_DOMAINS = {
+    "example.com",
+    "example.org",
+    "example.net",
+    "example.edu",
+    "test.com",
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+}
+
+# Patterns that indicate placeholder/example file paths
+PLACEHOLDER_PATH_PATTERNS = [
+    r"\bpath/to/",  # path/to/file.py
+    r"\byour-[^/]+/",  # your-project/src
+    r"\bmy-[^/]+/",  # my-app/config
+    r"\{[^}]+\}",  # {variable}/path
+    r"\$\{[^}]+\}",  # ${VAR}/path
+    r"<[^>]+>",  # <something>/path
+]
 
 
 class LinkValidator:
@@ -12,7 +34,8 @@ class LinkValidator:
 
     This class provides utilities to extract and validate links from
     markdown content, including local files, external URLs, and resource
-    references.
+    references. Supports filtering of example/placeholder links to reduce
+    false positives.
 
     Example:
         >>> validator = LinkValidator()
@@ -21,9 +44,160 @@ class LinkValidator:
         ...     print(f"{text}: {url}")
         doc: file.md
 
+    Args:
+        skip_example_domains: Skip RFC 2606 example domains (default: True)
+        skip_code_blocks: Skip links in code blocks (default: True)
+        skip_placeholder_paths: Skip placeholder patterns like path/to/ (default: True)
+        custom_skip_patterns: List of custom regex patterns to skip (default: empty)
+
     Attributes:
-        None
+        skip_example_domains: Whether to skip example domains
+        skip_code_blocks: Whether to skip code blocks
+        skip_placeholder_paths: Whether to skip placeholder paths
+        custom_skip_patterns: List of custom skip patterns
     """
+
+    def __init__(
+        self,
+        skip_example_domains: bool = True,
+        skip_code_blocks: bool = True,
+        skip_placeholder_paths: bool = True,
+        custom_skip_patterns: Optional[List[str]] = None,
+    ) -> None:
+        """Initialize LinkValidator with filtering options.
+
+        Args:
+            skip_example_domains: Skip RFC 2606 example domains (example.com, localhost, etc.)
+            skip_code_blocks: Skip links found in code blocks
+            skip_placeholder_paths: Skip placeholder patterns (path/to/, your-*, etc.)
+            custom_skip_patterns: Custom regex patterns for links/paths to skip
+        """
+        self.skip_example_domains = skip_example_domains
+        self.skip_code_blocks = skip_code_blocks
+        self.skip_placeholder_paths = skip_placeholder_paths
+        self.custom_skip_patterns = custom_skip_patterns or []
+
+    def _remove_code_blocks(self, content: str) -> str:
+        """Remove code blocks and inline code from markdown content.
+
+        Removes fenced code blocks (```), indented code blocks (4 spaces or tab),
+        and inline code (`...`) to prevent extraction of links from example code.
+
+        Args:
+            content: Markdown content to process
+
+        Returns:
+            Content with code blocks and inline code removed
+        """
+        # Remove fenced code blocks (```...```)
+        # Match from ``` to closing ``` including language specifier
+        content = re.sub(r"^```.*?^```\s*$", "", content, flags=re.MULTILINE | re.DOTALL)
+
+        # Remove indented code blocks (4 spaces or tab at line start)
+        content = re.sub(r"^(    |\t).*$", "", content, flags=re.MULTILINE)
+
+        # Remove inline code (`...`)
+        # This prevents extraction of file paths wrapped in backticks
+        content = re.sub(r"`[^`]+`", "", content)
+
+        return content
+
+    def _remove_placeholder_patterns(self, content: str) -> str:
+        """Remove placeholder patterns from content before extraction.
+
+        This prevents partial extraction of paths that contain placeholder markers.
+        For example, {variable}/path/file.py should not extract path/file.py.
+
+        Args:
+            content: Content to process
+
+        Returns:
+            Content with placeholder patterns removed
+        """
+        # Remove lines or segments containing placeholder markers
+        # This prevents extraction of fragments after the placeholder
+        for pattern in PLACEHOLDER_PATH_PATTERNS:
+            # For path prefix patterns, remove the entire path that follows
+            if pattern in (r"\bpath/to/", r"\byour-[^/]+/", r"\bmy-[^/]+/"):
+                # Match the pattern plus any path that follows (non-whitespace)
+                extended = pattern.rstrip("/") + r"[^\s]*"
+                content = re.sub(extended, "", content)
+            # For template variable patterns, also remove any path that follows
+            elif pattern in (r"\{[^}]+\}", r"\$\{[^}]+\}", r"<[^>]+>"):
+                # Match the template variable plus optional following path
+                extended = pattern + r"[^\s]*"
+                content = re.sub(extended, "", content)
+            else:
+                # For other patterns, just remove them as-is
+                content = re.sub(pattern, "", content)
+
+        return content
+
+    def _is_example_domain(self, link: str) -> bool:
+        """Check if link uses an example/test domain.
+
+        Checks against RFC 2606 reserved domains and localhost addresses.
+        Supports subdomain matching (api.example.com matches example.com).
+
+        Args:
+            link: URL or link to check
+
+        Returns:
+            True if link uses an example domain, False otherwise
+        """
+        # Extract domain from various link formats
+        # Handle http://, https://, mailto:, and plain domains
+        domain_pattern = r"(?:https?://|mailto:)?([^/:@]+(?:\.[^/:@]+)*)"
+        match = re.search(domain_pattern, link)
+
+        if not match:
+            return False
+
+        domain = match.group(1).lower()
+
+        # Check if domain or any parent domain is in EXAMPLE_DOMAINS
+        # This handles subdomains like api.example.com
+        parts = domain.split(".")
+        for i in range(len(parts)):
+            candidate = ".".join(parts[i:])
+            if candidate in EXAMPLE_DOMAINS:
+                return True
+
+        return False
+
+    def _is_placeholder_path(self, path: str) -> bool:
+        """Check if path matches placeholder patterns.
+
+        Detects common placeholder patterns like path/to/, your-project/, etc.
+
+        Args:
+            path: File path to check
+
+        Returns:
+            True if path appears to be a placeholder, False otherwise
+        """
+        for pattern in PLACEHOLDER_PATH_PATTERNS:
+            if re.search(pattern, path):
+                return True
+        return False
+
+    def _matches_custom_pattern(self, link: str) -> bool:
+        """Check if link matches any custom skip patterns.
+
+        Args:
+            link: Link or path to check
+
+        Returns:
+            True if link matches a custom pattern, False otherwise
+        """
+        for pattern in self.custom_skip_patterns:
+            try:
+                if re.search(pattern, link):
+                    return True
+            except re.error:
+                # Silently skip invalid regex patterns
+                continue
+        return False
 
     def extract_links(self, content: str) -> List[Tuple[str, str]]:
         """Extract all markdown links from content.
@@ -58,12 +232,24 @@ class LinkValidator:
         - Absolute paths: /path/to/file
         - Simple paths: path/to/file.ext
 
+        Applies filtering based on instance configuration to skip example/placeholder
+        links and reduce false positives.
+
         Args:
             content: Content to parse
 
         Returns:
             List of file path strings found in content
         """
+        # Apply code block filtering if enabled
+        if self.skip_code_blocks:
+            content = self._remove_code_blocks(content)
+
+        # Apply placeholder pattern removal if enabled
+        # This must happen before extraction to prevent partial matches
+        if self.skip_placeholder_paths:
+            content = self._remove_placeholder_patterns(content)
+
         references = []
 
         # Extract markdown links first
@@ -83,17 +269,19 @@ class LinkValidator:
         # Match patterns like:
         # - Standalone files with extensions: README.md, config.yaml
         # - Relative paths: ./file.sh, ../dir/file.py
-        # - /absolute/path/to/file (but not URLs like https://...)
         # - Nested paths: path/to/file.ext
+        # Note: Absolute paths like /etc/config.yaml are NOT extracted (usually system paths)
         path_patterns = [
             # Relative paths starting with ./ or ../ (most reliable indicator)
             r"\.{1,2}/[\w\-./]+",
             # Paths with slashes and file extensions: path/to/file.ext
-            # This requires both a slash AND an extension to avoid false positives
-            r"\b[\w\-]+(?:/[\w\-]+)+\.[\w]+\b",
+            # Require whitespace or start of string before the path to avoid matching
+            # paths that are part of absolute paths like /etc/config.yaml
+            r"(?:^|(?<=\s))[\w\-]+(?:/[\w\-]+)+\.[\w]+\b",
             # Standalone filenames with common extensions: README.md, test.py
-            # Only match if it looks like a filename (has extension, reasonable length)
-            r"\b[\w\-]{1,50}\.(?:md|py|js|ts|tsx|jsx|yaml|yml|json|sh|bash|txt|csv|xml"
+            # Only match if NOT preceded by a slash or word char
+            # (to avoid matching file.py from path/to/file.py)
+            r"(?<![/\w\-])[\w\-]{1,50}\.(?:md|py|js|ts|tsx|jsx|yaml|yml|json|sh|bash|txt|csv|xml"
             r"|html|css|rs|go|java|rb|php|c|cpp|h|hpp|toml|ini|conf|cfg)\b",
         ]
 
@@ -101,10 +289,32 @@ class LinkValidator:
             matches = re.findall(pattern, content_without_urls)
             references.extend(matches)
 
+        # Apply filtering to remove example/placeholder references
+        filtered_refs = []
+        for ref in references:
+            # Don't filter "unknown" type links (anchors, mailto, tel) - they're skipped anyway
+            if ref.startswith(("#", "mailto:", "tel:")):
+                filtered_refs.append(ref)
+                continue
+
+            # Skip if matches example domain filter
+            if self.skip_example_domains and self._is_example_domain(ref):
+                continue
+
+            # Skip if matches placeholder path filter
+            if self.skip_placeholder_paths and self._is_placeholder_path(ref):
+                continue
+
+            # Skip if matches custom pattern filter
+            if self._matches_custom_pattern(ref):
+                continue
+
+            filtered_refs.append(ref)
+
         # Remove duplicates while preserving order
         seen = set()
         unique_refs = []
-        for ref in references:
+        for ref in filtered_refs:
             if ref not in seen:
                 seen.add(ref)
                 unique_refs.append(ref)
@@ -112,17 +322,17 @@ class LinkValidator:
         return unique_refs
 
     def validate_local_file(self, link: str, base_path: Path) -> bool:
-        """Check if local file exists.
+        """Check if local file or directory exists.
 
         Resolves relative paths from the base_path and checks if the
-        file exists in the filesystem.
+        file or directory exists in the filesystem.
 
         Args:
-            link: Relative or absolute file path
+            link: Relative or absolute file/directory path
             base_path: Base directory to resolve relative paths from
 
         Returns:
-            True if file exists and is a file, False otherwise
+            True if file or directory exists, False otherwise
         """
         # Handle absolute paths
         if link.startswith("/"):
@@ -131,7 +341,8 @@ class LinkValidator:
             # Resolve relative to base_path
             file_path = (base_path / link).resolve()
 
-        return file_path.exists() and file_path.is_file()
+        # Accept both files and directories as valid
+        return file_path.exists()
 
     def validate_external_url(self, url: str, timeout: int = 5) -> bool:
         """Check if external URL is valid (simple HEAD request).

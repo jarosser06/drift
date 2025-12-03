@@ -414,7 +414,7 @@ class TestMarkdownLinkValidator:
         mock_head.return_value = mock_response
 
         file_path = temp_project / "readme.md"
-        file_path.write_text("[Example](https://example.com/missing)")
+        file_path.write_text("[Example](https://real-domain.com/missing)")
 
         bundle = create_bundle(
             [
@@ -430,7 +430,7 @@ class TestMarkdownLinkValidator:
         result = validator.validate(validation_rule, bundle)
 
         assert result is not None
-        assert "example.com" in result.observed_issue
+        assert "real-domain.com" in result.observed_issue
         assert "unreachable" in result.observed_issue.lower()
 
     def test_validate_no_project_path(self, validation_rule, tmp_path):
@@ -579,3 +579,344 @@ class TestMarkdownLinkValidator:
         result = validator.validate(validation_rule, bundle)
 
         assert result is None
+
+    def test_filtering_code_blocks_enabled_by_default(
+        self, validator, validation_rule, temp_project
+    ):
+        """Test that code blocks are filtered by default."""
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+# Documentation
+
+Real link: [actual](./actual.md)
+
+```python
+# Example code - this should be ignored
+example_link = "http://example.com"
+file_path = "path/to/file.py"
+```
+
+Another real: [file](./actual.md)
+"""
+        )
+
+        # Create actual.md so the real links pass
+        (temp_project / "actual.md").write_text("test")
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass because code block content is filtered
+        assert result is None
+
+    def test_filtering_example_domains_enabled_by_default(
+        self, validator, validation_rule, temp_project
+    ):
+        """Test that example.com domains are filtered by default."""
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+[example](http://example.com)
+[localhost](http://localhost:3000)
+[test](http://test.com)
+"""
+        )
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass because example domains are filtered
+        assert result is None
+
+    def test_filtering_placeholder_paths_enabled_by_default(
+        self, validator, validation_rule, temp_project
+    ):
+        """Test that placeholder paths are filtered by default."""
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+path/to/file.py
+your-project/src/main.py
+{variable}/path/file.py
+"""
+        )
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass because placeholder paths are filtered
+        assert result is None
+
+    def test_filtering_custom_patterns_via_params(self, validator, temp_project):
+        """Test that custom skip patterns work through validator params."""
+        # Create a rule with custom patterns
+        validation_rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check for broken links",
+            failure_message="Found broken links",
+            expected_behavior="All links should be valid",
+            params={"custom_skip_patterns": [r"\.py$", r"\.yaml$", r"vendor/"]},
+        )
+
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+[test](./test.py)
+[config](./config.yaml)
+[vendor](./vendor/lib.js)
+"""
+        )
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass because custom patterns filter these out
+        assert result is None
+
+    def test_filtering_can_be_disabled(self, validator, temp_project):
+        """Test that filtering can be explicitly disabled."""
+        # Create a rule with filtering disabled
+        validation_rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check for broken links",
+            failure_message="Found broken links",
+            expected_behavior="All links should be valid",
+            params={
+                "skip_code_blocks": False,
+                "skip_example_domains": False,
+                "skip_placeholder_paths": False,
+                "check_external_urls": True,
+            },
+        )
+
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+```
+[code](http://invalid-example-domain-that-will-never-exist.com)
+```
+[ex](http://another-invalid-domain-xyz.com)
+path/to/file.py
+"""
+        )
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should FAIL because filtering is disabled and files/URLs don't exist
+        assert result is not None
+        # Check that external URLs are validated (at least one should be in the message)
+        assert (
+            "invalid-example-domain-that-will-never-exist.com" in result.observed_issue
+            or "another-invalid-domain-xyz.com" in result.observed_issue
+        )
+        assert "path/to/file.py" in result.observed_issue
+
+    def test_real_world_cicd_agent_scenario(self, validator, validation_rule, temp_project):
+        """Test realistic scenario: agent file with workflow examples in code blocks."""
+        file_path = temp_project / "cicd.md"
+        # Simulate real cicd.md content with YAML workflow in code block
+        file_path.write_text(
+            """
+# CI/CD Agent
+
+## Test Workflow
+
+**Test Workflow** (`.github/workflows/test.yml`):
+```yaml
+name: Test
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run linters
+        run: ./lint.sh
+
+      - name: Run tests
+        run: ./test.sh
+```
+
+## Pre-commit
+
+**`.pre-commit-config.yaml`**:
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        entry: ./lint.sh
+```
+
+## Release Process
+
+1. Run tests
+2. Update CHANGELOG.md
+3. Create release
+
+Real file: [pyproject](./pyproject.toml)
+"""
+        )
+
+        # Create the real files that should be checked
+        (temp_project / "pyproject.toml").write_text("test")
+        (temp_project / "CHANGELOG.md").write_text("# Changelog")
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="cicd.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass! The workflow files in backticks are filtered out by code block removal
+        # lint.sh, test.sh in YAML code blocks are filtered
+        # Only pyproject.toml and CHANGELOG.md should be checked, and both exist
+        assert result is None
+
+    def test_real_world_skill_scenario(self, validator, validation_rule, temp_project):
+        """Test realistic scenario: skill file with Python examples in code blocks."""
+        file_path = temp_project / "SKILL.md"
+        file_path.write_text(
+            """
+# Testing Skill
+
+## Example Test Structure
+
+```python
+# tests/unit/test_parser.py
+import pytest
+
+def test_parse():
+    parser = Parser(config.yaml)
+    assert parser.parse()
+```
+
+## Configuration
+
+Example config in `drift.yaml`:
+```yaml
+rules:
+  - type: test
+```
+
+Real reference: See [actual tests](./tests/)
+"""
+        )
+
+        # Create the real directory
+        (temp_project / "tests").mkdir()
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="SKILL.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should pass! test_parser.py, config.yaml, drift.yaml are in code blocks
+        # Only ./tests/ should be checked, and it exists
+        assert result is None
+
+    def test_mixed_real_and_example_links(self, validator, validation_rule, temp_project):
+        """Test that real broken links are still caught despite filtering."""
+        file_path = temp_project / "doc.md"
+        file_path.write_text(
+            """
+# Doc
+
+Real broken link: [missing](./missing.md)
+
+Example that should be filtered:
+```
+[example](http://example.com)
+path/to/file.py
+```
+
+Another broken real link: [broken](./broken.py)
+"""
+        )
+
+        bundle = create_bundle(
+            [
+                DocumentFile(
+                    relative_path="doc.md",
+                    file_path=file_path,
+                    content=file_path.read_text(),
+                )
+            ],
+            temp_project,
+        )
+
+        result = validator.validate(validation_rule, bundle)
+
+        # Should FAIL because missing.md and broken.py don't exist
+        assert result is not None
+        assert "missing.md" in result.observed_issue
+        assert "broken.py" in result.observed_issue
+        # But should NOT mention example.com or path/to/file.py
+        assert "example.com" not in result.observed_issue
+        assert "path/to/file.py" not in result.observed_issue
