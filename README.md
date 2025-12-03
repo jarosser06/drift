@@ -30,7 +30,7 @@ Programmatically validates your AI collaboration setup:
 - **Multi-layered analysis**: Combines LLM-based conversation analysis with fast programmatic validation
 - **Project-aware**: Automatically discovers and validates commands, skills, agents, and MCP servers
 - **Flexible execution**: Run all checks, or use `--no-llm` for fast programmatic-only validation
-- **Multi-provider**: AWS Bedrock with Claude models (Sonnet, Haiku)
+- **Multi-provider**: Anthropic API and AWS Bedrock with Claude models (Sonnet, Haiku)
 - **Multi-agent support**: Currently supports Claude Code
 - **Rich output**: Markdown with colors (for terminals) or structured JSON
 - **Configurable rules**: Extensible YAML-based rule system for custom validations
@@ -46,10 +46,21 @@ uv pip install -e ".[dev]"
 
 ## Quick Start
 
-```bash
-# Configure AWS credentials for Bedrock
-aws configure
+### Provider Setup
 
+**Option 1: Anthropic API (Recommended)**
+```bash
+export ANTHROPIC_API_KEY=your-api-key
+```
+
+**Option 2: AWS Bedrock**
+```bash
+aws configure
+```
+
+### Usage
+
+```bash
 # Run full analysis on latest conversation
 drift
 
@@ -148,6 +159,50 @@ CLI overrides:
 ## Configuration
 
 Default config auto-generates at `~/.config/drift/config.yaml`. Override per-project with `.drift.yaml`.
+
+### Provider Configuration
+
+Configure LLM providers in `.drift.yaml`:
+
+**Anthropic API:**
+```yaml
+providers:
+  anthropic:
+    provider: anthropic
+    params:
+      api_key_env: ANTHROPIC_API_KEY  # optional, defaults to ANTHROPIC_API_KEY
+
+models:
+  claude-sonnet:
+    provider: anthropic
+    model_id: claude-sonnet-4-5-20250929
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+  claude-haiku:
+    provider: anthropic
+    model_id: claude-haiku-4-5-20251001
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+```
+
+**AWS Bedrock:**
+```yaml
+providers:
+  bedrock:
+    provider: bedrock
+    params:
+      region: us-east-1
+
+models:
+  sonnet:
+    provider: bedrock
+    model_id: us.anthropic.claude-3-5-sonnet-20240620-v1:0
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+```
 
 ### Validation Categories
 
