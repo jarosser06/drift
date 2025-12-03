@@ -162,6 +162,13 @@ class AnalysisSummary(BaseModel):
     rules_checked: List[str] = Field(
         default_factory=list, description="List of rule names that were checked"
     )
+    total_checks: int = Field(
+        0, description="Total number of individual checks performed (rule x target combinations)"
+    )
+    checks_passed: int = Field(0, description="Number of checks that passed")
+    checks_failed: int = Field(0, description="Number of checks that failed")
+    checks_warned: int = Field(0, description="Number of checks that produced warnings")
+    checks_errored: int = Field(0, description="Number of checks that encountered errors")
     rules_passed: List[str] = Field(
         default_factory=list, description="List of rule names that passed (no issues found)"
     )
@@ -190,6 +197,11 @@ class CompleteAnalysisResult(BaseModel):
             total_rule_violations=0,
             conversations_with_drift=0,
             conversations_without_drift=0,
+            total_checks=0,
+            checks_passed=0,
+            checks_failed=0,
+            checks_warned=0,
+            checks_errored=0,
         ),
         description="Summary statistics",
     )

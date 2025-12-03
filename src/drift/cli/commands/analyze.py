@@ -80,6 +80,13 @@ def _merge_results(
     merged_summary = conv_result.summary.model_copy()
     merged_summary.total_rule_violations += doc_result.summary.total_rule_violations
 
+    # Merge check counts
+    merged_summary.total_checks += doc_result.summary.total_checks
+    merged_summary.checks_passed += doc_result.summary.checks_passed
+    merged_summary.checks_failed += doc_result.summary.checks_failed
+    merged_summary.checks_warned += doc_result.summary.checks_warned
+    merged_summary.checks_errored += doc_result.summary.checks_errored
+
     # Merge by_type counts
     for type_name, count in doc_result.summary.by_type.items():
         merged_summary.by_type[type_name] = merged_summary.by_type.get(type_name, 0) + count

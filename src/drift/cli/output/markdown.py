@@ -108,34 +108,23 @@ class MarkdownFormatter(OutputFormatter):
 
         # Total checks - show even if 0
         if result.summary.rules_checked is not None:
-            total_checks = (
-                len(result.summary.rules_passed if result.summary.rules_passed else [])
-                + len(result.summary.rules_warned if result.summary.rules_warned else [])
-                + len(result.summary.rules_failed if result.summary.rules_failed else [])
-                + len(result.summary.rules_errored if result.summary.rules_errored else [])
-            )
-            lines.append(f"- Total checks: {total_checks}")
+            lines.append(f"- Total checks: {result.summary.total_checks}")
 
         # Checks breakdown - show even if 0
         if result.summary.rules_checked is not None:
             # Always show counts, even if 0
-            passed_count = len(result.summary.rules_passed) if result.summary.rules_passed else 0
+            passed_count = result.summary.checks_passed
             count_str = self._colorize(
                 str(passed_count), self.GREEN if passed_count > 0 else self.RESET
             )
             lines.append(f"- Checks passed: {count_str}")
 
-            warned_count = len(result.summary.rules_warned) if result.summary.rules_warned else 0
-            if warned_count > 0:
-                count_str = self._colorize(str(warned_count), self.YELLOW)
-                lines.append(f"- Checks warned: {count_str}")
-
-            failed_count = len(result.summary.rules_failed) if result.summary.rules_failed else 0
+            failed_count = result.summary.checks_failed
             if failed_count > 0:
                 count_str = self._colorize(str(failed_count), self.RED)
                 lines.append(f"- Checks failed: {count_str}")
 
-            errored_count = len(result.summary.rules_errored) if result.summary.rules_errored else 0
+            errored_count = result.summary.checks_errored
             if errored_count > 0:
                 count_str = self._colorize(str(errored_count), self.YELLOW)
                 lines.append(f"- Checks errored: {count_str}")

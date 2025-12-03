@@ -542,3 +542,79 @@ class TestMergeResults:
         assert merged.metadata["custom_field"] == "custom_value"
         assert merged.metadata["agent_tool"] == "claude-code"
         assert merged.metadata["generated_at"] == "2024-01-01T10:00:00"
+
+    def test_merge_check_counts(self):
+        """Test that check counts are properly merged from both results."""
+        conv_result = CompleteAnalysisResult(
+            metadata={"generated_at": "2024-01-01T10:00:00", "execution_details": []},
+            summary=AnalysisSummary(
+                total_conversations=2,
+                total_rule_violations=1,
+                total_checks=5,
+                checks_passed=3,
+                checks_failed=1,
+                checks_warned=1,
+                checks_errored=0,
+            ),
+            results=[],
+        )
+        doc_result = CompleteAnalysisResult(
+            metadata={"generated_at": "2024-01-01T10:00:00", "execution_details": []},
+            summary=AnalysisSummary(
+                total_conversations=0,
+                total_rule_violations=0,
+                total_checks=3,
+                checks_passed=2,
+                checks_failed=0,
+                checks_warned=1,
+                checks_errored=0,
+            ),
+            results=[],
+        )
+
+        merged = _merge_results(conv_result, doc_result)
+
+        # Check counts should be summed
+        assert merged.summary.total_checks == 8  # 5 + 3
+        assert merged.summary.checks_passed == 5  # 3 + 2
+        assert merged.summary.checks_failed == 1  # 1 + 0
+        assert merged.summary.checks_warned == 2  # 1 + 1
+        assert merged.summary.checks_errored == 0  # 0 + 0
+
+    def test_merge_check_counts_with_zeros(self):
+        """Test merging check counts when one result has no checks."""
+        conv_result = CompleteAnalysisResult(
+            metadata={"generated_at": "2024-01-01T10:00:00", "execution_details": []},
+            summary=AnalysisSummary(
+                total_conversations=1,
+                total_rule_violations=0,
+                total_checks=0,
+                checks_passed=0,
+                checks_failed=0,
+                checks_warned=0,
+                checks_errored=0,
+            ),
+            results=[],
+        )
+        doc_result = CompleteAnalysisResult(
+            metadata={"generated_at": "2024-01-01T10:00:00", "execution_details": []},
+            summary=AnalysisSummary(
+                total_conversations=0,
+                total_rule_violations=0,
+                total_checks=2,
+                checks_passed=2,
+                checks_failed=0,
+                checks_warned=0,
+                checks_errored=0,
+            ),
+            results=[],
+        )
+
+        merged = _merge_results(conv_result, doc_result)
+
+        # Should properly handle zero values
+        assert merged.summary.total_checks == 2
+        assert merged.summary.checks_passed == 2
+        assert merged.summary.checks_failed == 0
+        assert merged.summary.checks_warned == 0
+        assert merged.summary.checks_errored == 0
