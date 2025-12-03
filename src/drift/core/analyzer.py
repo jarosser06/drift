@@ -1074,10 +1074,6 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         summary.checks_passed = sum(
             1 for ed in all_execution_details if ed.get("status") == "passed"
         )
-        summary.checks_failed = sum(
-            1 for ed in all_execution_details if ed.get("status") == "failed"
-        )
-        summary.checks_warned = 0  # Not currently tracked at check level
         summary.checks_errored = sum(
             1 for ed in all_execution_details if ed.get("status") == "errored"
         )
@@ -1110,6 +1106,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             for rule in summary.rules_checked
             if rule not in rules_warned and rule not in rules_failed
         ]
+
+        # Set check counts based on rule counts (not execution_details)
+        summary.checks_failed = len(rules_failed)
+        summary.checks_warned = len(rules_warned)
 
         logger.info(f"analyze_documents: Returning {len(all_execution_details)} execution details")
         logger.debug(f"analyze_documents: execution_details = {all_execution_details}")
