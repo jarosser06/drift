@@ -2,6 +2,10 @@
 # This file defines custom rule definitions specific to this project
 
 providers:
+  anthropic:
+    provider: anthropic
+    params:
+      api_key_env: ANTHROPIC_API_KEY
   bedrock:
     provider: bedrock
     params:
@@ -9,11 +13,29 @@ providers:
 
 models:
   haiku:
+    provider: anthropic
+    model_id: claude-haiku-4-5-20251001
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+  sonnet:
+    provider: anthropic
+    model_id: claude-sonnet-4-5-20250929
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+  bedrock-haiku:
     provider: bedrock
     model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
-  sonnet:
+    params:
+      max_tokens: 4096
+      temperature: 0.0
+  bedrock-sonnet:
     provider: bedrock
     model_id: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+    params:
+      max_tokens: 4096
+      temperature: 0.0
 
 default_model: haiku
 
