@@ -61,6 +61,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 /create-pr
 ```
 
-**IMPORTANT:** The assistant MUST activate the `pr-writing`, `testing`, `linting`, and `github-operations` skills before proceeding. DO NOT use the `gh` CLI command - always use the GitHub MCP server tools (mcp__github__*).
+**IMPORTANT:** The assistant MUST activate the `pr-writing`, `testing`, `linting`, and `github-operations` skills before proceeding. DO NOT use the `gh` CLI command directly - always use the GitHub MCP server tools (mcp__github__*).
+
+The assistant will:
+1. Activate the required skills listed in the frontmatter
+2. Run pre-PR validation (tests and linters)
+3. Review changes to ensure quality
+4. Create a properly formatted PR using `mcp__github__create_pull_request` from the GitHub MCP server
 
 This will validate code quality and create a well-structured PR ready for review.

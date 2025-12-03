@@ -76,9 +76,19 @@ class TestTokenCountValidator:
             expected_behavior="CLAUDE.md should be under 1500 tokens",
         )
 
-        # Mock the anthropic module
+        # Mock the anthropic module with the new beta.messages.count_tokens API
+        mock_response = Mock()
+        mock_response.input_tokens = 50
+
+        mock_messages = Mock()
+        mock_messages.count_tokens.return_value = mock_response
+
+        mock_beta = Mock()
+        mock_beta.messages = mock_messages
+
         mock_client = Mock()
-        mock_client.count_tokens.return_value = 50
+        mock_client.beta = mock_beta
+
         mock_anthropic = Mock()
         mock_anthropic.Anthropic.return_value = mock_client
 
@@ -117,9 +127,19 @@ class TestTokenCountValidator:
             expected_behavior="CLAUDE.md should be under 1500 tokens",
         )
 
-        # Mock the anthropic module
+        # Mock the anthropic module with the new beta.messages.count_tokens API
+        mock_response = Mock()
+        mock_response.input_tokens = 2000
+
+        mock_messages = Mock()
+        mock_messages.count_tokens.return_value = mock_response
+
+        mock_beta = Mock()
+        mock_beta.messages = mock_messages
+
         mock_client = Mock()
-        mock_client.count_tokens.return_value = 2000
+        mock_client.beta = mock_beta
+
         mock_anthropic = Mock()
         mock_anthropic.Anthropic.return_value = mock_client
 
@@ -442,8 +462,13 @@ class TestTokenCountValidator:
             expected_behavior="Should be under limit",
         )
 
-        # Ensure anthropic module is not available
-        monkeypatch.delitem(sys.modules, "anthropic", raising=False)
+        # Mock ImportError for anthropic package
+        def mock_import(name, *args, **kwargs):
+            if name == "anthropic":
+                raise ImportError("No module named 'anthropic'")
+            return __import__(name, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.__import__", mock_import)
 
         result = validator.validate(rule, bundle)
         assert result is not None
@@ -548,9 +573,19 @@ class TestTokenCountValidator:
             expected_behavior="Should have at least 100 tokens",
         )
 
-        # Mock the anthropic module
+        # Mock the anthropic module with the new beta.messages.count_tokens API
+        mock_response = Mock()
+        mock_response.input_tokens = 5
+
+        mock_messages = Mock()
+        mock_messages.count_tokens.return_value = mock_response
+
+        mock_beta = Mock()
+        mock_beta.messages = mock_messages
+
         mock_client = Mock()
-        mock_client.count_tokens.return_value = 5
+        mock_client.beta = mock_beta
+
         mock_anthropic = Mock()
         mock_anthropic.Anthropic.return_value = mock_client
 
@@ -617,9 +652,16 @@ class TestTokenCountValidator:
             expected_behavior="Should work",
         )
 
-        # Mock the anthropic module to raise an exception
+        # Mock the anthropic module to raise an exception with new beta API
+        mock_messages = Mock()
+        mock_messages.count_tokens.side_effect = Exception("Tokenizer error")
+
+        mock_beta = Mock()
+        mock_beta.messages = mock_messages
+
         mock_client = Mock()
-        mock_client.count_tokens.side_effect = Exception("Tokenizer error")
+        mock_client.beta = mock_beta
+
         mock_anthropic = Mock()
         mock_anthropic.Anthropic.return_value = mock_client
 

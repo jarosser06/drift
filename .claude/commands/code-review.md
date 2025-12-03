@@ -44,6 +44,28 @@ Perform a thorough code review of current changes or specified files.
    - No obvious bottlenecks
    - Proper resource management
 
+**Execution Steps:**
+
+1. **Activate the code-review skill** - Essential for conducting thorough reviews
+2. **Determine scope**:
+   - For recent changes: Use `git diff main...HEAD` to see changed files
+   - For specific files: Review files specified by the user
+   - If no scope given: Ask user which files/areas to review
+3. **Analyze files systematically**:
+   - Read each file using the Read tool
+   - Apply review criteria from the 6 areas above
+   - Look for patterns across files
+   - Note both issues and positive aspects
+4. **Present findings** in structured format:
+   - Group by category (Code Quality, Architecture, Testing, etc.)
+   - List specific issues with file paths and line numbers
+   - Provide actionable recommendations
+   - Highlight critical vs. minor issues
+5. **Summarize**:
+   - Overall assessment
+   - Priority fixes
+   - Optional improvements
+
 **Usage:**
 ```
 /code-review

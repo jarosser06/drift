@@ -51,13 +51,15 @@ Implement a complete workflow for a GitHub issue from start to finish.
 /work-on-issue 42
 ```
 
-**CRITICAL REQUIREMENTS:**
-1. **MUST use the Task tool with subagent_type='developer'** for implementation - do NOT implement code directly
-2. **MUST use the Task tool with subagent_type='qa'** for testing - do NOT write tests directly
-3. **MUST activate the `github-operations` skill** for GitHub operations
-4. **DO NOT use the `gh` CLI command** - always use the GitHub MCP server tools (mcp__github__*)
-5. Delegate all implementation work to the developer agent
-6. Delegate all test writing to the qa agent
-7. Only coordinate the workflow and handle git operations yourself
+**IMPORTANT:** The assistant MUST activate the `github-operations`, `python-docs`, and `testing` skills before proceeding. DO NOT use the `gh` CLI command directly - always use the GitHub MCP server tools (mcp__github__*).
+
+The assistant will:
+1. Activate the required skills listed in the frontmatter
+2. Fetch and understand the issue requirements using `mcp__github__get_issue`
+3. Create a feature branch with proper naming
+4. **MUST use Task tool with subagent_type='developer'** for implementation - do NOT implement code directly
+5. **MUST use Task tool with subagent_type='qa'** for testing - do NOT write tests directly
+6. Validate quality with ./lint.sh and ./test.sh
+7. Create descriptive commit referencing the issue
 
 This workflow ensures specialized agents handle their domains of expertise from issue assignment to implementation ready for PR.

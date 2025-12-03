@@ -341,9 +341,14 @@ class TokenCountValidator(BaseValidator):
                 )
 
             client = Anthropic()
-            # Use Claude 3.5 Sonnet tokenizer as default
-            token_count: int = client.count_tokens(text)  # type: ignore[attr-defined]
-            return token_count
+            # Use the new beta messages.count_tokens API (Nov 2024+)
+            # https://docs.claude.com/en/api/messages-count-tokens
+            response = client.beta.messages.count_tokens(
+                betas=["token-counting-2024-11-01"],
+                model="claude-sonnet-4-5-20250929",  # Use Claude Sonnet 4.5
+                messages=[{"role": "user", "content": text}],
+            )
+            return response.input_tokens
 
         elif provider == "openai":
             try:

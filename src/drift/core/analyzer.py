@@ -1079,11 +1079,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         )
 
         # Separate warnings from failures based on severity
-        rules_warned = []
-        rules_failed = []
-
+        # First, build maps of rule_type -> severity
+        rule_severity_map = {}
         for rule_type in by_type.keys():
-            # Get severity for this rule
             severity = SeverityLevel.WARNING  # Default
             if rule_type in self.config.rule_definitions:
                 type_config = self.config.rule_definitions[rule_type]
@@ -1093,11 +1091,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     severity = SeverityLevel.FAIL
                 else:
                     severity = SeverityLevel.WARNING
+            rule_severity_map[rule_type] = severity
 
-            if severity == SeverityLevel.FAIL:
-                rules_failed.append(rule_type)
-            elif severity == SeverityLevel.WARNING:
-                rules_warned.append(rule_type)
+        # Categorize rules by severity
+        rules_warned = [rt for rt, sev in rule_severity_map.items() if sev == SeverityLevel.WARNING]
+        rules_failed = [rt for rt, sev in rule_severity_map.items() if sev == SeverityLevel.FAIL]
 
         summary.rules_warned = rules_warned
         summary.rules_failed = rules_failed
@@ -1107,9 +1105,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             if rule not in rules_warned and rule not in rules_failed
         ]
 
-        # Set check counts based on rule counts (not execution_details)
-        summary.checks_failed = len(rules_failed)
-        summary.checks_warned = len(rules_warned)
+        # Calculate checks_failed and checks_warned from execution_details based on severity
+        # Each execution_detail has a rule_name field - categorize by severity
+        checks_failed_count = 0
+        checks_warned_count = 0
+        for ed in all_execution_details:
+            if ed.get("status") == "failed":
+                rule_name = ed.get("rule_name")
+                if rule_name and rule_severity_map.get(rule_name) == SeverityLevel.FAIL:
+                    checks_failed_count += 1
+                elif rule_name and rule_severity_map.get(rule_name) == SeverityLevel.WARNING:
+                    checks_warned_count += 1
+        summary.checks_failed = checks_failed_count
+        summary.checks_warned = checks_warned_count
 
         logger.info(f"analyze_documents: Returning {len(all_execution_details)} execution details")
         logger.debug(f"analyze_documents: execution_details = {all_execution_details}")
