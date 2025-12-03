@@ -37,6 +37,7 @@ from drift.core.types import (
     WorkflowElement,
 )
 from drift.documents.loader import DocumentLoader
+from drift.providers.anthropic import AnthropicProvider
 from drift.providers.base import Provider
 from drift.providers.bedrock import BedrockProvider
 from drift.utils.temp import TempManager
@@ -169,15 +170,14 @@ class DriftAnalyzer:
             provider_config = self.config.providers[provider_name]
 
             # Create provider instance based on provider type
-            if provider_config.provider == ProviderType.BEDROCK:
+            if provider_config.provider == ProviderType.ANTHROPIC:
+                self.providers[model_name] = AnthropicProvider(
+                    provider_config, model_config, self.cache
+                )
+            elif provider_config.provider == ProviderType.BEDROCK:
                 self.providers[model_name] = BedrockProvider(
                     provider_config, model_config, self.cache
                 )
-            # Future: Add OpenAI and other providers
-            # elif provider_config.provider == ProviderType.OPENAI:
-            #     self.providers[model_name] = OpenAIProvider(
-            #         provider_config, model_config, self.cache
-            #     )
 
     def _initialize_agent_loaders(self) -> None:
         """Initialize agent loaders based on config."""

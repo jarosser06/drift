@@ -4,9 +4,11 @@ import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from anthropic import AnthropicError
 from botocore.exceptions import ClientError, NoCredentialsError
 
 from drift.config.models import ModelConfig, ProviderConfig, ProviderType
+from drift.providers.anthropic import AnthropicProvider
 from drift.providers.bedrock import BedrockProvider
 
 
@@ -325,3 +327,276 @@ class TestBedrockProvider:
         provider = BedrockProvider(bedrock_provider_config, bedrock_model_config)
 
         assert provider.get_provider_type() == "bedrock"
+
+
+class TestAnthropicProvider:
+    """Tests for AnthropicProvider."""
+
+    @pytest.fixture
+    def anthropic_provider_config(self):
+        """Anthropic provider configuration fixture."""
+        return ProviderConfig(
+            provider=ProviderType.ANTHROPIC,
+            params={},
+        )
+
+    @pytest.fixture
+    def anthropic_provider_config_custom_env(self):
+        """Anthropic provider configuration with custom API key env."""
+        return ProviderConfig(
+            provider=ProviderType.ANTHROPIC,
+            params={"api_key_env": "CUSTOM_API_KEY"},
+        )
+
+    @pytest.fixture
+    def anthropic_model_config(self):
+        """Anthropic model configuration fixture."""
+        return ModelConfig(
+            provider="anthropic",
+            model_id="claude-sonnet-4-5-20250929",
+            params={
+                "max_tokens": 4096,
+                "temperature": 0.0,
+            },
+        )
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_initialization_success(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test successful provider initialization."""
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.provider_config == anthropic_provider_config
+        assert provider.model_config == anthropic_model_config
+        assert provider.client is not None
+        mock_anthropic.assert_called_once_with(api_key="test-api-key")
+
+    @patch.dict("os.environ", {"CUSTOM_API_KEY": "custom-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_initialization_custom_api_key_env(
+        self, mock_anthropic, anthropic_provider_config_custom_env, anthropic_model_config
+    ):
+        """Test initialization with custom API key environment variable."""
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+
+        AnthropicProvider(anthropic_provider_config_custom_env, anthropic_model_config)
+
+        mock_anthropic.assert_called_once_with(api_key="custom-key")
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_initialization_no_api_key(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test provider initialization handles missing API key."""
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.client is None
+        mock_anthropic.assert_not_called()
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_initialization_handles_exception(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test provider initialization handles client creation failure."""
+        mock_anthropic.side_effect = Exception("Initialization error")
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.client is None
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_is_available_true(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test is_available returns True when client is initialized."""
+        mock_client = MagicMock()
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.is_available() is True
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_is_available_false_no_api_key(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test is_available returns False when API key is missing."""
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.is_available() is False
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_success(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test successful text generation."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text="Generated response text")]
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+        result = provider.generate("Test prompt")
+
+        assert result == "Generated response text"
+        mock_client.messages.create.assert_called_once()
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_with_system_prompt(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generation with system prompt."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text="Response")]
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+        provider.generate("User prompt", system_prompt="System instructions")
+
+        # Verify system prompt is included
+        call_args = mock_client.messages.create.call_args
+        assert "system" in call_args[1]
+        assert call_args[1]["system"] == "System instructions"
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_with_additional_params(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generation with additional model parameters."""
+        model_config = ModelConfig(
+            provider="anthropic",
+            model_id="claude-sonnet-4-5-20250929",
+            params={"max_tokens": 2048, "temperature": 0.5, "top_p": 0.9, "top_k": 40},
+        )
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text="Response")]
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, model_config)
+        provider.generate("Test")
+
+        # Verify additional params are included
+        call_args = mock_client.messages.create.call_args
+        assert call_args[1]["top_p"] == 0.9
+        assert call_args[1]["top_k"] == 40
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_raises_error_when_not_available(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generate raises error when provider not available."""
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            provider.generate("Test prompt")
+        assert "Anthropic provider is not available" in str(exc_info.value)
+        assert "ANTHROPIC_API_KEY" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"CUSTOM_API_KEY": "test-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_error_message_custom_env(
+        self, mock_anthropic, anthropic_provider_config_custom_env, anthropic_model_config
+    ):
+        """Test error message includes custom API key env variable name."""
+        # Initialize without the custom env var set
+        with patch.dict("os.environ", {}, clear=True):
+            provider = AnthropicProvider(
+                anthropic_provider_config_custom_env, anthropic_model_config
+            )
+
+            with pytest.raises(RuntimeError) as exc_info:
+                provider.generate("Test prompt")
+            assert "CUSTOM_API_KEY" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_handles_anthropic_error(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generate handles Anthropic API errors."""
+        mock_client = MagicMock()
+        mock_client.messages.create.side_effect = AnthropicError("API Error")
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        with pytest.raises(Exception) as exc_info:
+            provider.generate("Test prompt")
+        assert "Anthropic API error" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_handles_empty_response(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generate handles empty response content."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = []
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        with pytest.raises(Exception) as exc_info:
+            provider.generate("Test prompt")
+        assert "Unexpected response format" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_generate_handles_none_response(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test generate handles None response content."""
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = None
+        mock_client.messages.create.return_value = mock_response
+        mock_anthropic.return_value = mock_client
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        with pytest.raises(Exception) as exc_info:
+            provider.generate("Test prompt")
+        assert "Unexpected response format" in str(exc_info.value)
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_get_model_id(self, mock_anthropic, anthropic_provider_config, anthropic_model_config):
+        """Test getting model ID."""
+        mock_anthropic.return_value = MagicMock()
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.get_model_id() == anthropic_model_config.model_id
+
+    @patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-api-key"})
+    @patch("drift.providers.anthropic.Anthropic")
+    def test_get_provider_type(
+        self, mock_anthropic, anthropic_provider_config, anthropic_model_config
+    ):
+        """Test getting provider type."""
+        mock_anthropic.return_value = MagicMock()
+
+        provider = AnthropicProvider(anthropic_provider_config, anthropic_model_config)
+
+        assert provider.get_provider_type() == "anthropic"

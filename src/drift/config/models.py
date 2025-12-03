@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 class ProviderType(str, Enum):
     """Supported LLM provider types."""
 
+    ANTHROPIC = "anthropic"
     BEDROCK = "bedrock"
     OPENAI = "openai"
 
