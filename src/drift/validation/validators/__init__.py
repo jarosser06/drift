@@ -20,11 +20,14 @@ from drift.validation.validators.core import (
     DependencyDuplicateValidator,
     FileExistsValidator,
     FileSizeValidator,
+    JsonSchemaValidator,
     ListMatchValidator,
     ListRegexMatchValidator,
     MarkdownLinkValidator,
     RegexMatchValidator,
     TokenCountValidator,
+    YamlFrontmatterValidator,
+    YamlSchemaValidator,
 )
 
 
@@ -79,6 +82,9 @@ class ValidatorRegistry:
             ValidationType.FILE_NOT_EXISTS: FileExistsValidator(loader),
             ValidationType.FILE_SIZE: FileSizeValidator(loader),
             ValidationType.TOKEN_COUNT: TokenCountValidator(loader),
+            ValidationType.JSON_SCHEMA: JsonSchemaValidator(loader),
+            ValidationType.YAML_SCHEMA: YamlSchemaValidator(loader),
+            ValidationType.YAML_FRONTMATTER: YamlFrontmatterValidator(loader),
             ValidationType.REGEX_MATCH: RegexMatchValidator(loader),
             ValidationType.LIST_MATCH: ListMatchValidator(loader),
             ValidationType.LIST_REGEX_MATCH: ListRegexMatchValidator(loader),
@@ -216,10 +222,13 @@ __all__ = [
     "DependencyDuplicateValidator",
     "FileExistsValidator",
     "FileSizeValidator",
+    "JsonSchemaValidator",
     "ListMatchValidator",
     "ListRegexMatchValidator",
     "MarkdownLinkValidator",
     "RegexMatchValidator",
     "TokenCountValidator",
     "ValidatorRegistry",
+    "YamlFrontmatterValidator",
+    "YamlSchemaValidator",
 ]

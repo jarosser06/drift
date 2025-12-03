@@ -1,4 +1,4 @@
-"""Validators for file existence and size checks."""
+"""Validators for file existence, size checks, and token counting."""
 
 from typing import List, Literal, Optional
 

@@ -6,6 +6,11 @@ from drift.validation.validators.core.file_validators import (
     FileSizeValidator,
     TokenCountValidator,
 )
+from drift.validation.validators.core.format_validators import (
+    JsonSchemaValidator,
+    YamlFrontmatterValidator,
+    YamlSchemaValidator,
+)
 from drift.validation.validators.core.list_validators import (
     ListMatchValidator,
     ListRegexMatchValidator,
@@ -17,9 +22,12 @@ __all__ = [
     "DependencyDuplicateValidator",
     "FileExistsValidator",
     "FileSizeValidator",
+    "JsonSchemaValidator",
     "ListMatchValidator",
     "ListRegexMatchValidator",
     "MarkdownLinkValidator",
     "RegexMatchValidator",
     "TokenCountValidator",
+    "YamlFrontmatterValidator",
+    "YamlSchemaValidator",
 ]

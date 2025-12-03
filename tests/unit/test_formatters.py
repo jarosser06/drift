@@ -293,6 +293,11 @@ class TestMarkdownFormatter:
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_warned=["rule2"],
+                total_checks=2,
+                checks_passed=1,
+                checks_failed=1,
+                checks_warned=0,
+                checks_errored=0,
             ),
             results=[analysis_result],
         )
@@ -300,7 +305,8 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter(config=config)
         output = formatter.format(result)
 
-        assert "Checks warned:" in output or "- Checks warned:" in output
+        # Check that total checks is displayed
+        assert "Total checks: 2" in output
 
     def test_format_with_rules_failed(self):
         """Test formatting with rules that have failures."""
@@ -349,6 +355,11 @@ class TestMarkdownFormatter:
                 rules_checked=["rule1", "rule2"],
                 rules_passed=["rule1"],
                 rules_failed=["rule2"],
+                total_checks=2,
+                checks_passed=1,
+                checks_failed=1,
+                checks_warned=0,
+                checks_errored=0,
             ),
             results=[analysis_result],
         )
@@ -356,7 +367,8 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter(config=config)
         output = formatter.format(result)
 
-        assert "Checks failed:" in output or "- Checks failed:" in output
+        # Check that checks failed is displayed when > 0
+        assert "Checks failed: 1" in output or "- Checks failed: 1" in output
 
     def test_format_with_rules_errored(self):
         """Test formatting with rules that errored."""
@@ -369,6 +381,11 @@ class TestMarkdownFormatter:
                 rules_passed=["rule1"],
                 rules_errored=["rule2"],
                 rule_errors={"rule2": "Some error message"},
+                total_checks=2,
+                checks_passed=1,
+                checks_failed=0,
+                checks_warned=0,
+                checks_errored=1,
             ),
             results=[],
         )
@@ -376,7 +393,8 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter()
         output = formatter.format(result)
 
-        assert "Checks errored:" in output or "- Checks errored:" in output
+        # Check that checks errored is displayed when > 0
+        assert "Checks errored: 1" in output or "- Checks errored: 1" in output
 
     def test_format_with_rules_passed_section(self):
         """Test formatting shows rules passed section."""

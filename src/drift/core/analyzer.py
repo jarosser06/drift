@@ -276,6 +276,11 @@ class DriftAnalyzer:
                         rules_warned=[],
                         rules_failed=[],
                         rules_errored=[],
+                        total_checks=0,
+                        checks_passed=0,
+                        checks_failed=0,
+                        checks_warned=0,
+                        checks_errored=0,
                     ),
                     results=[],
                 )
@@ -347,6 +352,11 @@ class DriftAnalyzer:
                         rules_warned=[],
                         rules_failed=[],
                         rules_errored=[],
+                        total_checks=0,
+                        checks_passed=0,
+                        checks_failed=0,
+                        checks_warned=0,
+                        checks_errored=0,
                     ),
                     results=[],
                 )
@@ -765,6 +775,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             total_rule_violations=0,
             conversations_with_drift=0,
             conversations_without_drift=0,
+            total_checks=0,
+            checks_passed=0,
+            checks_failed=0,
+            checks_warned=0,
+            checks_errored=0,
         )
 
         # Count rules by type and agent
@@ -886,6 +901,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     total_rule_violations=0,
                     conversations_with_drift=0,
                     conversations_without_drift=0,
+                    total_checks=0,
+                    checks_passed=0,
+                    checks_failed=0,
+                    checks_warned=0,
+                    checks_errored=0,
                 ),
                 results=[],
             )
@@ -1035,6 +1055,11 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             total_rule_violations=len(all_document_learnings),
             conversations_with_drift=0,
             conversations_without_drift=0,
+            total_checks=0,
+            checks_passed=0,
+            checks_failed=0,
+            checks_warned=0,
+            checks_errored=0,
         )
 
         by_type: Dict[str, int] = {}
@@ -1043,6 +1068,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         summary.by_type = by_type
 
         summary.rules_checked = list(document_types.keys())
+
+        # Count individual checks from execution_details
+        summary.total_checks = len(all_execution_details)
+        summary.checks_passed = sum(
+            1 for ed in all_execution_details if ed.get("status") == "passed"
+        )
+        summary.checks_failed = sum(
+            1 for ed in all_execution_details if ed.get("status") == "failed"
+        )
+        summary.checks_warned = 0  # Not currently tracked at check level
+        summary.checks_errored = sum(
+            1 for ed in all_execution_details if ed.get("status") == "errored"
+        )
 
         # Separate warnings from failures based on severity
         rules_warned = []
