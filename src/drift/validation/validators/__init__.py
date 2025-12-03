@@ -19,10 +19,12 @@ from drift.validation.validators.client import (
 from drift.validation.validators.core import (
     DependencyDuplicateValidator,
     FileExistsValidator,
+    FileSizeValidator,
     ListMatchValidator,
     ListRegexMatchValidator,
     MarkdownLinkValidator,
     RegexMatchValidator,
+    TokenCountValidator,
 )
 
 
@@ -75,6 +77,8 @@ class ValidatorRegistry:
         self._validators = {
             ValidationType.FILE_EXISTS: FileExistsValidator(loader),
             ValidationType.FILE_NOT_EXISTS: FileExistsValidator(loader),
+            ValidationType.FILE_SIZE: FileSizeValidator(loader),
+            ValidationType.TOKEN_COUNT: TokenCountValidator(loader),
             ValidationType.REGEX_MATCH: RegexMatchValidator(loader),
             ValidationType.LIST_MATCH: ListMatchValidator(loader),
             ValidationType.LIST_REGEX_MATCH: ListRegexMatchValidator(loader),
@@ -211,9 +215,11 @@ __all__ = [
     "ClaudeSkillSettingsValidator",
     "DependencyDuplicateValidator",
     "FileExistsValidator",
+    "FileSizeValidator",
     "ListMatchValidator",
     "ListRegexMatchValidator",
     "MarkdownLinkValidator",
     "RegexMatchValidator",
+    "TokenCountValidator",
     "ValidatorRegistry",
 ]

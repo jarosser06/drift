@@ -488,3 +488,79 @@ rule_definitions:
         type: claude_mcp_permissions
         failure_message: "MCP servers missing from .claude/settings.json permissions.allow array"
         expected_behavior: "Every MCP server in .mcp.json should have a corresponding MCP(server-name) entry in .claude/settings.json"
+
+  claude_md_quality:
+    description: "CLAUDE.md file violates quality best practices"
+    scope: project_level
+    context: "CLAUDE.md should be concise (<1500 tokens for Anthropic), use pointers instead of large code blocks (>20 lines), avoid linting rules (use automated tools), and provide essential project context."
+    requires_project_context: false
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: mixed
+      file_patterns:
+        - CLAUDE.md
+      bundle_strategy: individual
+      resource_patterns: []
+    phases:
+      - name: check_token_count
+        type: token_count
+        file_path: CLAUDE.md
+        max_count: 1500
+        params:
+          provider: anthropic
+        failure_message: "CLAUDE.md exceeds 1500 tokens (Anthropic best practice for context efficiency)"
+        expected_behavior: "CLAUDE.md should be concise and under 1500 tokens"
+      - name: content_quality
+        type: prompt
+        model: sonnet
+        prompt: |
+          Evaluate CLAUDE.md for content quality, code block length, and anti-patterns per Anthropic best practices.
+
+          CRITICAL ISSUES (report these):
+
+          **Token Efficiency**:
+          1. Contains code blocks longer than 20 lines (count lines between ``` fences for each block)
+          2. Large narrative paragraphs (>8 consecutive non-bullet lines) instead of bullet points
+
+          **Completeness & Structure**:
+          3. Missing ALL essential sections: tech stack, architecture, key commands/workflows, and coding standards
+          4. No clear Markdown structure (no headers at all, completely unorganized)
+          5. File is empty or only contains generic template boilerplate with no project-specific info
+
+          **Anti-Patterns**:
+          6. Contains detailed linting/formatting rules (e.g., "max line length 88", "import order: stdlib, third-party, local")
+             → Should use automated tools (pyproject.toml, .flake8) NOT CLAUDE.md
+          7. Embeds full API documentation (>30 lines of endpoint specs, schemas, or API reference)
+             → Should link to API docs instead
+          8. Session-specific instructions (e.g., "In this conversation..." or "For today's task...")
+             → CLAUDE.md must be universal across all sessions
+
+          ACCEPTABLE (do NOT report):
+          - Code blocks under 20 lines
+          - Brief narrative intros (2-3 sentences) before bullet lists
+          - Variations in section naming ("Tech Stack" vs "Stack")
+          - Brief sections (concise is good)
+          - Missing optional sections like "Contributing"
+          - Sections combined logically ("Commands & Workflows")
+          - Brief style references ("We follow PEP 8, see pyproject.toml") ✓
+          - Links to API docs ✓
+          - General universal guidelines ✓
+          - Brief code examples (2-3 lines) ✓
+
+          EXAMPLES OF ACCEPTABLE:
+          - 15-line code block ✓ (under 20)
+          - "Stack: Python 3.11, FastAPI" ✓ (brief)
+          - "Use black/flake8. Config in pyproject.toml" ✓ (pointer)
+          - "API docs: https://example.com/api" ✓ (link)
+
+          EXAMPLES TO FLAG:
+          - 30-line code block ✗ (over 20)
+          - "Linting: max-line-length=88, import order: stdlib, third-party..." ✗ (detailed rules)
+          - 50-line API endpoint specification section ✗ (embedded docs)
+          - "In this conversation, focus on auth module" ✗ (session-specific)
+          - 12-line paragraph explaining commands ✗ (use bullets)
+          - Multiple "TODO: add your..." with no actual content ✗ (template only)
+
+          ONLY REPORT issues that significantly impact quality or violate best practices.
+        available_resources: []
