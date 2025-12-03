@@ -1507,3 +1507,40 @@ class TestAnalyzeCommand:
             assert "readme_check" in result.stdout
             assert "license_check" in result.stdout
             assert "No issues found" in result.stdout
+
+    @patch("drift.cli.commands.analyze.DriftAnalyzer")
+    @patch("drift.cli.commands.analyze.ConfigLoader")
+    def test_no_parallel_flag_disables_parallel_execution(
+        self,
+        mock_config_loader,
+        mock_analyzer_class,
+        cli_runner,
+        sample_drift_config,
+        mock_complete_result,
+        temp_dir,
+    ):
+        """Test that --no-parallel flag disables parallel execution."""
+        from drift.config.models import ParallelExecutionConfig
+
+        # Setup config with parallel execution enabled by default
+        config = sample_drift_config
+        config.parallel_execution = ParallelExecutionConfig(enabled=True)
+
+        mock_config_loader.load_config.return_value = config
+        mock_config_loader.ensure_global_config_exists.return_value = None
+
+        # Create mock analyzer that returns empty result
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer_class.return_value = mock_analyzer
+
+        # Invoke with --no-parallel flag
+        result = cli_runner.invoke(
+            main,
+            ["--no-parallel", "--project", str(temp_dir)],
+        )
+
+        # Verify the config was modified to disable parallel execution
+        assert result.exit_code == 0
+        assert config.parallel_execution.enabled is False

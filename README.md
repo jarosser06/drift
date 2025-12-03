@@ -101,6 +101,7 @@ cache_ttl: 86400             # TTL in seconds (default: 86400 = 24 hours)
 CLI overrides:
 - `--no-cache`: Disable caching for this run
 - `--cache-dir <path>`: Use custom cache directory
+- `--no-parallel`: Disable parallel execution of validation rules (use sequential execution)
 
 ## Example Output
 
@@ -265,6 +266,7 @@ rule_definitions:
 - `--all`: Analyze all conversations
 - `--model` (`-m`): Override model for analysis (sonnet, haiku)
 - `--no-llm`: Skip LLM-based rules, run only programmatic validation (fast)
+- `--no-parallel`: Disable parallel execution of validation rules
 - `--project` (`-p`): Project path (defaults to current directory)
 - `--verbose` (`-v`): Increase verbosity (-v, -vv, -vvv)
 

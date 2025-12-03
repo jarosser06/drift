@@ -121,6 +121,12 @@ Examples:
     )
 
     parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        help="Disable parallel execution of validation rules",
+    )
+
+    parser.add_argument(
         "--project",
         "-p",
         default=None,
@@ -159,6 +165,7 @@ def main() -> None:
         no_llm=args.no_llm,
         no_cache=args.no_cache,
         cache_dir=args.cache_dir,
+        no_parallel=args.no_parallel,
         project=args.project,
         verbose=args.verbose,
     )
