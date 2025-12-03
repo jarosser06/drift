@@ -45,17 +45,22 @@ Guide the user through the process of releasing a new version of the ai-drift pa
     git push && git push --tags
     ```
 
-11. **Build and publish**: Ask if they want to build and publish to PyPI now:
-    - If yes, run `./distro.sh build --clean`
-    - Ask if they want to test on TestPyPI first
-    - If testing: run `./distro.sh push --test`
-    - If ready for production: run `./distro.sh push`
+11. **Inform about automation**: Let the user know that pushing the tag will automatically trigger GitHub Actions to:
+    - Verify CI tests passed on the tagged commit
+    - Build distribution packages (wheel and source)
+    - Publish to PyPI using trusted publishing
+    - Create a GitHub Release with:
+      - Changelog from CHANGELOG.md
+      - Installation instructions
+      - Distribution files attached
+    - They can monitor progress in the Actions tab: https://github.com/jarosser06/drift/actions
 
-12. **Inform about GitHub Release**: Remind the user they can create a GitHub Release manually at:
-    https://github.com/jarosser06/drift/releases/new
-    - Select tag: v{version}
-    - Use CHANGELOG entry as description
-    - Can attach distribution files from `dist/` if desired
+12. **Manual alternative**: Inform that if they prefer to publish manually instead:
+    - Wait for the tag push to complete
+    - Cancel the GitHub Actions workflow if it starts
+    - Run `./distro.sh build --clean`
+    - Run `./distro.sh push --test` for TestPyPI (optional)
+    - Run `./distro.sh push` for production PyPI
 
 ## Important Notes
 
@@ -65,6 +70,10 @@ Guide the user through the process of releasing a new version of the ai-drift pa
 - Always verify the git diff before committing
 - PyPI does not allow replacing versions - must bump to publish updates
 - The PyPI package page will automatically update with new README content
+- GitHub Actions uses **trusted publishing** to PyPI (no tokens needed)
+  - Configured at: https://pypi.org/manage/project/ai-drift/settings/publishing/
+  - Adds the GitHub Actions workflow as a trusted publisher
+- The release workflow will fail if CI tests didn't pass on the tagged commit
 
 ## Example Flow
 
