@@ -99,33 +99,46 @@ class MarkdownFormatter(OutputFormatter):
         lines.append("## Summary")
         lines.append(f"- Total conversations: {result.summary.total_conversations}")
 
-        # Don't color the total rules count
-        lines.append(f"- Total rules: {result.summary.total_rule_violations}")
-
-        # Rules checked - show even if 0
+        # Show total rules from config (count of rule definitions)
         if result.summary.rules_checked is not None:
-            lines.append(f"- Rules checked: {len(result.summary.rules_checked)}")
+            lines.append(f"- Total rules: {len(result.summary.rules_checked)}")
+
+        # Total violations found
+        lines.append(f"- Total violations: {result.summary.total_rule_violations}")
+
+        # Total checks - show even if 0
+        if result.summary.rules_checked is not None:
+            total_checks = (
+                len(result.summary.rules_passed if result.summary.rules_passed else [])
+                + len(result.summary.rules_warned if result.summary.rules_warned else [])
+                + len(result.summary.rules_failed if result.summary.rules_failed else [])
+                + len(result.summary.rules_errored if result.summary.rules_errored else [])
+            )
+            lines.append(f"- Total checks: {total_checks}")
+
+        # Checks breakdown - show even if 0
+        if result.summary.rules_checked is not None:
             # Always show counts, even if 0
             passed_count = len(result.summary.rules_passed) if result.summary.rules_passed else 0
             count_str = self._colorize(
                 str(passed_count), self.GREEN if passed_count > 0 else self.RESET
             )
-            lines.append(f"- Rules passed: {count_str}")
+            lines.append(f"- Checks passed: {count_str}")
 
             warned_count = len(result.summary.rules_warned) if result.summary.rules_warned else 0
             if warned_count > 0:
                 count_str = self._colorize(str(warned_count), self.YELLOW)
-                lines.append(f"- Rules warned: {count_str}")
+                lines.append(f"- Checks warned: {count_str}")
 
             failed_count = len(result.summary.rules_failed) if result.summary.rules_failed else 0
             if failed_count > 0:
                 count_str = self._colorize(str(failed_count), self.RED)
-                lines.append(f"- Rules failed: {count_str}")
+                lines.append(f"- Checks failed: {count_str}")
 
             errored_count = len(result.summary.rules_errored) if result.summary.rules_errored else 0
             if errored_count > 0:
                 count_str = self._colorize(str(errored_count), self.YELLOW)
-                lines.append(f"- Rules errored: {count_str}")
+                lines.append(f"- Checks errored: {count_str}")
 
         # By type
         if result.summary.by_type:
@@ -143,18 +156,18 @@ class MarkdownFormatter(OutputFormatter):
 
         lines.append("")
 
-        # Show rules that passed
+        # Show checks that passed
         if result.summary.rules_passed:
-            header = self._colorize("## Rules Passed ✓", self.GREEN)
+            header = self._colorize("## Checks Passed ✓", self.GREEN)
             lines.append(header)
             lines.append("")
             for rule in sorted(result.summary.rules_passed):
                 lines.append(f"- **{rule}**: No issues found")
             lines.append("")
 
-        # Show rules that errored
+        # Show checks that errored
         if result.summary.rules_errored:
-            header = self._colorize("## Rules Errored ⚠", self.YELLOW)
+            header = self._colorize("## Checks Errored ⚠", self.YELLOW)
             lines.append(header)
             lines.append("")
             for rule in sorted(result.summary.rules_errored):
@@ -162,9 +175,9 @@ class MarkdownFormatter(OutputFormatter):
                 lines.append(f"- **{rule}**: {error_msg}")
             lines.append("")
 
-        # If no rules found, show message
+        # If no violations found, show message
         if result.summary.total_rule_violations == 0:
-            header = self._colorize("## No Rule Violations Detected", self.GREEN)
+            header = self._colorize("## No Violations Detected", self.GREEN)
             lines.append(header)
             lines.append("")
             lines.append("No drift patterns were found in the analyzed data.")

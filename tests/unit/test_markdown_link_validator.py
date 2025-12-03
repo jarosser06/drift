@@ -352,3 +352,197 @@ class TestMarkdownLinkValidator:
         assert "missing1.md" in result.observed_issue
         assert "missing2.md" in result.observed_issue
         assert "missing3.md" in result.observed_issue
+
+    def test_validation_resource_references_skill(self, validator, tmp_path):
+        """Test validation of skill resource references.
+
+        Resource references use the pattern in the link TEXT, not URL.
+        Example: [skill:test-skill](https://example.com)
+        """
+        # Create actual skill
+        skill_dir = tmp_path / ".claude" / "skills" / "test-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("# Test Skill")
+
+        test_file = tmp_path / "index.md"
+        content = """# Index
+
+[skill:test-skill](https://example.com)
+"""
+        test_file.write_text(content)
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="command",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="index.md",
+                    content=content,
+                    file_path=str(test_file),
+                )
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check resource references",
+            failure_message="Broken resource references found",
+            expected_behavior="All resource references should be valid",
+            params={
+                "check_local_files": False,
+                "check_external_urls": False,
+                "check_resource_refs": True,
+                "resource_patterns": [r"skill:([a-zA-Z0-9-_]+)"],
+            },
+        )
+
+        result = validator.validate(rule, bundle)
+        # Should pass because test-skill exists
+        assert result is None
+
+    def test_validation_resource_references_missing_skill(self, validator, tmp_path):
+        """Test validation fails for missing skill resource."""
+        test_file = tmp_path / "index.md"
+        content = """# Index
+
+[skill:missing-skill](some-url.md)
+"""
+        test_file.write_text(content)
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="command",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="index.md",
+                    content=content,
+                    file_path=str(test_file),
+                )
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check resource references",
+            failure_message="Broken resource references found",
+            expected_behavior="All resource references should be valid",
+            params={
+                "check_local_files": False,
+                "check_external_urls": False,
+                "check_resource_refs": True,
+                "resource_patterns": [r"skill:([a-zA-Z0-9-_]+)"],
+            },
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is not None
+        assert "missing-skill" in result.observed_issue
+        assert "skill reference not found" in result.observed_issue
+
+    def test_validation_resource_references_command(self, validator, tmp_path):
+        """Test validation of command resource references."""
+        # Create actual command
+        cmd_dir = tmp_path / ".claude" / "commands"
+        cmd_dir.mkdir(parents=True)
+        (cmd_dir / "test-cmd.md").write_text("# Test Command")
+
+        test_file = tmp_path / "index.md"
+        content = """# Index
+
+[/test-cmd](https://example.com)
+"""
+        test_file.write_text(content)
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="index.md",
+                    content=content,
+                    file_path=str(test_file),
+                )
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check resource references",
+            failure_message="Broken resource references found",
+            expected_behavior="All resource references should be valid",
+            params={
+                "check_local_files": False,
+                "check_external_urls": False,
+                "check_resource_refs": True,
+                "resource_patterns": [r"/([a-zA-Z0-9-_]+)"],
+            },
+        )
+
+        result = validator.validate(rule, bundle)
+        # Should pass because test-cmd exists
+        assert result is None
+
+    def test_validation_resource_references_agent(self, validator, tmp_path):
+        """Test validation of agent resource references."""
+        # Create actual agent
+        agent_dir = tmp_path / ".claude" / "agents"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "test-agent.md").write_text("# Test Agent")
+
+        test_file = tmp_path / "index.md"
+        content = """# Index
+
+[Test Agent](agent:test-agent)
+"""
+        test_file.write_text(content)
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="index.md",
+                    content=content,
+                    file_path=str(test_file),
+                )
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.MARKDOWN_LINK,
+            description="Check resource references",
+            failure_message="Broken resource references found",
+            expected_behavior="All resource references should be valid",
+            params={
+                "check_local_files": False,
+                "check_external_urls": False,
+                "check_resource_refs": True,
+                "resource_patterns": [r"agent:([a-zA-Z0-9-_]+)"],
+            },
+        )
+
+        result = validator.validate(rule, bundle)
+        # Should pass because test-agent exists
+        assert result is None
+
+    def test_guess_resource_type_from_pattern(self, validator):
+        """Test _guess_resource_type method."""
+        # Test skill pattern
+        assert validator._guess_resource_type("skill:([^)]+)") == "skill"
+
+        # Test command pattern (contains /)
+        assert validator._guess_resource_type("/([^)]+)") == "command"
+
+        # Test agent pattern
+        assert validator._guess_resource_type("agent:([^)]+)") == "agent"
+
+        # Test unknown pattern
+        assert validator._guess_resource_type("unknown:([^)]+)") is None

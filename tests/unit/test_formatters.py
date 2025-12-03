@@ -36,7 +36,7 @@ class TestMarkdownFormatter:
         assert "# Drift Analysis Results" in output
         assert "## Summary" in output
         assert "Total conversations: 0" in output
-        assert "No Rule Violations Detected" in output
+        assert "No Violations Detected" in output
 
     def test_format_no_learnings(self):
         """Test formatting results with conversations but no rules."""
@@ -55,7 +55,7 @@ class TestMarkdownFormatter:
 
         assert "Total conversations: 2" in output
         assert "Total rules: 0" in output
-        assert "No Rule Violations Detected" in output
+        assert "No Violations Detected" in output
 
     def test_format_with_learnings(self, sample_learning):
         """Test formatting results with rules."""
@@ -76,6 +76,7 @@ class TestMarkdownFormatter:
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
                 by_agent={"claude-code": 1},
+                rules_checked=["incomplete_work"],
             ),
             results=[analysis_result],
         )
@@ -299,7 +300,7 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter(config=config)
         output = formatter.format(result)
 
-        assert "Rules warned:" in output or "- Rules warned:" in output
+        assert "Checks warned:" in output or "- Checks warned:" in output
 
     def test_format_with_rules_failed(self):
         """Test formatting with rules that have failures."""
@@ -355,7 +356,7 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter(config=config)
         output = formatter.format(result)
 
-        assert "Rules failed:" in output or "- Rules failed:" in output
+        assert "Checks failed:" in output or "- Checks failed:" in output
 
     def test_format_with_rules_errored(self):
         """Test formatting with rules that errored."""
@@ -375,7 +376,7 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter()
         output = formatter.format(result)
 
-        assert "Rules errored:" in output or "- Rules errored:" in output
+        assert "Checks errored:" in output or "- Checks errored:" in output
 
     def test_format_with_rules_passed_section(self):
         """Test formatting shows rules passed section."""
@@ -393,7 +394,7 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter()
         output = formatter.format(result)
 
-        assert "## Rules Passed" in output
+        assert "## Checks Passed" in output
         assert "rule1" in output
         assert "rule2" in output
 
@@ -415,7 +416,7 @@ class TestMarkdownFormatter:
         formatter = MarkdownFormatter()
         output = formatter.format(result)
 
-        assert "## Rules Errored" in output
+        assert "## Checks Errored" in output
         assert "rule2" in output
         assert "Test error" in output
 
