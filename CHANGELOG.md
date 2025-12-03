@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-12-03
+
+- Add PyPI badges to README (version badge and Python 3.10+ compatibility)
+- Add direct link to PyPI package page in installation section
+- Add distro.sh script for building and publishing distributions with `build` and `push` commands
+- Switch build backend from Hatchling to setuptools for better PyPI name/import name handling
+- Add build tools to dev dependencies (build, twine, pkginfo>=1.12.0)
+
 ## [0.1.0] - 2025-12-03
 
 - Initial release of ai-drift (published to PyPI)
