@@ -170,7 +170,6 @@ class MarkdownFormatter(OutputFormatter):
             lines.append(header)
             lines.append("")
             lines.append("No drift patterns were found in the analyzed data.")
-            lines.append("This means the AI agent behavior aligned well with user expectations.")
             lines.append("")
 
             return "\n".join(lines)
