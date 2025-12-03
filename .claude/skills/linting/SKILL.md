@@ -20,7 +20,7 @@ Expert in maintaining code quality standards for Drift.
 ### flake8 (Code Quality)
 - **Max line length:** 100 characters
 - **Ignored rules:** E203 (whitespace before ':'), W503 (line break before binary operator)
-- **Config:** Inline or setup.cfg
+- **Config:** Inline or pyproject.toml
 
 ### black (Formatting)
 - **Line length:** 100 characters

@@ -84,19 +84,13 @@ Create reusable fixtures for:
    - Signal extraction
    - Output formatting
 
-3. **Configuration**
-   - Global config loading (config.yaml)
-   - Project config loading (.drift.yaml)
-   - Config merging and precedence
-   - Custom drift type definitions
-
-4. **LLM Integration**
+3. **LLM Integration**
    - API call construction
    - Response parsing
    - Error handling
    - Rate limiting
 
-5. **Output Generation**
+4. **Output Generation**
    - Linter-style output format
    - Summary statistics
    - Actionable recommendations
