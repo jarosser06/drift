@@ -57,6 +57,13 @@ class DocumentBundleConfig(BaseModel):
     )
 
 
+class ClientType(str, Enum):
+    """Types of clients that can use validators."""
+
+    ALL = "all"  # Validator works with all clients
+    CLAUDE = "claude"  # Claude-specific validator
+
+
 class ValidationType(str, Enum):
     """Types of validation rules."""
 
@@ -71,6 +78,9 @@ class ValidationType(str, Enum):
     LIST_REGEX_MATCH = "list_regex_match"
     DEPENDENCY_DUPLICATE = "dependency_duplicate"
     MARKDOWN_LINK = "markdown_link"
+    CLAUDE_SKILL_SETTINGS = "claude_skill_settings"
+    CLAUDE_SETTINGS_DUPLICATES = "claude_settings_duplicates"
+    CLAUDE_MCP_PERMISSIONS = "claude_mcp_permissions"
 
 
 class ParamType(str, Enum):

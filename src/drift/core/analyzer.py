@@ -15,8 +15,10 @@ from drift.cache import ResponseCache
 from drift.config.loader import ConfigLoader
 from drift.config.models import (
     BundleStrategy,
+    ClientType,
     DriftConfig,
     ProviderType,
+    RuleDefinition,
     SeverityLevel,
     ValidationRule,
     ValidationType,
@@ -42,27 +44,13 @@ from drift.validation.validators import ValidatorRegistry
 
 logger = logging.getLogger(__name__)
 
-# Centralized list of programmatic phase types
-PROGRAMMATIC_PHASE_TYPES = [
-    "file_exists",
-    "file_not_exists",
-    "regex_match",
-    "regex_not_match",
-    "file_count",
-    "file_size",
-    "cross_file_reference",
-    "list_match",
-    "list_regex_match",
-    "dependency_duplicate",
-    "markdown_link",
-]
 
-
-def _has_programmatic_phases(phases: List[Any]) -> bool:
+def _has_programmatic_phases(phases: List[Any], registry: ValidatorRegistry) -> bool:
     """Check if any phases are programmatic (non-LLM) types.
 
     Args:
         phases: List of phase definitions
+        registry: ValidatorRegistry to check computation types
 
     Returns:
         True if any phase has a programmatic type
@@ -70,7 +58,70 @@ def _has_programmatic_phases(phases: List[Any]) -> bool:
     if not phases:
         return False
 
-    return any(getattr(p, "type", "prompt") in PROGRAMMATIC_PHASE_TYPES for p in phases)
+    for phase in phases:
+        phase_type = getattr(phase, "type", "prompt")
+        if phase_type == "prompt":
+            continue
+
+        try:
+            # Convert string type to ValidationType
+            rule_type = ValidationType(phase_type)
+            if registry.is_programmatic(rule_type):
+                return True
+        except (ValueError, KeyError):
+            # Unknown type - assume it's LLM-based
+            continue
+
+    return False
+
+
+def _get_supported_clients_from_rule(
+    rule_def: RuleDefinition, registry: ValidatorRegistry, agent_tool: str
+) -> Optional[List[str]]:
+    """Determine supported clients for a rule based on its validation rules.
+
+    If the rule has explicit supported_clients, use that.
+    Otherwise, derive it from the validators used in validation_rules.
+
+    -- rule_def: The rule definition to check
+    -- registry: ValidatorRegistry to check validator client support
+    -- agent_tool: The agent tool from the conversation (e.g., "claude-code")
+
+    Returns List[str] of supported clients, or None if all clients supported.
+    """
+    # If explicitly set, use that
+    if rule_def.supported_clients is not None:
+        return rule_def.supported_clients
+
+    # If no validation rules, rule supports all clients (LLM-based rules)
+    if not rule_def.validation_rules or not rule_def.validation_rules.rules:
+        return None
+
+    # Collect all client types from validators
+    all_supported_clients = set()
+    supports_all = False
+
+    for val_rule in rule_def.validation_rules.rules:
+        try:
+            clients = registry.get_supported_clients(val_rule.rule_type)
+            if ClientType.ALL in clients:
+                supports_all = True
+            else:
+                # Convert ClientType enum to string for comparison with agent_tool
+                for client in clients:
+                    if client == ClientType.CLAUDE:
+                        all_supported_clients.add("claude-code")
+                    # Add more mappings here as needed for other client types
+        except ValueError:
+            # Unknown validator type - assume it supports all clients
+            supports_all = True
+
+    # If any validator supports ALL, the rule supports all clients
+    if supports_all:
+        return None
+
+    # Return the list of supported client strings
+    return list(all_supported_clients) if all_supported_clients else None
 
 
 class DriftAnalyzer:
@@ -98,6 +149,9 @@ class DriftAnalyzer:
             default_ttl=self.config.cache_ttl,
             enabled=self.config.cache_enabled,
         )
+
+        # Initialize validator registry for client filtering
+        self.validator_registry = ValidatorRegistry()
 
         self._initialize_providers()
         self._initialize_agent_loaders()
@@ -375,8 +429,10 @@ class DriftAnalyzer:
 
         # Perform one pass per learning type
         for type_name, type_config in rule_types.items():
-            # Client filtering: skip if rule doesn't support this agent_tool
-            supported_clients = getattr(type_config, "supported_clients", None)
+            # Client filtering: determine supported clients from validators or explicit config
+            supported_clients = _get_supported_clients_from_rule(
+                type_config, self.validator_registry, conversation.agent_tool
+            )
             if supported_clients is not None and conversation.agent_tool not in supported_clients:
                 skipped_due_to_client.append(type_name)
                 continue
@@ -800,7 +856,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             # Also include project-level rules with programmatic phases (no document bundle needed)
             elif config.scope in ("project_level", "document_level"):
                 phases = getattr(config, "phases", [])
-                if _has_programmatic_phases(phases):
+                registry = ValidatorRegistry()
+                if _has_programmatic_phases(phases, registry):
                     document_types[name] = config
 
         if not document_types:
@@ -847,7 +904,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 # Check if we can proceed without bundle_config (old phases format)
                 phases = getattr(type_config, "phases", []) or []
-                has_programmatic_phases = _has_programmatic_phases(phases)
+                registry = ValidatorRegistry()
+                has_programmatic_phases = _has_programmatic_phases(phases, registry)
                 has_validation_rules = getattr(type_config, "validation_rules", None) is not None
 
                 if bundle_config is None and not has_programmatic_phases:
@@ -1049,12 +1107,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         phases = getattr(type_config, "phases", [])
 
         if phases:
-            programmatic_phases = [
-                p for p in phases if getattr(p, "type", "prompt") in PROGRAMMATIC_PHASE_TYPES
-            ]
+            registry = ValidatorRegistry(loader)
+
+            # Filter programmatic phases using registry
+            programmatic_phases = []
+            for phase in phases:
+                phase_type = getattr(phase, "type", "prompt")
+                if phase_type == "prompt":
+                    continue
+
+                try:
+                    phase_rule_type = ValidationType(phase_type)
+                    if registry.is_programmatic(phase_rule_type):
+                        programmatic_phases.append(phase)
+                except (ValueError, KeyError):
+                    # Unknown type - skip
+                    continue
 
             if programmatic_phases:
-                registry = ValidatorRegistry()
                 rules = []
                 execution_details = []
 
