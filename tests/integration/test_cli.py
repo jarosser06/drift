@@ -1319,8 +1319,8 @@ class TestAnalyzeCommand:
             assert "Running: programmatic_rule" in result.stderr
 
             # Verify programmatic rule stats are reported
-            assert "Rules checked: 1" in result.stdout
-            assert "Rules passed: 1" in result.stdout
+            assert "Total rules: 1" in result.stdout
+            assert "Checks passed: 1" in result.stdout
             assert "programmatic_rule" in result.stdout
             assert "No issues found" in result.stdout
 
@@ -1378,8 +1378,8 @@ class TestAnalyzeCommand:
             assert "running 1 programmatic rule(s)" in result.stderr
 
             # Verify merged stats include project rule
-            assert "Rules checked: 1" in result.stdout
-            assert "Rules passed: 1" in result.stdout
+            assert "Total rules: 1" in result.stdout
+            assert "Checks passed: 1" in result.stdout
             assert "project_programmatic" in result.stdout
 
     def test_no_llm_conversation_scope_no_project_rules(
@@ -1500,8 +1500,8 @@ class TestAnalyzeCommand:
             assert mock_generate.call_count == 0
 
             # Verify output shows rule statistics
-            assert "Rules checked: 2" in result.stdout
-            assert "Rules passed: 2" in result.stdout
+            assert "Total rules: 2" in result.stdout
+            assert "Checks passed: 2" in result.stdout
 
             # Verify specific rule results
             assert "readme_check" in result.stdout

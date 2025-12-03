@@ -431,3 +431,38 @@ rule_definitions:
             - '\.cfg'              # Config files (setup.cfg, etc.)
             - 'CHANGELOG\.md'      # Changelog references in examples
             - 'github/workflows/'  # GitHub workflow directory references
+
+  claude_skill_permissions:
+    description: "Project skills missing from Claude Code settings permissions"
+    scope: project_level
+    context: "All skills in .claude/skills/ must have corresponding Skill() permission entries in .claude/settings.json. Missing permissions prevent skills from being used."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    phases:
+      - name: check_skill_permissions
+        type: claude_skill_settings
+        failure_message: "Skills missing from .claude/settings.json permissions.allow array"
+        expected_behavior: "Every skill directory in .claude/skills/ should have a corresponding Skill(name) entry in .claude/settings.json"
+
+  claude_settings_duplicates:
+    description: "Duplicate permission entries in Claude Code settings"
+    scope: project_level
+    context: "The .claude/settings.json permissions.allow array should not contain duplicate entries. Duplicates are unnecessary and can cause confusion."
+    requires_project_context: true
+    phases:
+      - name: check_duplicate_permissions
+        type: claude_settings_duplicates
+        failure_message: "Duplicate permission entries found in .claude/settings.json"
+        expected_behavior: "All permission entries in .claude/settings.json permissions.allow should be unique"
+
+  claude_mcp_permissions:
+    description: "MCP servers missing from Claude Code settings permissions"
+    scope: project_level
+    context: "All MCP servers defined in .mcp.json must have corresponding MCP() permission entries in .claude/settings.json. Missing permissions prevent MCP servers from being used."
+    requires_project_context: true
+    phases:
+      - name: check_mcp_permissions
+        type: claude_mcp_permissions
+        failure_message: "MCP servers missing from .claude/settings.json permissions.allow array"
+        expected_behavior: "Every MCP server in .mcp.json should have a corresponding MCP(server-name) entry in .claude/settings.json"
