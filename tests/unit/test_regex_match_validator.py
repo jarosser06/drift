@@ -120,18 +120,81 @@ class TestRegexMatchValidator:
         assert "File not found" in result.context
         assert "nonexistent.md" in result.file_paths
 
-    def test_regex_match_missing_file_path(self, validator, bundle_with_file):
-        """Test that validator raises error when file_path is missing."""
+    def test_regex_match_without_file_path_validates_bundle(self, validator, bundle_with_file):
+        """Test that validator validates all files in bundle when file_path is not specified."""
         rule = ValidationRule(
             rule_type=ValidationType.REGEX_MATCH,
-            description="No file path",
-            pattern=r"test",
-            failure_message="Error",
-            expected_behavior="Should error",
+            description="Check all files in bundle",
+            pattern=r"## Prerequisites",
+            failure_message="Missing Prerequisites section",
+            expected_behavior="Should have Prerequisites section",
         )
 
-        with pytest.raises(ValueError, match="requires rule.file_path"):
-            validator.validate(rule, bundle_with_file)
+        # Should validate the file in the bundle and pass
+        result = validator.validate(rule, bundle_with_file)
+        assert result is None
+
+    def test_regex_match_without_file_path_fails_on_empty_bundle(self, validator, tmp_path):
+        """Test that validator passes on empty bundle when file_path is not specified."""
+        empty_bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.REGEX_MATCH,
+            description="Check empty bundle",
+            pattern=r"test",
+            failure_message="Pattern not found",
+            expected_behavior="Should match",
+        )
+
+        # Empty bundle should pass (no files to validate)
+        result = validator.validate(rule, empty_bundle)
+        assert result is None
+
+    def test_regex_match_without_file_path_validates_multiple_files(self, validator, tmp_path):
+        """Test that validator validates all files in bundle."""
+        file1 = tmp_path / "file1.md"
+        file1.write_text("# Header\n## Prerequisites\n")
+        file2 = tmp_path / "file2.md"
+        file2.write_text("# Another Header\nNo prerequisites here")
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="collection",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.md",
+                    content="# Header\n## Prerequisites\n",
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.md",
+                    content="# Another Header\nNo prerequisites here",
+                    file_path=str(file2),
+                ),
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type=ValidationType.REGEX_MATCH,
+            description="Check for Prerequisites in all files",
+            pattern=r"## Prerequisites",
+            failure_message="Missing Prerequisites section",
+            expected_behavior="All files should have Prerequisites section",
+        )
+
+        # Should fail because file2 doesn't match
+        result = validator.validate(rule, bundle)
+        assert result is not None
+        assert "file2.md" in result.file_paths
+        assert "1 file(s)" in result.context
 
     def test_regex_match_missing_pattern(self, validator, bundle_with_file):
         """Test that validator raises error when pattern is missing."""

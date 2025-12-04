@@ -1,0 +1,244 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Documentation infrastructure for Drift - S3 + CloudFront + Route53'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Description: 'Project name (e.g., drift)'
+    Default: 'drift'
+    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    ConstraintDescription: 'Project name must be lowercase, alphanumeric, and hyphens only'
+
+  Environment:
+    Type: String
+    Description: 'Environment name'
+    Default: 'production'
+    AllowedValues:
+      - production
+      - staging
+      - development
+
+  BaseDomain:
+    Type: String
+    Description: 'Base domain for Route53 zone (e.g., driftai.dev) - docs will be at docs.{BaseDomain}'
+    Default: 'driftai.dev'
+
+  HostedZoneId:
+    Type: String
+    Description: 'Route 53 Hosted Zone ID for the domain'
+
+  DocsCertificateArn:
+    Type: String
+    Description: 'ACM Certificate ARN in us-east-1 for docs CloudFront (must cover docs.* subdomain)'
+
+Resources:
+  # S3 Bucket for documentation
+  DocsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-docs-${Environment}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: 404.html
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-docs-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Documentation
+
+  # Bucket Policy to allow CloudFront access
+  DocsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DocsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: 's3:GetObject'
+            Resource: !Sub '${DocsBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${DocsDistribution}'
+
+  # CloudFront Origin Access Control for Docs
+  DocsOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${ProjectName}-docs-oac-${Environment}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # CloudFront Distribution for Docs
+  DocsDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'Documentation for ${ProjectName}-${Environment}'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Aliases:
+          - !Sub 'docs.${BaseDomain}'
+        ViewerCertificate:
+          AcmCertificateArn: !Ref DocsCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt DocsBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !Ref DocsOriginAccessControl
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd  # CORS-With-Preflight
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /404.html
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-docs-distribution-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Documentation
+
+  # Route53 Record for Docs - IPv4
+  DocsRecordA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'docs.${BaseDomain}'
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID (constant)
+        DNSName: !GetAtt DocsDistribution.DomainName
+
+  # Route53 Record for Docs - IPv6
+  DocsRecordAAAA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'docs.${BaseDomain}'
+      Type: AAAA
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID (constant)
+        DNSName: !GetAtt DocsDistribution.DomainName
+
+  # IAM User for CI/CD deployments
+  DeploymentUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub '${ProjectName}-docs-deployer-${Environment}'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-docs-deployer'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # IAM Policy for Deployment User
+  DeploymentPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${ProjectName}-docs-deployment-policy'
+      Users:
+        - !Ref DeploymentUser
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: S3DocsBucketAccess
+            Effect: Allow
+            Action:
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:DeleteObject'
+              - 's3:ListBucket'
+            Resource:
+              - !GetAtt DocsBucket.Arn
+              - !Sub '${DocsBucket.Arn}/*'
+          - Sid: CloudFrontInvalidation
+            Effect: Allow
+            Action:
+              - 'cloudfront:CreateInvalidation'
+              - 'cloudfront:GetInvalidation'
+            Resource:
+              - !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${DocsDistribution}'
+          - Sid: CloudFormationReadAccess
+            Effect: Allow
+            Action:
+              - 'cloudformation:DescribeStacks'
+              - 'cloudformation:DescribeStackResources'
+              - 'cloudformation:DescribeStackEvents'
+              - 'cloudformation:GetTemplate'
+            Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*'
+
+Outputs:
+  DocsBucketName:
+    Description: 'S3 bucket name for documentation'
+    Value: !Ref DocsBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DocsBucket'
+
+  DocsDistributionId:
+    Description: 'CloudFront distribution ID for documentation'
+    Value: !Ref DocsDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DocsDistributionId'
+
+  DocsDistributionDomain:
+    Description: 'CloudFront distribution domain name for documentation'
+    Value: !GetAtt DocsDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-DocsDistributionDomain'
+
+  DocumentationURL:
+    Description: 'Documentation URL'
+    Value: !Sub 'https://docs.${BaseDomain}'
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentationURL'
+
+  DeploymentUserArn:
+    Description: 'IAM user ARN for deployments'
+    Value: !GetAtt DeploymentUser.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DeploymentUserArn'
+
+  DeploymentUserName:
+    Description: 'IAM user name for deployments'
+    Value: !Ref DeploymentUser
+    Export:
+      Name: !Sub '${AWS::StackName}-DeploymentUserName'

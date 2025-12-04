@@ -1,3 +1,7 @@
+---
+description: Use when releasing a new version of ai-drift to PyPI. Guide the user through version bumping, changelog updates, and publishing.
+---
+
 # Release Skill
 
 Guide the user through the process of releasing a new version of the ai-drift package to PyPI.

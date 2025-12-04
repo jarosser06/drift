@@ -1,0 +1,7 @@
+# Configuration files (may contain sensitive information)
+config.sh
+parameters.json
+
+# Access keys and certificates
+*.pem
+*.key
