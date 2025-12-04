@@ -5,14 +5,7 @@ model: sonnet
 skills:
   - testing
   - linting
-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - mcp__github
+tools: Read, Write, Edit, Bash, Grep, Glob, mcp__github
 ---
 
 # CI/CD Agent

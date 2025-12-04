@@ -208,3 +208,7 @@ __marimo__/
 
 # Drift cache
 .drift/cache/
+
+# Infrastructure configuration (may contain sensitive information)
+infrastructure/config.sh
+infrastructure/parameters.json

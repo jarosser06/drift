@@ -160,8 +160,19 @@ class DocumentLoader:
                     found_files.append(match)
 
         # Remove duplicates and sort by path
-        found_files = sorted(set(found_files))
-        return found_files
+        # Use string representation for deduplication to handle case-insensitive
+        # filesystems (e.g., macOS) where different case patterns may match same file
+        seen = set()
+        unique_files = []
+        for file_path in found_files:
+            # Normalize by converting to lowercase for comparison on case-insensitive systems
+            # but keep original path for use
+            key = str(file_path).lower()
+            if key not in seen:
+                seen.add(key)
+                unique_files.append(file_path)
+
+        return sorted(unique_files)
 
     def _discover_resources(self, main_file: Path, resource_patterns: List[str]) -> List[Path]:
         """Find resource files relative to a main file's directory.

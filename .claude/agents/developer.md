@@ -5,16 +5,7 @@ model: sonnet
 skills:
   - python-basics
   - python-docs
-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - mcp__serena
-  - mcp__context7
-  - mcp__github
+tools: Read, Write, Edit, Bash, Grep, Glob, mcp__serena, mcp__context7, mcp__github
 ---
 
 # Developer Agent

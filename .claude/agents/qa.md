@@ -5,15 +5,7 @@ model: sonnet
 skills:
   - python-basics
   - testing
-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - mcp__serena
-  - mcp__context7
+tools: Read, Write, Edit, Bash, Grep, Glob, mcp__serena, mcp__context7
 ---
 
 # QA Agent

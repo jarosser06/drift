@@ -664,3 +664,25 @@ rule_definitions:
               - description
         failure_message: "Command file has invalid or missing YAML frontmatter"
         expected_behavior: "Command files should have valid YAML frontmatter with a description field"
+
+  agent_tools_format:
+    description: "Agent tools must use comma-separated format, not YAML list"
+    scope: project_level
+    context: "Claude Code requires agent tools to be comma-separated on one line (e.g., 'tools: Read, Write, Edit') not YAML list format (tools:\\n  - Read). YAML list format causes tools to not work."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: agent
+      file_patterns:
+        - .claude/agents/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_tools_comma_separated
+        type: regex_match
+        description: "Validate tools field uses comma-separated format on single line"
+        params:
+          pattern: '^tools:\s+[A-Za-z][\w_]+(?:,\s*[A-Za-z][\w_]+)*\s*$'
+          flags: 8
+        failure_message: "Agent tools field uses YAML list format (- Read) instead of comma-separated format"
+        expected_behavior: "Tools should be comma-separated on one line: 'tools: Read, Write, Edit, Grep, Glob' not YAML list with dashes"

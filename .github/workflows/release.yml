@@ -112,6 +112,38 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload dist/*
 
+      - name: Install Sphinx for documentation
+        run: |
+          pip install sphinx sphinx_rtd_theme sphinx-autodoc-typehints myst-parser
+
+      - name: Configure AWS credentials for docs deployment
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_DOCS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DOCS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DOCS_REGION }}
+
+      - name: Deploy Documentation
+        run: |
+          if [ -n "${{ secrets.AWS_DOCS_BUCKET }}" ] && [ -n "${{ secrets.AWS_DOCS_CLOUDFRONT_ID }}" ]; then
+            echo "Building documentation..."
+            cd docs && make html && cd ..
+
+            echo "Deploying to S3..."
+            aws s3 sync docs/_build/html/ "s3://${{ secrets.AWS_DOCS_BUCKET }}/" \
+              --delete \
+              --cache-control "public, max-age=3600"
+
+            echo "Invalidating CloudFront cache..."
+            aws cloudfront create-invalidation \
+              --distribution-id "${{ secrets.AWS_DOCS_CLOUDFRONT_ID }}" \
+              --paths "/*"
+
+            echo "Documentation deployed successfully!"
+          else
+            echo "Skipping documentation deployment - secrets not configured"
+          fi
+
       - name: Extract changelog for this version
         id: changelog
         run: |
