@@ -14,6 +14,7 @@ class ProviderType(str, Enum):
     ANTHROPIC = "anthropic"
     BEDROCK = "bedrock"
     OPENAI = "openai"
+    CLAUDE_CODE = "claude-code"
 
 
 class ProviderConfig(BaseModel):

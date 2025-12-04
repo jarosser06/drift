@@ -55,6 +55,7 @@ from drift.documents.loader import DocumentLoader
 from drift.providers.anthropic import AnthropicProvider
 from drift.providers.base import Provider
 from drift.providers.bedrock import BedrockProvider
+from drift.providers.claude_code import ClaudeCodeProvider
 from drift.utils.temp import TempManager
 from drift.validation.validators import ValidatorRegistry
 
@@ -191,6 +192,10 @@ class DriftAnalyzer:
                 )
             elif provider_config.provider == ProviderType.BEDROCK:
                 self.providers[model_name] = BedrockProvider(
+                    provider_config, model_config, self.cache
+                )
+            elif provider_config.provider == ProviderType.CLAUDE_CODE:
+                self.providers[model_name] = ClaudeCodeProvider(
                     provider_config, model_config, self.cache
                 )
 

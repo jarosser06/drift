@@ -2,42 +2,25 @@
 # This file defines custom rule definitions specific to this project
 
 providers:
-  anthropic:
-    provider: anthropic
-    params:
-      api_key_env: ANTHROPIC_API_KEY
-  bedrock:
-    provider: bedrock
-    params:
-      region: us-east-1
+  claude-code:
+    provider: claude-code
+    params: {}
 
 models:
-  haiku:
-    provider: anthropic
-    model_id: claude-haiku-4-5-20251001
-    params:
-      max_tokens: 4096
-      temperature: 0.0
   sonnet:
-    provider: anthropic
-    model_id: claude-sonnet-4-5-20250929
+    provider: claude-code
+    model_id: sonnet
     params:
       max_tokens: 4096
       temperature: 0.0
-  bedrock-haiku:
-    provider: bedrock
-    model_id: us.anthropic.claude-haiku-4-5-20251001-v1:0
-    params:
-      max_tokens: 4096
-      temperature: 0.0
-  bedrock-sonnet:
-    provider: bedrock
-    model_id: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+  haiku:
+    provider: claude-code
+    model_id: haiku
     params:
       max_tokens: 4096
       temperature: 0.0
 
-default_model: haiku
+default_model: sonnet
 
 agent_tools:
   claude-code:
@@ -72,7 +55,6 @@ rule_definitions:
     phases:
       - name: structural_quality
         type: prompt
-        model: sonnet
         prompt: |
           Evaluate the skill's structural quality per Anthropic's Agent Skills best practices.
 
@@ -98,7 +80,6 @@ rule_definitions:
           - skill
       - name: verify_dependencies
         type: prompt
-        model: sonnet
         prompt: |
           If the skill references other skills, verify they exist by requesting them.
           Only flag missing references to actual dependency skills.
@@ -106,7 +87,6 @@ rule_definitions:
           - skill
       - name: final_quality_check
         type: prompt
-        model: sonnet
         prompt: |
           Review all findings from previous phases.
 
@@ -138,7 +118,6 @@ rule_definitions:
     phases:
       - name: workflow_quality
         type: prompt
-        model: sonnet
         prompt: |
           Evaluate the agent's workflow guidance and task delegation clarity.
 
@@ -158,7 +137,6 @@ rule_definitions:
           - agent
       - name: verify_references
         type: prompt
-        model: sonnet
         prompt: |
           If the agent references other agents or skills, verify they exist by requesting them.
           Only flag missing references to actual dependency agents or skills.
@@ -167,7 +145,6 @@ rule_definitions:
           - skill
       - name: final_quality_check
         type: prompt
-        model: sonnet
         prompt: |
           Review all findings from previous phases.
 
@@ -197,7 +174,6 @@ rule_definitions:
     phases:
       - name: execution_clarity
         type: prompt
-        model: sonnet
         prompt: |
           Evaluate the command's execution clarity and usability.
 
@@ -220,7 +196,6 @@ rule_definitions:
           - agent
       - name: verify_dependencies
         type: prompt
-        model: sonnet
         prompt: |
           If the command references other commands, skills, or agents, verify they exist.
           Only flag missing references to actual dependencies.
@@ -230,7 +205,6 @@ rule_definitions:
           - agent
       - name: final_quality_check
         type: prompt
-        model: sonnet
         prompt: |
           Review all findings from previous phases.
 
@@ -262,7 +236,6 @@ rule_definitions:
     phases:
       - name: consistency_check
         type: prompt
-        model: sonnet
         prompt: |
           Analyze commands for ACTUAL contradictions, not cosmetic differences.
 
@@ -526,7 +499,6 @@ rule_definitions:
         expected_behavior: "CLAUDE.md should be concise and under 1500 tokens"
       - name: content_quality
         type: prompt
-        model: sonnet
         prompt: |
           Evaluate CLAUDE.md for content quality, code block length, and anti-patterns per Anthropic best practices.
 
