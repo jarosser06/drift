@@ -209,9 +209,18 @@ Here are examples of rules you can define in `.drift.yaml`. Drift includes valid
 
 **Configuration Validation Examples:**
 - `claude_md_missing` - Missing CLAUDE.md configuration file
-- `agent_frontmatter` - Invalid or missing agent YAML frontmatter
-- `command_frontmatter` - Invalid or missing command YAML frontmatter
+- `agent_frontmatter` - Invalid or missing agent YAML frontmatter (includes model validation)
+- `command_frontmatter` - Invalid or missing command YAML frontmatter (includes parameter hints, skill references)
 - `agent_tools_format` - Agent tools using YAML list instead of comma-separated format
+- `skill_filename_consistency` - Skill directories must contain SKILL.md (uppercase)
+- `skill_frontmatter_name_match` - Skill frontmatter name must match directory name
+
+**Quality Validation Examples (require LLM):**
+- `agent_description_quality` - Agent descriptions must be action-oriented for effective delegation
+- `skill_description_quality` - Skill descriptions must include specific trigger terms for discovery
+- `command_description_quality` - Command descriptions must be meaningful in /help output
+- `claude_md_documentation_sync` - CLAUDE.md should mention all agents, key skills, and slash commands
+- `claude_md_quality` - CLAUDE.md file quality (line count, code blocks, imports, anti-patterns)
 
 **Conversation Analysis Examples (require LLM):**
 - `incomplete_work` - AI stopped before completing full scope

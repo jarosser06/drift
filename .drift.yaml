@@ -102,6 +102,51 @@ rule_definitions:
         available_resources:
           - skill
 
+  skill_description_quality:
+    description: "Skill descriptions must include specific trigger terms for discovery"
+    scope: project_level
+    context: "Skills are model-invoked (Claude autonomously decides when to use them). Descriptions must include specific trigger terms users would naturally mention to enable proper discovery. Vague descriptions prevent Claude from activating the skill when needed."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: skill
+      file_patterns:
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_trigger_terms
+        type: prompt
+        prompt: |
+          Evaluate the skill frontmatter description for specific trigger terms and discovery enablement.
+
+          CRITICAL ISSUES (report these):
+          1. Description is overly vague without specific trigger terms (e.g., "Helps with coding" - what kind of coding?)
+          2. Description lacks BOTH what the skill does AND when to use it (needs both capability + activation scenario)
+          3. Description could match too many unrelated scenarios (overly broad causing false activations)
+          4. Description uses only generic nouns without domain-specific terms (e.g., "Expert in documents" vs "Expert in PDF reports with tabular data")
+
+          ACCEPTABLE (do NOT report):
+          - Description includes "use when" or "use for" phrasing (already validated by structural check)
+          - Description mentions specific technologies, frameworks, or domains (pytest, GitHub, AWS, etc.)
+          - Description contains trigger terms users would naturally mention (e.g., "test coverage", "PR review", "release management")
+          - Description is concise but domain-specific (brevity with specificity is ideal)
+
+          GOOD EXAMPLES (do NOT report):
+          - "Expert in writing PEP 257 compliant docstrings using Google-style format. Use when documenting Python code."
+          - "Use when creating comprehensive pytest test suites with 90%+ coverage requirements"
+          - "Expert in GitHub workflows including issue management and PR operations. Use when working with GitHub via MCP."
+
+          BAD EXAMPLES (report these):
+          - "Helps with code" (no specific domain or trigger terms)
+          - "Use when writing" (too generic - writing what?)
+          - "Expert in quality" (vague - what kind of quality?)
+          - "Documentation helper" (no specificity about documentation type or use case)
+
+          Focus: Does the description enable Claude to recognize when this skill should be activated?
+        available_resources:
+          - skill
+
   agent_completeness:
     description: "Claude Code agents missing essential components or clarity"
     scope: project_level
@@ -157,6 +202,51 @@ rule_definitions:
         available_resources:
           - agent
           - skill
+
+  agent_description_quality:
+    description: "Agent descriptions must be action-oriented and specific for effective delegation"
+    scope: project_level
+    context: "Agent descriptions guide Claude's automatic delegation decisions. Vague descriptions like 'helps with documents' prevent proper agent discovery and use. Action-oriented descriptions with specific trigger terms enable effective autonomous delegation."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: agent
+      file_patterns:
+        - .claude/agents/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_description_quality
+        type: prompt
+        prompt: |
+          Evaluate the agent frontmatter description for action-oriented language and specificity.
+
+          CRITICAL ISSUES (report these):
+          1. Description is overly vague or generic (e.g., "Helps with tasks", "General purpose agent", "Assists with work")
+          2. Description lacks WHEN/WHAT context - doesn't indicate when agent should be used
+          3. Description is just a noun phrase without action orientation (e.g., "Documentation helper" vs "Use for writing API documentation")
+          4. Description could apply to multiple unrelated agents (too broad)
+
+          ACCEPTABLE (do NOT report):
+          - Description includes specific action verbs or "Use when/for" phrasing
+          - Description mentions specific domains/technologies (e.g., "Python testing", "GitHub operations", "CI/CD automation")
+          - Description is concise but clear about purpose (brevity is fine if specific)
+          - Description uses imperative or action-oriented language
+
+          GOOD EXAMPLES (do NOT report):
+          - "Use when writing comprehensive pytest test suites with 90%+ coverage"
+          - "Specialized CI/CD agent for automation and GitHub Actions workflows"
+          - "Expert in maintaining code quality using flake8, black, isort"
+
+          BAD EXAMPLES (report these):
+          - "Helps with documents" (vague, no specificity)
+          - "General development tasks" (too broad)
+          - "Code assistant" (generic, no differentiation)
+          - "Helper agent" (no actionable information)
+
+          ONLY flag descriptions that genuinely hinder agent discovery and delegation.
+        available_resources:
+          - agent
 
   command_completeness:
     description: "Claude Code commands missing essential components or clarity"
@@ -219,6 +309,52 @@ rule_definitions:
           - skill
           - agent
 
+  command_description_quality:
+    description: "Command descriptions must be meaningful and actionable in /help output"
+    scope: project_level
+    context: "Command frontmatter descriptions appear in /help output. Users browse /help to discover available commands. Descriptions that merely repeat the filename or are overly vague don't help users understand when to use each command."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: command
+      file_patterns:
+        - .claude/commands/*.md
+      bundle_strategy: individual
+    phases:
+      - name: check_description_helpfulness
+        type: prompt
+        prompt: |
+          Evaluate the command frontmatter description for helpfulness in /help output.
+
+          Extract the command filename (without .md extension) from the file path.
+
+          CRITICAL ISSUES (report these):
+          1. Description is just the command name repeated (e.g., file: "test.md", description: "test")
+          2. Description is a single word that doesn't explain purpose (e.g., "Linting", "Testing" without context)
+          3. Description is overly vague and could apply to any command (e.g., "Run checks", "Do work")
+          4. Description doesn't indicate WHAT the command does or WHEN to use it
+
+          ACCEPTABLE (do NOT report):
+          - Description clearly explains what command does (e.g., "Run pytest tests with coverage reporting")
+          - Description indicates when/why to use command (e.g., "Create PR with quality validation")
+          - Description mentions specific tools/workflows (e.g., "Run linters and formatters (flake8, black, isort)")
+          - Description is concise but informative (brevity is fine if clear)
+
+          GOOD EXAMPLES (do NOT report):
+          - For test.md: "Run pytest tests" ✓ (clear purpose)
+          - For lint.md: "Run linters and formatters" ✓ (explains what)
+          - For create-pr.md: "Create PR with quality validation" ✓ (action + context)
+
+          BAD EXAMPLES (report these):
+          - For test.md: "test" ✗ (just filename repetition)
+          - For lint.md: "Linting" ✗ (single word, no context)
+          - For work.md: "Do work" ✗ (vague, no specificity)
+
+          Focus: Would a user browsing /help understand what this command does and when to use it?
+        available_resources:
+          - command
+
   command_consistency:
     description: "Commands contradict project guidelines or each other"
     scope: project_level
@@ -264,6 +400,37 @@ rule_definitions:
           - These are IDENTICAL behaviors with the same wording - perfectly consistent!
 
           If all commands follow the same activation pattern (step 1 = activate), do NOT report any issue.
+        available_resources: []
+      - name: pattern_consistency_check
+        type: prompt
+        prompt: |
+          Check if similar commands follow similar patterns for skill usage.
+
+          CRITICAL ISSUES (report these):
+          1. Testing-related commands (test, full-check, create-pr) have inconsistent use of "testing" skill
+             → Some declare it, others don't (should be consistent)
+          2. Linting-related commands have inconsistent use of "linting" skill
+          3. GitHub-related commands have inconsistent use of "github-operations" skill
+          4. Similar commands use different approaches without good reason
+
+          ACCEPTABLE (do NOT report):
+          - All test-related commands use "testing" skill ✓
+          - All lint-related commands use "linting" skill ✓
+          - Commands for different domains use different skills ✓ (expected)
+          - One-off commands don't follow a pattern ✓ (no similar commands to compare)
+
+          EXAMPLES:
+
+          BAD (report these):
+          - Command "test" uses testing skill, but "full-check" (which runs tests) doesn't ✗
+          - Command "create-pr" uses github-operations, but "work-on-issue" (also GitHub) doesn't ✗
+
+          GOOD (do NOT report):
+          - All test commands declare testing skill ✓
+          - All GitHub commands declare github-operations skill ✓
+          - Developer command uses different skills than QA command ✓ (different domains)
+
+          Focus: Do similar commands follow similar patterns for skill activation?
         available_resources: []
 
   claude_md_missing:
@@ -325,6 +492,57 @@ rule_definitions:
         params:
           resource_dirs:
             - .claude/skills
+
+  skill_filename_consistency:
+    description: "Skill directories must contain SKILL.md (uppercase), not skill.md"
+    scope: project_level
+    context: "Consistent filename casing prevents confusion and ensures reliable skill loading across case-sensitive file systems."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    phases:
+      - name: check_skill_files
+        type: file_exists
+        file_path: .claude/skills/*/SKILL.md
+        failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
+        expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
+
+  skill_frontmatter_name_match:
+    description: "Skill frontmatter name must match the skill directory name"
+    scope: project_level
+    context: "Mismatched skill names cause confusion and prevent proper skill activation in Claude Code."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: skill
+      file_patterns:
+        - .claude/skills/*/SKILL.md
+      bundle_strategy: individual
+    phases:
+      - name: check_name_match
+        type: prompt
+        prompt: |
+          Check if the skill's frontmatter `name` field matches its directory name.
+
+          Directory path will be in the format: `.claude/skills/{directory-name}/SKILL.md`
+          Extract the directory name from the path.
+
+          CRITICAL ISSUES (report these):
+          1. Frontmatter `name` field doesn't match directory name (case-sensitive)
+          2. Directory name uses hyphens but frontmatter name uses underscores (or vice versa)
+          3. Frontmatter name is completely different from directory name
+
+          ACCEPTABLE (do NOT report):
+          - Name matches exactly (e.g., directory "testing", frontmatter name: "testing")
+          - Both use consistent naming convention (all lowercase, hyphens for multi-word)
+
+          If there's a mismatch, report:
+          - Directory name: {extracted from path}
+          - Frontmatter name: {from YAML}
+          - Explain the inconsistency
+        available_resources:
+          - skill
 
   agent_duplicate_dependencies:
     description: "Agents have redundant transitive skill dependencies"
@@ -547,6 +765,83 @@ rule_definitions:
 
           ONLY REPORT issues that significantly impact quality or violate best practices.
         available_resources: []
+      - name: check_import_syntax
+        type: prompt
+        prompt: |
+          Check CLAUDE.md for proper import syntax usage per Claude Code documentation.
+
+          CRITICAL ISSUES (report these):
+          1. Import syntax @path/to/file used INSIDE code blocks (```...```)
+             → Imports must be outside code blocks to be processed
+          2. Deeply nested imports exceeding 5 hops
+             → Per docs: "imports should not exceed 5 hops in depth"
+
+          ACCEPTABLE (do NOT report):
+          - @path/to/file imports outside code blocks ✓ (correct usage)
+          - Import depth ≤ 5 hops ✓ (within limits)
+          - No imports used ✓ (imports are optional)
+          - File paths in code examples (not using @ syntax) ✓
+
+          REASONING: Claude Code's import feature has specific requirements:
+          - Must be outside code blocks to be processed
+          - Deep nesting (>5 hops) impacts performance
+
+          Focus: Are imports used correctly if present?
+        available_resources: []
+
+  claude_md_documentation_sync:
+    description: "CLAUDE.md should mention all agents, key skills, and slash commands"
+    scope: project_level
+    context: "CLAUDE.md provides essential context about the project's Claude Code setup. Missing major agents, skills, or commands from the documentation creates confusion and prevents users from discovering available automation."
+    requires_project_context: true
+    supported_clients:
+      - claude-code
+    document_bundle:
+      bundle_type: mixed
+      file_patterns:
+        - CLAUDE.md
+        - .claude/agents/*.md
+        - .claude/skills/*/SKILL.md
+        - .claude/commands/*.md
+      bundle_strategy: collection
+    phases:
+      - name: check_component_documentation
+        type: prompt
+        prompt: |
+          Check if CLAUDE.md documents the key Claude Code components in this project.
+
+          You have access to:
+          - CLAUDE.md content
+          - All agent files (.claude/agents/*.md)
+          - All skill files (.claude/skills/*/SKILL.md)
+          - All command files (.claude/commands/*.md)
+
+          CRITICAL ISSUES (report these):
+          1. CLAUDE.md doesn't mention ANY agents (should list all agents in .claude/agents/)
+          2. CLAUDE.md doesn't mention ANY slash commands (should document key commands from .claude/commands/)
+          3. CLAUDE.md completely omits the Claude Code setup section (no .claude/ mention at all)
+
+          ACCEPTABLE (do NOT report):
+          - CLAUDE.md lists all agents ✓
+          - CLAUDE.md documents major commands (doesn't need every single one, but key workflows) ✓
+          - CLAUDE.md mentions key skills (doesn't need exhaustive list, just important ones) ✓
+          - CLAUDE.md explains where to find more detail (.claude/ directory structure) ✓
+          - Some minor or internal-only commands omitted (acceptable)
+
+          EXAMPLES:
+
+          GOOD (do NOT report):
+          - Lists all 3 agents: cicd, developer, qa ✓
+          - Documents key commands: /test, /lint, /full-check, /create-pr ✓
+          - Mentions major skills: testing, linting, code-review ✓
+
+          BAD (report these):
+          - Has 4 agents but only lists 3 ✗ (missing documentation agent)
+          - No commands documented anywhere ✗ (users can't discover them)
+          - No mention of .claude/ setup at all ✗ (missing context)
+
+          Focus: Are major components discoverable through CLAUDE.md?
+        available_resources: []
 
   agent_frontmatter:
     description: "Agent files missing or have invalid YAML frontmatter"
@@ -581,8 +876,8 @@ rule_definitions:
                 description: "Agent description must be at least 10 characters"
               model:
                 type: string
-                enum: ["sonnet", "opus", "haiku"]
-                description: "Model must be one of: sonnet, opus, haiku"
+                enum: ["sonnet", "opus", "haiku", "inherit"]
+                description: "Model must be one of: sonnet, opus, haiku, inherit"
               skills:
                 type: array
                 items:
@@ -598,7 +893,7 @@ rule_definitions:
               - description
               - model
         failure_message: "Agent file has invalid or missing YAML frontmatter"
-        expected_behavior: "Agent files should have valid YAML frontmatter with name, description, and model fields"
+        expected_behavior: "Agent files should have valid YAML frontmatter with name, description, and model fields (model must be: sonnet, opus, haiku, or inherit)"
 
   command_frontmatter:
     description: "Command files missing or have invalid YAML frontmatter"
@@ -630,10 +925,52 @@ rule_definitions:
                 items:
                   type: string
                 description: "Optional list of skill names to activate"
+              argument-hint:
+                type: string
+                description: "Optional hint for command arguments during tab-completion"
             required:
               - description
         failure_message: "Command file has invalid or missing YAML frontmatter"
         expected_behavior: "Command files should have valid YAML frontmatter with a description field"
+      - name: check_parameter_hints
+        type: prompt
+        prompt: |
+          Check if command uses parameters but is missing argument-hint.
+
+          CRITICAL ISSUES (report these):
+          1. Command content includes $ARGUMENTS, $1, $2, $3, etc. but frontmatter has NO argument-hint field
+          2. Command clearly expects parameters (mentions "<parameter>" or "pass <value>") but no argument-hint
+
+          ACCEPTABLE (do NOT report):
+          - Command has argument-hint field for parameters ✓
+          - Command doesn't use any parameters (no $ARGUMENTS, $1, etc.) ✓
+          - Command references files with @ syntax but doesn't take parameters ✓
+
+          REASONING: argument-hint helps users during tab-completion. If a command takes parameters,
+          it should guide users on what to provide.
+
+          Focus: Does the command take parameters but lack user guidance?
+        available_resources:
+          - command
+      - name: check_skill_references
+        type: prompt
+        prompt: |
+          If the command frontmatter declares skills array, verify those skills exist.
+
+          You can request skill files to check if they exist.
+
+          CRITICAL ISSUES (report these):
+          - Command references a skill in frontmatter that doesn't exist in .claude/skills/
+
+          ACCEPTABLE (do NOT report):
+          - All referenced skills exist ✓
+          - Command doesn't declare skills array ✓
+          - Skills array is empty ✓
+
+          Focus: Are skill references valid?
+        available_resources:
+          - command
+          - skill
 
   agent_tools_format:
     description: "Agent tools must use comma-separated format, not YAML list"
