@@ -24,14 +24,11 @@ default_model: sonnet
 
 agent_tools:
   claude-code:
-    conversation_path: ~/.claude/projects/
     enabled: true
 
 conversations:
   mode: latest
   days: 7
-
-temp_dir: /tmp/drift
 
 rule_definitions:
   # All rules are project-level focused on documentation quality
