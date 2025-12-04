@@ -10,7 +10,7 @@ Quality assurance for AI-augmented codebases - validates that your project follo
 
 Drift validates your AI-augmented development environment using **custom rules you define** in `.drift.yaml`.
 
-**IMPORTANT:** Drift has **NO built-in rules**. All validation rules must be defined by you in `.drift.yaml` under `rule_definitions`. Without rules, Drift does nothing.
+**Getting Started:** Check out [`.drift.yaml`](.drift.yaml) in this repository for example rules, or visit the [documentation](https://docs.driftai.dev) for a complete guide to writing your own validation rules.
 
 **Primary Use: Project Structure Validation**
 
