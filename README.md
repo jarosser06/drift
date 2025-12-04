@@ -2,6 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/ai-drift.svg)](https://pypi.org/project/ai-drift/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Documentation](https://img.shields.io/badge/docs-docs.driftai.dev-blue)](https://docs.driftai.dev)
 
 Quality assurance for AI-augmented codebases - validates that your project follows recommended patterns for effective AI agent collaboration.
 
