@@ -63,6 +63,19 @@ Configure your AWS credentials:
 
 Bedrock requires appropriate IAM permissions for model access.
 
+Claude Code
+~~~~~~~~~~~
+
+Claude Code provider uses your existing Claude Code CLI installation. No API key needed.
+
+Ensure the ``claude`` CLI is installed and in your PATH:
+
+.. code-block:: bash
+
+    claude --version
+
+If not installed, visit the Claude Code documentation for installation instructions.
+
 Verifying Installation
 ----------------------
 

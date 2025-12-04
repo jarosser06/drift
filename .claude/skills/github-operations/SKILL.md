@@ -14,6 +14,20 @@ Expert in GitHub workflows and operations using the GitHub MCP server for Drift 
 - Maintain clean Git history
 - Follow contribution workflows
 
+## IMPORTANT: Always Determine Repository Information First
+
+**Before using any GitHub MCP tools**, you MUST determine the actual repository owner and name from git:
+
+```bash
+git remote get-url origin
+```
+
+Parse the output to extract the owner and repository name. For example:
+- `https://github.com/jarosser06/drift.git` → owner: `jarosser06`, repo: `drift`
+- `git@github.com:jarosser06/drift.git` → owner: `jarosser06`, repo: `drift`
+
+Never assume or hardcode repository information. Always check git first.
+
 ## Branch Naming Convention
 
 Format: `issue-<number>-<short-description>`

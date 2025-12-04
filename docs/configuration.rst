@@ -76,6 +76,30 @@ AWS Bedrock Provider
 
     default_model: sonnet
 
+Claude Code Provider
+~~~~~~~~~~~~~~~~~~~~
+
+Claude Code provider uses your existing Claude Code installation. Requires the ``claude`` CLI to be installed and in your PATH. No API key needed - uses your Claude Code session.
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    providers:
+      claude-code:
+        provider: claude-code
+        params: {}
+
+    models:
+      sonnet:
+        provider: claude-code
+        model_id: sonnet  # or 'opus', 'haiku'
+        params:
+          max_tokens: 4096
+          temperature: 0.0
+          timeout: 120  # Optional: timeout in seconds (default: 120)
+
+    default_model: sonnet
+
 Multi-Provider Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
