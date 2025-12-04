@@ -136,7 +136,7 @@ class ClaudeCodeProvider(Provider):
 
         # Build command
         # Use -p for headless prompt mode and --output-format json for structured output
-        # Use --no-mcp to disable MCP servers for clean provider execution
+        # Use --mcp-config with empty config and --strict-mcp-config to disable MCP servers
         cmd = [
             "claude",
             "-p",
@@ -145,7 +145,9 @@ class ClaudeCodeProvider(Provider):
             model_name,
             "--output-format",
             "json",
-            "--no-mcp",
+            "--mcp-config",
+            '{"mcpServers":{}}',
+            "--strict-mcp-config",
         ]
 
         # Add system prompt if provided (if claude CLI supports it)

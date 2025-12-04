@@ -478,7 +478,7 @@ rule_definitions:
   claude_md_quality:
     description: "CLAUDE.md file violates quality best practices"
     scope: project_level
-    context: "CLAUDE.md should be concise (<1500 tokens for Anthropic), use pointers instead of large code blocks (>20 lines), avoid linting rules (use automated tools), and provide essential project context."
+    context: "CLAUDE.md should be concise (<300 lines), use pointers instead of large code blocks (>20 lines), avoid linting rules (use automated tools), and provide essential project context."
     requires_project_context: false
     supported_clients:
       - claude-code
@@ -489,14 +489,12 @@ rule_definitions:
       bundle_strategy: individual
       resource_patterns: []
     phases:
-      - name: check_token_count
-        type: token_count
+      - name: check_line_count
+        type: file_size
         file_path: CLAUDE.md
-        max_count: 1500
-        params:
-          provider: anthropic
-        failure_message: "CLAUDE.md exceeds 1500 tokens (Anthropic best practice for context efficiency)"
-        expected_behavior: "CLAUDE.md should be concise and under 1500 tokens"
+        max_count: 300
+        failure_message: "CLAUDE.md exceeds 300 lines (best practice for concise context)"
+        expected_behavior: "CLAUDE.md should be concise and under 300 lines"
       - name: content_quality
         type: prompt
         prompt: |
@@ -504,7 +502,7 @@ rule_definitions:
 
           CRITICAL ISSUES (report these):
 
-          **Token Efficiency**:
+          **Conciseness**:
           1. Contains code blocks longer than 20 lines (count lines between ``` fences for each block)
           2. Large narrative paragraphs (>8 consecutive non-bullet lines) instead of bullet points
 

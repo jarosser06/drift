@@ -75,7 +75,7 @@ uv pip install -e ".[dev]"
 - Minimum 90% coverage (enforced by pytest)
 - Comprehensive test coverage for all new features
 - Use pytest fixtures for common test setup
-- Mock external API calls (Anthropic, AWS Bedrock)
+- Mock external API calls (Anthropic, AWS Bedrock, Claude Code CLI)
 
 ### Code Quality
 - All code must pass linters before commit
@@ -92,8 +92,9 @@ uv pip install -e ".[dev]"
 ## Provider Support
 
 Drift supports multiple LLM providers:
-- **Anthropic API** (recommended): Set `ANTHROPIC_API_KEY`
+- **Anthropic API**: Set `ANTHROPIC_API_KEY`
 - **AWS Bedrock**: Configure with `aws configure`
+- **Claude Code**: Use existing Claude Code CLI (no API key needed)
 
 Configuration in `.drift.yaml` (see README.md for details).
 

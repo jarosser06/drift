@@ -206,8 +206,13 @@ class FileSizeValidator(BaseValidator):
 class TokenCountValidator(BaseValidator):
     """Validator for checking file token count.
 
+    DEPRECATED: This validator requires provider-specific authentication and dependencies.
+    For example, Anthropic token counting requires API credentials, making it unsuitable
+    for offline programmatic checks. Use FileSizeValidator with line count (max_count/min_count)
+    instead for a general, offline validation approach.
+
     Supports multiple tokenizer providers:
-    - anthropic: For Claude models (requires 'anthropic' package)
+    - anthropic: For Claude models (requires 'anthropic' package + API credentials)
     - openai: For OpenAI models (requires 'tiktoken' package)
     - llama: For Llama models (requires 'transformers' package)
     """
