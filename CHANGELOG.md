@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-04
+
+- Add Claude Code provider support - use existing Claude Code CLI without API keys
+- Add comprehensive documentation infrastructure and validation rules
+- Add automated release workflow with GitHub Actions for CI/CD
+- Add release workflow scripts and automation tools
+- Fix token counting replaced with line count for better performance
+- Fix Claude Code MCP configuration
+- Remove uv.lock from version control (library project best practice)
+
 ## [0.1.1] - 2025-12-03
 
 - Add PyPI badges to README (version badge and Python 3.10+ compatibility)
