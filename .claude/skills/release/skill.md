@@ -19,11 +19,20 @@ Guide the user through the process of releasing a new version of the ai-drift pa
 
 3. **Show version change**: Display the version change to the user (old → new)
 
-4. **Ask for changelog description**: Prompt the user to describe the changes in this release. This should be a concise summary of:
-   - New features added
-   - Bugs fixed
+4. **Ask for changelog description**: Prompt the user to describe the changes in this release.
+
+   **IMPORTANT**: Only include changes to the actual package code (src/, tests/, scripts/, pyproject.toml, etc.).
+   DO NOT include:
+   - Changes to `.drift.yaml` or `.drift_rules.yaml` (local config)
+   - Changes to `.claude/` directory (local config)
+   - Changes to documentation files (docs/, README.md, CLAUDE.md)
+   - Other local/project configuration changes
+
+   Only include:
+   - New features added to the package
+   - Bugs fixed in the package code
    - Breaking changes (if major bump)
-   - Other notable changes
+   - Changes to CLI options or behavior
 
    Format: Single line or bullet points
 

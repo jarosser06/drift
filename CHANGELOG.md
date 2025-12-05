@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-04
+
+- Add support for separate rules file with `--rules-file` option (local and remote file support)
+
 ## [0.2.0] - 2025-12-04
 
 - Add Claude Code provider support - use existing Claude Code CLI without API keys
