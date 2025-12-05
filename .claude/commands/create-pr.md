@@ -34,22 +34,27 @@ Create a pull request with comprehensive quality checks.
 Use `mcp__github__create_pull_request` with standardized format:
 
 ```
-title: "Issue #<number>: <descriptive title>"
+title: "Issue #<number>: <descriptive title from issue>"
 body:
 ## Summary
-- <Brief overview of changes>
-- <Key implementation details>
-- <Any architectural decisions>
+- <3-5 bullet points describing what changed>
+- <Focus on what was implemented, not how>
 
 ## Test Plan
 - [ ] Unit tests added/updated
-- [ ] Coverage at 90%+
+- [ ] Coverage at X%
 - [ ] Manual testing completed
 - [ ] All linters passing
 
 ## Changes
-- <List of main changes>
-- <Files modified and why>
+### Added
+- <New files with brief description>
+
+### Modified
+- <Changed files with brief description>
+
+## Related Issues
+Closes #<number>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
@@ -65,10 +70,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 The assistant will:
 1. Activate the required skills listed in the frontmatter
-2. Run pre-PR validation (tests and linters)
-3. Review changes to ensure quality
-4. Draft the PR content and present it to the user for approval
-5. **ONLY** create the PR using `mcp__github__create_pull_request` after receiving explicit user approval
+2. Check current branch name to determine issue number (format: issue-<number>-description)
+3. Fetch the issue details using `mcp__github__get_issue` to understand what's being solved
+4. Run pre-PR validation (tests and linters)
+5. Review changes to ensure quality
+6. Draft the PR content following the template and present it to the user for approval
+7. **ONLY** create the PR using `mcp__github__create_pull_request` after receiving explicit user approval
 
 **CRITICAL:** The assistant MUST NOT create the GitHub pull request until the user has explicitly approved the drafted PR content.
 
