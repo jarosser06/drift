@@ -10,7 +10,7 @@ from drift.config.models import (
     ValidationType,
 )
 from drift.documents.loader import DocumentLoader
-from drift.validation.validators import DependencyDuplicateValidator, MarkdownLinkValidator
+from drift.validation.validators import ClaudeDependencyDuplicateValidator, MarkdownLinkValidator
 
 
 class TestDependencyDuplicateValidatorIntegration:
@@ -117,7 +117,7 @@ Expert in code style and formatting standards.
         bundles = loader.load_bundles(validation_config.document_bundle)
 
         # Run validation
-        validator = DependencyDuplicateValidator(loader)
+        validator = ClaudeDependencyDuplicateValidator(loader)
 
         results = []
         for bundle in bundles:
@@ -420,7 +420,7 @@ Check the [missing guide](guide.md).
         bundles = loader.load_bundles(validation_config.document_bundle)
 
         # Run validation with both validators
-        dep_validator = DependencyDuplicateValidator(loader)
+        dep_validator = ClaudeDependencyDuplicateValidator(loader)
         link_validator = MarkdownLinkValidator(loader)
 
         all_results = []

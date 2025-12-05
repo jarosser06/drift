@@ -1,8 +1,8 @@
-"""Unit tests for dependency graph analysis."""
+"""Unit tests for Claude dependency graph analysis."""
 
 import pytest
 
-from drift.utils.dependency_graph import DependencyGraph
+from drift.utils.claude_dependency_graph import ClaudeDependencyGraph
 
 
 class TestDependencyGraph:
@@ -33,7 +33,7 @@ skills:
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
 
         assert "test" in graph.dependencies
@@ -52,7 +52,7 @@ skills:
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(skill_file, "skill")
 
         assert "skill-a" in graph.dependencies
@@ -70,7 +70,7 @@ description: No deps
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(skill_file, "skill")
 
         assert "skill-a" in graph.dependencies
@@ -78,7 +78,7 @@ description: No deps
 
     def test_load_resource_file_not_found(self, temp_project):
         """Test loading nonexistent resource."""
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         nonexistent = temp_project / ".claude" / "commands" / "missing.md"
 
         with pytest.raises(FileNotFoundError):
@@ -118,7 +118,7 @@ name: skill-b
         )
 
         # Load all resources
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
         graph.load_resource(skill_a_file, "skill")
         graph.load_resource(skill_b_file, "skill")
@@ -151,7 +151,7 @@ skills:
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
         graph.load_resource(skill_a_file, "skill")
 
@@ -205,7 +205,7 @@ name: skill-c
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
         graph.load_resource(skill_a_file, "skill")
         graph.load_resource(skill_b_file, "skill")
@@ -242,7 +242,7 @@ skills:
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(skill_a_file, "skill")
         graph.load_resource(skill_b_file, "skill")
 
@@ -272,7 +272,7 @@ name: skill-a
 """
         )
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
         graph.load_resource(skill_a_file, "skill")
 
@@ -283,7 +283,7 @@ name: skill-a
 
     def test_find_transitive_duplicates_resource_not_found(self, temp_project):
         """Test error when resource not in graph."""
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
 
         with pytest.raises(KeyError):
             graph.find_transitive_duplicates("nonexistent")
@@ -293,7 +293,7 @@ name: skill-a
         agent_file = temp_project / ".claude" / "agents" / "my-agent.md"
         agent_file.write_text("---\n---\n")
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(agent_file, "agent")
 
         assert "my-agent" in graph.dependencies
@@ -332,7 +332,7 @@ skills:
         skill_c_file = temp_project / ".claude" / "skills" / "skill-c" / "SKILL.md"
         skill_c_file.write_text("---\nname: skill-c\n---\n")
 
-        graph = DependencyGraph(temp_project)
+        graph = ClaudeDependencyGraph(temp_project)
         graph.load_resource(command_file, "command")
         graph.load_resource(skill_a_file, "skill")
         graph.load_resource(skill_b_file, "skill")
