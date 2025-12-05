@@ -458,3 +458,590 @@ class TestConfigLoader:
         with pytest.raises(ValueError) as exc_info:
             ConfigLoader.load_config(temp_dir)
         assert "Invalid configuration" in str(exc_info.value)
+
+
+class TestRulesFileLoading:
+    """Tests for rules file loading functionality (issue #31)."""
+
+    def test_is_remote_url_http(self):
+        """Test detection of HTTP URLs."""
+        assert ConfigLoader._is_remote_url("http://example.com/rules.yaml")
+
+    def test_is_remote_url_https(self):
+        """Test detection of HTTPS URLs."""
+        assert ConfigLoader._is_remote_url("https://example.com/rules.yaml")
+
+    def test_is_remote_url_local_path(self):
+        """Test detection of local paths."""
+        assert not ConfigLoader._is_remote_url("/path/to/file.yaml")
+        assert not ConfigLoader._is_remote_url("relative/path/file.yaml")
+        assert not ConfigLoader._is_remote_url("~/path/file.yaml")
+
+    def test_is_remote_url_file_scheme(self):
+        """Test that file:// URLs are not considered remote."""
+        assert not ConfigLoader._is_remote_url("file:///path/to/file.yaml")
+
+    def test_merge_rules_non_overlapping(self):
+        """Test merging rules with no overlap."""
+        base = {
+            "rule1": {"description": "First rule"},
+            "rule2": {"description": "Second rule"},
+        }
+        new = {
+            "rule3": {"description": "Third rule"},
+            "rule4": {"description": "Fourth rule"},
+        }
+
+        result = ConfigLoader._merge_rules(base, new)
+
+        assert len(result) == 4
+        assert "rule1" in result
+        assert "rule2" in result
+        assert "rule3" in result
+        assert "rule4" in result
+
+    def test_merge_rules_overlapping(self):
+        """Test merging rules with overlap (later overrides earlier)."""
+        base = {
+            "rule1": {"description": "Original description"},
+            "rule2": {"description": "Second rule"},
+        }
+        new = {
+            "rule1": {"description": "Updated description"},
+            "rule3": {"description": "Third rule"},
+        }
+
+        result = ConfigLoader._merge_rules(base, new)
+
+        assert len(result) == 3
+        assert result["rule1"]["description"] == "Updated description"
+        assert result["rule2"]["description"] == "Second rule"
+        assert result["rule3"]["description"] == "Third rule"
+
+    def test_merge_rules_preserves_original(self):
+        """Test that merge doesn't modify original dictionaries."""
+        base = {"rule1": {"description": "Original"}}
+        new = {"rule2": {"description": "New"}}
+
+        result = ConfigLoader._merge_rules(base, new)
+
+        assert base == {"rule1": {"description": "Original"}}
+        assert new == {"rule2": {"description": "New"}}
+        assert len(result) == 2
+
+    def test_load_rules_file_local_exists(self, temp_dir):
+        """Test loading rules from existing local file."""
+        rules_file = temp_dir / "rules.yaml"
+        rules_data = {
+            "test_rule": {
+                "description": "Test rule",
+                "scope": "conversation_level",
+            }
+        }
+
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        result = ConfigLoader._load_rules_file(str(rules_file))
+        assert result == rules_data
+
+    def test_load_rules_file_local_absolute_path(self, temp_dir):
+        """Test loading rules from absolute path."""
+        rules_file = temp_dir / "rules.yaml"
+        rules_data = {"rule1": {"description": "Test"}}
+
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        result = ConfigLoader._load_rules_file(str(rules_file.absolute()))
+        assert result == rules_data
+
+    def test_load_rules_file_local_relative_path(self, temp_dir, monkeypatch):
+        """Test loading rules from relative path."""
+        monkeypatch.chdir(temp_dir)
+
+        rules_file = temp_dir / "rules.yaml"
+        rules_data = {"rule1": {"description": "Test"}}
+
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        result = ConfigLoader._load_rules_file("rules.yaml")
+        assert result == rules_data
+
+    def test_load_rules_file_local_home_expansion(self, temp_dir, monkeypatch):
+        """Test loading rules with home directory expansion."""
+        import os
+
+        # Create a file in a temp directory
+        rules_dir = temp_dir / "rules"
+        rules_dir.mkdir()
+        rules_file = rules_dir / "rules.yaml"
+        rules_data = {"rule1": {"description": "Test"}}
+
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        # Mock expanduser to expand ~ to our temp directory
+        original_expanduser = os.path.expanduser
+
+        def mock_expanduser(path):
+            if path.startswith("~"):
+                return str(temp_dir) + path[1:]
+            return original_expanduser(path)
+
+        monkeypatch.setattr("os.path.expanduser", mock_expanduser)
+
+        # Test with tilde path
+        result = ConfigLoader._load_rules_file("~/rules/rules.yaml")
+        assert result == rules_data
+
+    def test_load_rules_file_local_not_found(self, temp_dir):
+        """Test loading rules from non-existent local file."""
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_rules_file(str(temp_dir / "missing.yaml"))
+        assert "Rules file not found" in str(exc_info.value)
+
+    def test_load_rules_file_local_invalid_yaml(self, temp_dir):
+        """Test loading rules from file with invalid YAML."""
+        rules_file = temp_dir / "invalid.yaml"
+        rules_file.write_text("invalid: yaml: content:\n  - broken")
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_rules_file(str(rules_file))
+        assert "Invalid YAML in rules file" in str(exc_info.value)
+
+    def test_load_rules_file_local_empty(self, temp_dir):
+        """Test loading rules from empty file."""
+        rules_file = temp_dir / "empty.yaml"
+        rules_file.write_text("")
+
+        result = ConfigLoader._load_rules_file(str(rules_file))
+        assert result == {}
+
+    def test_load_remote_rules_success(self, monkeypatch):
+        """Test loading rules from remote URL successfully."""
+        import requests
+
+        rules_data = {"remote_rule": {"description": "Remote rule"}}
+        yaml_content = yaml.dump(rules_data)
+
+        class MockResponse:
+            text = yaml_content
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+        def mock_get(url, timeout):
+            assert url == "https://example.com/rules.yaml"
+            assert timeout == ConfigLoader.RULES_FETCH_TIMEOUT
+            return MockResponse()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        result = ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert result == rules_data
+
+    def test_load_remote_rules_timeout(self, monkeypatch):
+        """Test timeout when fetching remote rules."""
+        import requests
+
+        def mock_get(url, timeout):
+            raise requests.exceptions.Timeout()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert "Timeout fetching rules" in str(exc_info.value)
+        assert "10s" in str(exc_info.value)
+
+    def test_load_remote_rules_http_error(self, monkeypatch):
+        """Test HTTP error when fetching remote rules."""
+        import requests
+
+        class MockResponse:
+            status_code = 404
+
+            def raise_for_status(self):
+                raise requests.exceptions.HTTPError("404 Not Found")
+
+        def mock_get(url, timeout):
+            return MockResponse()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert "Error fetching rules" in str(exc_info.value)
+
+    def test_load_remote_rules_connection_error(self, monkeypatch):
+        """Test connection error when fetching remote rules."""
+        import requests
+
+        def mock_get(url, timeout):
+            raise requests.exceptions.ConnectionError("Network unreachable")
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert "Error fetching rules" in str(exc_info.value)
+
+    def test_load_remote_rules_invalid_yaml(self, monkeypatch):
+        """Test invalid YAML in remote rules file."""
+        import requests
+
+        class MockResponse:
+            text = "invalid: yaml: content:\n  - broken"
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+        def mock_get(url, timeout):
+            return MockResponse()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert "Invalid YAML in remote rules file" in str(exc_info.value)
+
+    def test_load_remote_rules_empty(self, monkeypatch):
+        """Test loading empty remote rules file."""
+        import requests
+
+        class MockResponse:
+            text = ""
+            status_code = 200
+
+            def raise_for_status(self):
+                pass
+
+        def mock_get(url, timeout):
+            return MockResponse()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        result = ConfigLoader._load_remote_rules("https://example.com/rules.yaml")
+        assert result == {}
+
+    def test_load_config_with_single_rules_file(self, temp_dir, monkeypatch):
+        """Test loading config with single rules file."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create rules file
+        rules_file = temp_dir / "rules.yaml"
+        rules_data = {
+            "custom_rule": {
+                "description": "Custom rule from file",
+                "scope": "conversation_level",
+                "context": "Test context",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        config = ConfigLoader.load_config(temp_dir, rules_files=[str(rules_file)])
+
+        assert "custom_rule" in config.rule_definitions
+        assert config.rule_definitions["custom_rule"].description == "Custom rule from file"
+
+    def test_load_config_with_multiple_rules_files(self, temp_dir, monkeypatch):
+        """Test loading config with multiple rules files."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create first rules file
+        rules_file1 = temp_dir / "rules1.yaml"
+        rules_data1 = {
+            "rule1": {
+                "description": "First rule",
+                "scope": "conversation_level",
+                "context": "Test",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file1, "w") as f:
+            yaml.dump(rules_data1, f)
+
+        # Create second rules file
+        rules_file2 = temp_dir / "rules2.yaml"
+        rules_data2 = {
+            "rule2": {
+                "description": "Second rule",
+                "scope": "conversation_level",
+                "context": "Test",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file2, "w") as f:
+            yaml.dump(rules_data2, f)
+
+        config = ConfigLoader.load_config(
+            temp_dir, rules_files=[str(rules_file1), str(rules_file2)]
+        )
+
+        assert "rule1" in config.rule_definitions
+        assert "rule2" in config.rule_definitions
+
+    def test_load_config_rules_file_override_priority(self, temp_dir, monkeypatch):
+        """Test that later rules files override earlier ones."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create first rules file with rule1
+        rules_file1 = temp_dir / "rules1.yaml"
+        rules_data1 = {
+            "shared_rule": {
+                "description": "Original description",
+                "scope": "conversation_level",
+                "context": "Original",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file1, "w") as f:
+            yaml.dump(rules_data1, f)
+
+        # Create second rules file that overrides rule1
+        rules_file2 = temp_dir / "rules2.yaml"
+        rules_data2 = {
+            "shared_rule": {
+                "description": "Updated description",
+                "scope": "conversation_level",
+                "context": "Updated",
+                "requires_project_context": True,
+            }
+        }
+        with open(rules_file2, "w") as f:
+            yaml.dump(rules_data2, f)
+
+        config = ConfigLoader.load_config(
+            temp_dir, rules_files=[str(rules_file1), str(rules_file2)]
+        )
+
+        assert config.rule_definitions["shared_rule"].description == "Updated description"
+        assert config.rule_definitions["shared_rule"].scope == "conversation_level"
+
+    def test_load_config_with_default_rules_file(self, temp_dir, monkeypatch):
+        """Test loading config with .drift_rules.yaml in project root."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        rules_data = {
+            "default_rule": {
+                "description": "Rule from .drift_rules.yaml",
+                "scope": "conversation_level",
+                "context": "Test",
+                "requires_project_context": False,
+            }
+        }
+        with open(default_rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        config = ConfigLoader.load_config(temp_dir)
+
+        assert "default_rule" in config.rule_definitions
+        assert config.rule_definitions["default_rule"].description == "Rule from .drift_rules.yaml"
+
+    def test_load_config_priority_cli_over_default_rules_file(self, temp_dir, monkeypatch):
+        """Test that CLI rules file overrides .drift_rules.yaml."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        default_rules = {
+            "shared_rule": {
+                "description": "From .drift_rules.yaml",
+                "scope": "conversation_level",
+                "context": "Default",
+                "requires_project_context": False,
+            }
+        }
+        with open(default_rules_file, "w") as f:
+            yaml.dump(default_rules, f)
+
+        # Create CLI rules file
+        cli_rules_file = temp_dir / "cli_rules.yaml"
+        cli_rules = {
+            "shared_rule": {
+                "description": "From CLI",
+                "scope": "conversation_level",
+                "context": "CLI",
+                "requires_project_context": True,
+            }
+        }
+        with open(cli_rules_file, "w") as f:
+            yaml.dump(cli_rules, f)
+
+        config = ConfigLoader.load_config(temp_dir, rules_files=[str(cli_rules_file)])
+
+        assert config.rule_definitions["shared_rule"].description == "From CLI"
+        assert config.rule_definitions["shared_rule"].scope == "conversation_level"
+
+    def test_load_config_priority_default_rules_over_drift_yaml(self, temp_dir, monkeypatch):
+        """Test that .drift_rules.yaml overrides rule_definitions in .drift.yaml."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift.yaml with rule_definitions
+        drift_yaml = temp_dir / ".drift.yaml"
+        drift_config = {
+            "rule_definitions": {
+                "shared_rule": {
+                    "description": "From .drift.yaml",
+                    "scope": "conversation_level",
+                    "context": "Config",
+                    "requires_project_context": False,
+                }
+            }
+        }
+        with open(drift_yaml, "w") as f:
+            yaml.dump(drift_config, f)
+
+        # Create .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        default_rules = {
+            "shared_rule": {
+                "description": "From .drift_rules.yaml",
+                "scope": "conversation_level",
+                "context": "Rules file",
+                "requires_project_context": True,
+            }
+        }
+        with open(default_rules_file, "w") as f:
+            yaml.dump(default_rules, f)
+
+        config = ConfigLoader.load_config(temp_dir)
+
+        assert config.rule_definitions["shared_rule"].description == "From .drift_rules.yaml"
+        assert config.rule_definitions["shared_rule"].scope == "conversation_level"
+
+    def test_load_config_combines_rules_from_all_sources(self, temp_dir, monkeypatch):
+        """Test that rules from all sources are combined."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift.yaml with rule_definitions
+        drift_yaml = temp_dir / ".drift.yaml"
+        drift_config = {
+            "rule_definitions": {
+                "rule_from_config": {
+                    "description": "From .drift.yaml",
+                    "scope": "conversation_level",
+                    "context": "Config",
+                    "requires_project_context": False,
+                }
+            }
+        }
+        with open(drift_yaml, "w") as f:
+            yaml.dump(drift_config, f)
+
+        # Create .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        default_rules = {
+            "rule_from_default": {
+                "description": "From .drift_rules.yaml",
+                "scope": "conversation_level",
+                "context": "Default rules",
+                "requires_project_context": False,
+            }
+        }
+        with open(default_rules_file, "w") as f:
+            yaml.dump(default_rules, f)
+
+        # Create CLI rules file
+        cli_rules_file = temp_dir / "cli_rules.yaml"
+        cli_rules = {
+            "rule_from_cli": {
+                "description": "From CLI",
+                "scope": "conversation_level",
+                "context": "CLI",
+                "requires_project_context": False,
+            }
+        }
+        with open(cli_rules_file, "w") as f:
+            yaml.dump(cli_rules, f)
+
+        config = ConfigLoader.load_config(temp_dir, rules_files=[str(cli_rules_file)])
+
+        # All three rules should be present
+        assert "rule_from_config" in config.rule_definitions
+        assert "rule_from_default" in config.rule_definitions
+        assert "rule_from_cli" in config.rule_definitions
+
+    def test_load_config_rules_file_not_found_error(self, temp_dir, monkeypatch):
+        """Test error when specified rules file doesn't exist."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader.load_config(temp_dir, rules_files=["missing_rules.yaml"])
+
+        assert "Error loading rules file 'missing_rules.yaml'" in str(exc_info.value)
+        assert "Rules file not found" in str(exc_info.value)
+
+    def test_load_config_rules_file_invalid_yaml_error(self, temp_dir, monkeypatch):
+        """Test error when rules file contains invalid YAML."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        invalid_file = temp_dir / "invalid.yaml"
+        invalid_file.write_text("invalid: yaml: content:\n  - broken")
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader.load_config(temp_dir, rules_files=[str(invalid_file)])
+
+        assert "Error loading rules file" in str(exc_info.value)
+        assert "Invalid YAML" in str(exc_info.value)
+
+    def test_load_config_default_rules_file_error(self, temp_dir, monkeypatch):
+        """Test error when .drift_rules.yaml is invalid."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create invalid .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        default_rules_file.write_text("invalid: yaml: content:\n  - broken")
+
+        with pytest.raises(ValueError) as exc_info:
+            ConfigLoader.load_config(temp_dir)
+
+        assert "Error loading .drift_rules.yaml" in str(exc_info.value)

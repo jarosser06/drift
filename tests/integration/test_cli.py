@@ -1544,3 +1544,175 @@ class TestAnalyzeCommand:
         # Verify the config was modified to disable parallel execution
         assert result.exit_code == 0
         assert config.parallel_execution.enabled is False
+
+    @patch("drift.cli.commands.analyze.DriftAnalyzer")
+    @patch("drift.cli.commands.analyze.ConfigLoader")
+    def test_rules_file_single_file(
+        self,
+        mock_config_loader,
+        mock_analyzer_class,
+        cli_runner,
+        sample_drift_config,
+        mock_complete_result,
+        temp_dir,
+    ):
+        """Test --rules-file with single file."""
+        import yaml
+
+        # Create rules file
+        rules_file = temp_dir / "custom_rules.yaml"
+        rules_data = {
+            "custom_rule": {
+                "description": "Custom rule",
+                "scope": "conversation_level",
+                "context": "Testing",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file, "w") as f:
+            yaml.dump(rules_data, f)
+
+        # Mock config loader to track the rules_files parameter
+        def mock_load_config(project_path, rules_files=None):
+            assert rules_files == [str(rules_file)]
+            return sample_drift_config
+
+        mock_config_loader.load_config.side_effect = mock_load_config
+        mock_config_loader.ensure_global_config_exists.return_value = None
+
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer_class.return_value = mock_analyzer
+
+        result = cli_runner.invoke(
+            main,
+            ["--rules-file", str(rules_file), "--project", str(temp_dir)],
+        )
+
+        assert result.exit_code == 0
+        mock_config_loader.load_config.assert_called_once()
+
+    @patch("drift.cli.commands.analyze.DriftAnalyzer")
+    @patch("drift.cli.commands.analyze.ConfigLoader")
+    def test_rules_file_multiple_files(
+        self,
+        mock_config_loader,
+        mock_analyzer_class,
+        cli_runner,
+        sample_drift_config,
+        mock_complete_result,
+        temp_dir,
+    ):
+        """Test --rules-file with multiple files."""
+        import yaml
+
+        # Create first rules file
+        rules_file1 = temp_dir / "rules1.yaml"
+        rules_data1 = {"rule1": {"description": "Rule 1"}}
+        with open(rules_file1, "w") as f:
+            yaml.dump(rules_data1, f)
+
+        # Create second rules file
+        rules_file2 = temp_dir / "rules2.yaml"
+        rules_data2 = {"rule2": {"description": "Rule 2"}}
+        with open(rules_file2, "w") as f:
+            yaml.dump(rules_data2, f)
+
+        # Mock config loader to track the rules_files parameter
+        def mock_load_config(project_path, rules_files=None):
+            assert rules_files == [str(rules_file1), str(rules_file2)]
+            return sample_drift_config
+
+        mock_config_loader.load_config.side_effect = mock_load_config
+        mock_config_loader.ensure_global_config_exists.return_value = None
+
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer_class.return_value = mock_analyzer
+
+        result = cli_runner.invoke(
+            main,
+            [
+                "--rules-file",
+                str(rules_file1),
+                "--rules-file",
+                str(rules_file2),
+                "--project",
+                str(temp_dir),
+            ],
+        )
+
+        assert result.exit_code == 0
+        mock_config_loader.load_config.assert_called_once()
+
+    @patch("drift.cli.commands.analyze.ConfigLoader")
+    def test_rules_file_not_found(
+        self,
+        mock_config_loader,
+        cli_runner,
+        temp_dir,
+    ):
+        """Test --rules-file with missing file shows clear error."""
+        missing_file = temp_dir / "missing_rules.yaml"
+
+        # Mock config loader to raise error
+        mock_config_loader.load_config.side_effect = ValueError(
+            f"Error loading rules file '{missing_file}': Rules file not found: {missing_file}"
+        )
+        mock_config_loader.ensure_global_config_exists.return_value = None
+
+        result = cli_runner.invoke(
+            main,
+            ["--rules-file", str(missing_file), "--project", str(temp_dir)],
+        )
+
+        assert result.exit_code == 1
+        assert "Configuration error" in result.stderr
+        assert "Error loading rules file" in result.stderr
+
+    @patch("drift.cli.commands.analyze.DriftAnalyzer")
+    @patch("drift.cli.commands.analyze.ConfigLoader")
+    def test_rules_file_remote_url(
+        self,
+        mock_config_loader,
+        mock_analyzer_class,
+        cli_runner,
+        sample_drift_config,
+        mock_complete_result,
+        temp_dir,
+    ):
+        """Test --rules-file with remote URL."""
+        remote_url = "https://example.com/rules.yaml"
+
+        # Mock config loader to track the rules_files parameter
+        def mock_load_config(project_path, rules_files=None):
+            assert rules_files == [remote_url]
+            return sample_drift_config
+
+        mock_config_loader.load_config.side_effect = mock_load_config
+        mock_config_loader.ensure_global_config_exists.return_value = None
+
+        mock_analyzer = MagicMock()
+        mock_analyzer.analyze.return_value = mock_complete_result
+        mock_analyzer.analyze_documents.return_value = mock_complete_result
+        mock_analyzer_class.return_value = mock_analyzer
+
+        result = cli_runner.invoke(
+            main,
+            ["--rules-file", remote_url, "--project", str(temp_dir)],
+        )
+
+        assert result.exit_code == 0
+        mock_config_loader.load_config.assert_called_once()
+
+    def test_rules_file_help_text(self, cli_runner):
+        """Test that --help shows --rules-file option."""
+        result = cli_runner.invoke(main, ["--help"])
+
+        assert result.exit_code == 0
+        assert "--rules-file" in result.stdout
+        assert "Path to rules file" in result.stdout
+        assert "HTTP(S) URL" in result.stdout or "local file" in result.stdout
+        assert "multiple times" in result.stdout
