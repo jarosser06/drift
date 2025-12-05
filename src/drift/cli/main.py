@@ -37,6 +37,15 @@ Examples:
 
   # Use sonnet model for all analysis
   drift --model sonnet
+
+  # Use custom rules file
+  drift --rules-file custom_rules.yaml
+
+  # Use multiple rules files
+  drift --rules-file base_rules.yaml --rules-file extra_rules.yaml
+
+  # Use remote rules file
+  drift --rules-file https://example.com/drift-rules.yaml
         """,
     )
 
@@ -135,6 +144,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--rules-file",
+        action="append",
+        default=None,
+        help="Path to rules file (local file or HTTP(S) URL). Can be specified multiple times.",
+    )
+
+    parser.add_argument(
         "--verbose",
         "-v",
         action="count",
@@ -168,6 +184,7 @@ def main() -> None:
         cache_dir=args.cache_dir,
         no_parallel=args.no_parallel,
         project=args.project,
+        rules_file=args.rules_file,
         verbose=args.verbose,
     )
 

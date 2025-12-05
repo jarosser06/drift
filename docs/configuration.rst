@@ -372,3 +372,182 @@ Combine multiple validators for complex validation:
             prompt: "Verify skill has clear examples and instructions"
             failure_message: "Skill lacks examples"
             expected_behavior: "Skills should have working examples"
+
+Separate Rules Files
+---------------------
+
+Rules can be separated from configuration settings into dedicated rules files. This allows sharing rules across multiple projects, maintaining team-wide rule repositories, and keeping configuration files focused on project-specific settings.
+
+Default Rules File (.drift_rules.yaml)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Drift automatically loads ``.drift_rules.yaml`` from the project root if it exists. This file contains only rule definitions:
+
+.. code-block:: yaml
+
+    # .drift_rules.yaml
+    rule_definitions:
+      claude_md_missing:
+        description: "Project must have CLAUDE.md"
+        scope: project_level
+        context: "CLAUDE.md provides project instructions"
+        phases:
+          - name: check_file
+            type: file_exists
+            file_path: CLAUDE.md
+            failure_message: "CLAUDE.md is missing"
+            expected_behavior: "Project needs CLAUDE.md"
+
+      readme_exists:
+        description: "Project must have README.md"
+        scope: project_level
+        context: "README.md documents project usage"
+        phases:
+          - name: check_readme
+            type: file_exists
+            file_path: README.md
+            failure_message: "README.md is missing"
+            expected_behavior: "Project needs README.md"
+
+With this approach, ``.drift.yaml`` contains only configuration:
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    providers:
+      anthropic:
+        provider: anthropic
+        params:
+          api_key_env: ANTHROPIC_API_KEY
+
+    models:
+      sonnet:
+        provider: anthropic
+        model_id: claude-sonnet-4-5-20250929
+        params:
+          max_tokens: 4096
+          temperature: 0.0
+
+    default_model: sonnet
+
+Loading Rules from Files (--rules-file)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``--rules-file`` CLI argument loads rules from local files or remote HTTP(S) URLs. This argument can be specified multiple times to load rules from multiple sources.
+
+**Local file example:**
+
+.. code-block:: bash
+
+    drift --rules-file /path/to/custom-rules.yaml
+
+**Remote URL example:**
+
+.. code-block:: bash
+
+    drift --rules-file https://example.com/team-rules.yaml
+
+**Multiple files example:**
+
+.. code-block:: bash
+
+    drift --rules-file https://example.com/base-rules.yaml \
+          --rules-file /local/project-specific.yaml
+
+Remote rules are fetched with a 10-second timeout. Both HTTP and HTTPS URLs are supported.
+
+Rules Loading Priority System
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When rules are loaded from multiple sources, Drift applies a priority order where later sources override earlier ones:
+
+1. ``.drift.yaml`` ``rule_definitions`` (lowest priority)
+2. ``.drift_rules.yaml`` in project root
+3. ``--rules-file`` CLI arguments (highest priority, applied in order)
+
+Rules with the same name in higher-priority sources replace rules from lower-priority sources.
+
+**Example workflow:**
+
+.. code-block:: yaml
+
+    # .drift.yaml - Project config only
+    providers:
+      anthropic:
+        provider: anthropic
+        params:
+          api_key_env: ANTHROPIC_API_KEY
+
+    models:
+      sonnet:
+        provider: anthropic
+        model_id: claude-sonnet-4-5-20250929
+        params:
+          max_tokens: 4096
+
+    default_model: sonnet
+
+.. code-block:: yaml
+
+    # .drift_rules.yaml - Project-specific rules
+    rule_definitions:
+      readme_exists:
+        description: "Project must have README.md"
+        scope: project_level
+        context: "README.md documents project"
+        phases:
+          - name: check
+            type: file_exists
+            file_path: README.md
+
+.. code-block:: bash
+
+    # Command line - Load team-wide rules (highest priority)
+    drift --rules-file https://github.com/myorg/drift-rules/main/standard-rules.yaml
+
+In this example:
+
+1. Project configuration comes from ``.drift.yaml``
+2. Project-specific rules come from ``.drift_rules.yaml``
+3. Team-wide rules from the remote URL override any conflicting rules
+
+Use Cases and Benefits
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Sharing rules across projects:**
+
+Create a central rules repository and reference it from multiple projects:
+
+.. code-block:: bash
+
+    drift --rules-file https://github.com/myorg/drift-rules/main/python-standards.yaml
+
+**Team-wide defaults with project overrides:**
+
+Teams can maintain standard rules remotely while allowing projects to override specific rules in ``.drift_rules.yaml``:
+
+.. code-block:: bash
+
+    # Load base team rules, then project customizations
+    drift --rules-file https://internal.company.com/drift-rules/base.yaml \
+          --rules-file .drift_rules.yaml
+
+**Separation of concerns:**
+
+Keep configuration (providers, models) separate from validation logic (rules):
+
+- ``.drift.yaml`` - Provider configuration and model settings
+- ``.drift_rules.yaml`` - Validation rules
+- Remote rules - Organization standards
+
+**Environment-specific rules:**
+
+Load different rule sets based on environment:
+
+.. code-block:: bash
+
+    # Development
+    drift --rules-file rules/dev-rules.yaml
+
+    # Production
+    drift --rules-file rules/prod-rules.yaml

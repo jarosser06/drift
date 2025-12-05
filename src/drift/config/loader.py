@@ -1,8 +1,10 @@
 """Configuration loading and merging logic."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
+import requests
 import yaml
 
 from drift.config.defaults import get_default_config
@@ -18,16 +20,16 @@ class ConfigLoader:
         Path.home() / ".drift" / "config.yaml",
     ]
     PROJECT_CONFIG_NAME = ".drift.yaml"
+    DEFAULT_RULES_FILE = ".drift_rules.yaml"
+    RULES_FETCH_TIMEOUT = 10  # seconds
 
     @staticmethod
     def _load_yaml_file(path: Path) -> Optional[Dict[str, Any]]:
         """Load YAML file if it exists.
 
-        Args:
-            path: Path to YAML file
+        -- path: Path to YAML file
 
-        Returns:
-            Parsed YAML content or None if file doesn't exist
+        Returns parsed YAML content or None if file doesn't exist.
         """
         if not path.exists():
             return None
@@ -38,6 +40,85 @@ class ConfigLoader:
                 return content if content is not None else {}
         except Exception as e:
             raise ValueError(f"Error loading config from {path}: {e}")
+
+    @staticmethod
+    def _is_remote_url(source: str) -> bool:
+        """Check if source is a remote URL (HTTP or HTTPS).
+
+        -- source: File path or URL to check
+
+        Returns True if source is an HTTP(S) URL, False otherwise.
+        """
+        parsed = urlparse(source)
+        return parsed.scheme in ("http", "https")
+
+    @classmethod
+    def _load_remote_rules(cls, url: str) -> Dict[str, Any]:
+        """Load rules from remote HTTP(S) URL.
+
+        -- url: Remote URL to fetch rules from
+
+        Returns parsed YAML content from remote file.
+
+        Raises ValueError if request fails or YAML is invalid.
+        """
+        try:
+            response = requests.get(url, timeout=cls.RULES_FETCH_TIMEOUT)
+            response.raise_for_status()
+        except requests.exceptions.Timeout:
+            raise ValueError(
+                f"Timeout fetching rules from {url} (timeout: {cls.RULES_FETCH_TIMEOUT}s)"
+            )
+        except requests.exceptions.RequestException as e:
+            raise ValueError(f"Error fetching rules from {url}: {e}")
+
+        try:
+            content = yaml.safe_load(response.text)
+            return content if content is not None else {}
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in remote rules file {url}: {e}")
+
+    @classmethod
+    def _load_rules_file(cls, source: str) -> Dict[str, Any]:
+        """Load rules from file or URL.
+
+        -- source: Local file path or HTTP(S) URL
+
+        Returns parsed rules dictionary.
+
+        Raises ValueError if source doesn't exist or has invalid YAML.
+        """
+        if cls._is_remote_url(source):
+            return cls._load_remote_rules(source)
+
+        # Local file
+        path = Path(source).expanduser().resolve()
+        if not path.exists():
+            raise ValueError(f"Rules file not found: {source}")
+
+        try:
+            with open(path, "r") as f:
+                content = yaml.safe_load(f)
+                return content if content is not None else {}
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in rules file {source}: {e}")
+        except Exception as e:
+            raise ValueError(f"Error loading rules from {source}: {e}")
+
+    @classmethod
+    def _merge_rules(cls, base_rules: Dict[str, Any], new_rules: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge two rule definition dictionaries.
+
+        Later rules override earlier rules with the same name.
+
+        -- base_rules: Base rule definitions
+        -- new_rules: New rule definitions to merge in
+
+        Returns merged rule definitions.
+        """
+        merged = base_rules.copy()
+        merged.update(new_rules)
+        return merged
 
     @staticmethod
     def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
@@ -152,7 +233,9 @@ class ConfigLoader:
         return config_path
 
     @classmethod
-    def load_config(cls, project_path: Optional[Path] = None) -> DriftConfig:
+    def load_config(
+        cls, project_path: Optional[Path] = None, rules_files: Optional[List[str]] = None
+    ) -> DriftConfig:
         """Load complete configuration with proper merging.
 
         Priority (highest to lowest):
@@ -160,12 +243,20 @@ class ConfigLoader:
         2. Global config (~/.config/drift/config.yaml)
         3. Default config (hardcoded)
 
-        Args:
-            project_path: Path to project directory (defaults to current directory)
+        Rules loading priority (highest to lowest):
+        1. --rules-file CLI arguments (if provided, can be multiple)
+        2. .drift_rules.yaml in project root (if exists)
+        3. rule_definitions section in .drift.yaml (current behavior)
+        4. Empty rules dict (use built-in defaults only)
 
-        Returns:
-            Merged and validated DriftConfig
+        -- project_path: Path to project directory (defaults to current directory)
+        -- rules_files: Optional list of rules file paths/URLs from CLI
+
+        Returns merged and validated DriftConfig.
         """
+        if project_path is None:
+            project_path = Path.cwd()
+
         # Start with default config
         default_dict = cls._config_to_dict(get_default_config())
 
@@ -177,6 +268,34 @@ class ConfigLoader:
         project_dict = cls.load_project_config(project_path)
         if project_dict:
             merged = cls._deep_merge(merged, project_dict)
+
+        # Load rules with priority order
+        rules_dict: Dict[str, Any] = {}
+
+        # Start with rules from .drift.yaml (lowest priority)
+        if "rule_definitions" in merged:
+            rules_dict = merged.get("rule_definitions", {})
+
+        # Check for .drift_rules.yaml in project root
+        default_rules_file = project_path / cls.DEFAULT_RULES_FILE
+        if default_rules_file.exists():
+            try:
+                default_rules = cls._load_rules_file(str(default_rules_file))
+                rules_dict = cls._merge_rules(rules_dict, default_rules)
+            except ValueError as e:
+                raise ValueError(f"Error loading {cls.DEFAULT_RULES_FILE}: {e}")
+
+        # Apply CLI-specified rules files (highest priority)
+        if rules_files:
+            for rules_file in rules_files:
+                try:
+                    file_rules = cls._load_rules_file(rules_file)
+                    rules_dict = cls._merge_rules(rules_dict, file_rules)
+                except ValueError as e:
+                    raise ValueError(f"Error loading rules file '{rules_file}': {e}")
+
+        # Update merged config with final rules
+        merged["rule_definitions"] = rules_dict
 
         # Validate and return
         try:

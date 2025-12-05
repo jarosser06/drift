@@ -151,6 +151,7 @@ def analyze_command(
     cache_dir: Optional[str] = None,
     no_parallel: bool = False,
     project: Optional[str] = None,
+    rules_file: Optional[list[str]] = None,
     verbose: int = 0,
 ) -> None:
     """Analyze AI agent conversations to identify drift patterns.
@@ -194,7 +195,7 @@ def analyze_command(
 
         # Load configuration
         try:
-            config = ConfigLoader.load_config(project_path)
+            config = ConfigLoader.load_config(project_path, rules_files=rules_file)
         except ValueError as e:
             print_error(f"Configuration error: {e}")
             sys.exit(1)
