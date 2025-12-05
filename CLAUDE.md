@@ -1,6 +1,6 @@
 # Drift Project
 
-Quality assurance for AI-augmented codebases - validates that your project follows best practices for effective AI agent collaboration.
+TDD framework for AI workflows - define agent/skill/command standards in `.drift.yaml`, validate project structure programmatically, iterate to compliance.
 
 ## Tech Stack
 
@@ -54,11 +54,14 @@ The `.claude/` directory contains specialized configurations for AI agents:
 ## Key Commands
 
 ```bash
-# Run Drift analysis
-drift                     # Analyze latest conversation
-drift --no-llm           # Fast programmatic validation only
+# Run Drift validation (primary use - TDD workflow)
+drift --no-llm           # Fast programmatic validation (define → validate → fix → iterate)
+drift --format json      # JSON output for CI/CD
+drift --rules <names>    # Validate specific rules only
+
+# Optional: Conversation analysis
+drift                    # Analyze latest conversation (requires LLM)
 drift --days 7           # Analyze last 7 days
-drift --format json      # JSON output
 
 # Development
 ./test.sh                # Run tests with 90%+ coverage requirement
@@ -101,7 +104,7 @@ Configuration in `.drift.yaml` (see README.md for details).
 ## Validation Rules
 
 Two categories of validation:
-1. **Conversation Analysis** (LLM-based): Analyzes AI agent conversations for quality issues
-2. **Project Validation** (Programmatic): Fast checks for documentation, dependencies, links
+1. **Project Validation** (Programmatic): Primary use case - fast checks for documentation, dependencies, links, configuration. Define your standards in `.drift.yaml` and validate against them. Zero API calls needed.
+2. **Conversation Analysis** (LLM-based): Optional - analyzes AI agent conversations for quality issues. Requires LLM provider configuration.
 
 See `.drift.yaml` for full rule definitions and README.md for descriptions.

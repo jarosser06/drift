@@ -25,6 +25,7 @@
 - Subjective adjectives (e.g., "easily", "simply", "powerful")
 - Marketing language instead of technical documentation
 - Missing error handling in examples
+- **False claims** (e.g., "most users", "most teams", "most workflows") - never make claims about user behavior without data
 
 ## Resource Guides
 
@@ -103,7 +104,13 @@ Common documentation problems specific to Drift framework.
    - "Drift is powerful" → State specific capabilities.
    - "You can quickly analyze..." → Remove "quickly", state what you can analyze.
 
-4. **Verify factual accuracy**
+4. **CRITICAL: Flag false claims about user behavior**
+   - "most users", "most teams", "most workflows", "most people"
+   - "many users", "typically", "commonly", "usually"
+   - ANY claim about what users do without hard data
+   - Replace with factual statements: "Programmatic validation (--no-llm) works without API calls" instead of "Most users run --no-llm"
+
+5. **Verify factual accuracy**
    - All claims should be verifiable
    - Features should be demonstrated, not praised
    - Benefits should be concrete and measurable

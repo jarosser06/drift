@@ -1,7 +1,7 @@
 Quick Start Guide
 =================
 
-This guide walks you through installing Drift, running your first validation, understanding the output, and integrating it into your workflow with detailed, real-world examples.
+This guide walks you through the TDD workflow for AI projects: define your standards, run validation, fix issues, and iterate to compliance.
 
 Installation
 ------------
@@ -23,7 +23,7 @@ Verify the installation:
 
 Expected output::
 
-    drift version 0.1.1
+    drift version 0.2.0
 
 Installing for Development
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,11 +38,18 @@ Clone the repository and install in editable mode:
 
 This installs development dependencies (pytest, black, mypy, etc.) needed for contributing.
 
-First Run: Project Validation
-------------------------------
+The TDD Workflow
+----------------
 
-First Run: Create Your Rules
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Drift follows a test-driven development approach:
+
+1. **Define standards** - Write validation rules first (like writing tests)
+2. **Run validation** - See what fails (red phase)
+3. **Fix issues** - Create/update files to meet standards (green phase)
+4. **Iterate** - Re-run until all checks pass (refactor phase)
+
+Step 1: Define Your Standards
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **IMPORTANT:** Drift requires ``.drift.yaml`` with rule definitions. Without rules, Drift has nothing to check.
 
@@ -95,10 +102,10 @@ Create ``.drift.yaml`` in your project root with starter rules:
               check_local_files: true
               check_external_urls: false
 
-Run Drift
-~~~~~~~~~
+Step 2: Run Validation (Red Phase)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After creating ``.drift.yaml``, run validation:
+After creating ``.drift.yaml``, run validation to see what fails:
 
 .. code-block:: bash
 
@@ -109,7 +116,7 @@ What happens:
 1. Detects AI clients you're using (Claude Code, etc.)
 2. Loads rules from ``.drift.yaml``
 3. Runs all checks on your files
-4. Reports violations
+4. Reports violations (expect failures on first run)
 
 Understanding the Output
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,8 +178,8 @@ Let's break down each section:
   - **Observed**: What Drift found (CLAUDE.md and agents.md files don't exist)
   - **Expected**: What should be there (both files should exist)
 
-Fixing Your First Issue
-~~~~~~~~~~~~~~~~~~~~~~~~
+Step 3: Fix Issues (Green Phase)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The output shows 2 missing files. Let's fix them:
 
@@ -209,7 +216,10 @@ The output shows 2 missing files. Let's fix them:
     Writes tests and validates coverage.
     EOF
 
-**Step 3: Verify the fix**
+Step 4: Iterate Until Green
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Re-run validation to verify your fixes:
 
 .. code-block:: bash
 
@@ -230,7 +240,7 @@ Expected output::
     - **claude_md_missing**: No issues found
     - **agents_md_exists**: No issues found
 
-Both issues are now resolved!
+Success! All checks pass. This is the TDD workflow - define standards, run validation (red), fix issues (green), iterate until passing.
 
 How Drift Works
 ---------------

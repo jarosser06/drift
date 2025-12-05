@@ -4,33 +4,42 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/docs-docs.driftai.dev-blue)](https://docs.driftai.dev)
 
-Quality assurance for AI-augmented codebases - validates that your project follows recommended patterns for effective AI agent collaboration.
+Test-driven development for AI workflows - define your AI agent standards, validate your project structure, and iterate to compliance.
 
 ## What It Does
 
-Drift validates your AI-augmented development environment using **custom rules you define** in `.drift.yaml`.
+Drift is a **test-driven development framework for AI workflows**. Define your standards first, validate against them, fix issues, and iterate - just like TDD for code.
 
-**Getting Started:** Check out [`.drift.yaml`](.drift.yaml) in this repository for example rules, or visit the [documentation](https://docs.driftai.dev) for a complete guide to writing your own validation rules.
+### TDD Workflow for AI Agent Projects
 
-**Primary Use: Project Structure Validation**
+1. **Define standards** - Write validation rules in `.drift.yaml` for your expected project structure
+2. **Run validation** - Execute `drift --no-llm` to see what's missing or broken (red phase)
+3. **Fix issues** - Create files, fix links, update configurations manually or with AI assistance (green phase)
+4. **Iterate** - Re-run validation until all checks pass (refactor phase)
 
-Run `drift --no-llm` to execute your custom programmatic validation rules without API calls. Define rules in `.drift.yaml` to check:
-- **Dependency health**: Detect redundant transitive dependencies in commands, skills, and agents
-- **Link integrity**: Validate all file references and resource links in documentation
-- **Completeness checks**: Ensure skills, commands, and agents have required structure
-- **Configuration validation**: Verify agent tools format, frontmatter schema, and MCP permissions
-- **Consistency validation**: Detect contradictions between commands and project guidelines
-- **Required files**: Verify essential configuration files exist (e.g., CLAUDE.md)
+**No built-in opinions** - Drift has zero default rules. You define your team's standards in `.drift.yaml`, then validate against them. Perfect for bootstrapping new projects or enforcing consistency across teams.
 
-**Optional Feature: Conversation Quality Analysis**
+### Project Structure Validation (Primary Use)
 
-Run `drift` (requires LLM access and rules with `type: prompt`) to analyze AI agent conversation logs. Define custom rules to detect:
+Run `drift --no-llm` for instant feedback without API calls. Define custom rules to check:
+- **Dependency health**: Detect redundant transitive dependencies
+- **Link integrity**: Validate file references and resource links
+- **Completeness checks**: Ensure required structure exists
+- **Configuration validation**: Verify formats, frontmatter, permissions
+- **Consistency validation**: Detect contradictions in documentation
+- **Required files**: Verify essential files exist
+
+**Getting Started:** Check out [`.drift.yaml`](.drift.yaml) in this repository for example rules, or visit the [documentation](https://docs.driftai.dev) for a complete guide.
+
+### Conversation Quality Analysis (Optional)
+
+For teams wanting deeper insights, run `drift` with LLM-based rules to analyze AI agent conversations:
 - Incomplete work and premature task abandonment
 - Missed delegation opportunities to specialized agents
 - Ignored skills, commands, or workflow automation
 - Deviation from documented project guidelines
 
-**Note:** Most users run `drift --no-llm` as part of their development workflow or CI/CD. Conversation analysis is optional for teams wanting to improve AI collaboration patterns.
+Requires LLM access and rules with `type: prompt`.
 
 ## Installation
 
@@ -448,6 +457,27 @@ rule_definitions:
 
 ## Use Cases
 
+**Bootstrapping New AI Projects (TDD Approach):**
+```bash
+# 1. Define your standards in .drift.yaml first
+# 2. Run validation - watch it fail (red)
+drift --no-llm
+
+# 3. Create the required structure (manually or with AI help)
+# Example output guides you:
+# "CLAUDE.md is missing - expected: Project needs CLAUDE.md"
+
+# 4. Re-run until green
+drift --no-llm
+```
+
+**Enforcing Team Standards:**
+```bash
+# Define your team's conventions in .drift.yaml
+# Run in CI/CD to block non-compliant PRs
+drift --no-llm --format json
+```
+
 **Pre-commit Validation:**
 ```bash
 # Add to pre-commit hook
@@ -465,16 +495,16 @@ drift --no-llm --format json
 
 **Project Setup:**
 ```bash
-# Validate new agent configurations
+# Validate specific rule categories
 drift --no-llm --rules agent_frontmatter,agent_tools_format
 
-# Check completeness
+# Check completeness across all components
 drift --no-llm --rules skill_completeness,agent_completeness
 ```
 
-**Periodic Reviews:**
+**Optional: Conversation Analysis:**
 ```bash
-# Analyze last week's conversations
+# Analyze last week's AI collaboration patterns
 export ANTHROPIC_API_KEY=your-key
 drift --days 7 --scope all
 ```

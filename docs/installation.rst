@@ -1,6 +1,8 @@
 Installation
 ============
 
+Drift is a test-driven development framework for AI workflows. Define validation rules, run checks, fix issues, and iterate to compliance.
+
 Prerequisites
 -------------
 
@@ -34,12 +36,10 @@ This installs Drift in editable mode with development dependencies including:
 - isort (import sorting)
 - mypy (type checking)
 
-Provider Setup
---------------
+Provider Setup (Optional)
+-------------------------
 
 LLM providers are ONLY required if your rules use ``type: prompt`` for semantic analysis. Programmatic validation (``--no-llm``) works without any provider setup.
-
-Drift supports multiple LLM providers for conversation analysis and prompt-based rules.
 
 Anthropic API
 ~~~~~~~~~~~~~

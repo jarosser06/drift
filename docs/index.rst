@@ -1,20 +1,29 @@
 Drift Documentation
 ===================
 
-Quality assurance for AI-augmented codebases.
+Test-driven development for AI workflows.
 
 `GitHub <https://github.com/jarosser06/drift>`_ | `Issues <https://github.com/jarosser06/drift/issues>`_ | `PyPI <https://pypi.org/project/ai-drift/>`_
 
 What Drift Does
 ---------------
 
-Drift validates your AI-augmented development environment using custom rules you define in ``.drift.yaml``.
+Drift is a **TDD framework for AI workflows**. Define your standards first, validate against them, fix issues, and iterate - just like TDD for code.
 
-**IMPORTANT:** Drift has NO built-in rules. All validation rules must be defined by you in ``.drift.yaml`` under ``rule_definitions``. Without rules, Drift does nothing.
+TDD Workflow for AI Agent Projects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**Primary Use: Project Structure Validation**
+1. **Define standards** - Write validation rules in ``.drift.yaml`` for your expected project structure
+2. **Run validation** - Execute ``drift --no-llm`` to see what's missing or broken (red phase)
+3. **Fix issues** - Create files, fix links, update configurations manually or with AI assistance (green phase)
+4. **Iterate** - Re-run validation until all checks pass (refactor phase)
 
-Run ``drift --no-llm`` to execute your custom programmatic validation rules without API calls. Define rules in ``.drift.yaml`` to check:
+**No built-in opinions** - You define your team's standards in ``.drift.yaml``, then validate against them. Perfect for bootstrapping new projects or enforcing consistency across teams.
+
+Project Structure Validation (Primary Use)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Run ``drift --no-llm`` for instant feedback without API calls. Define rules in ``.drift.yaml`` to check:
 
 - **Dependency health**: Detect redundant transitive dependencies in commands, skills, and agents
 - **Link integrity**: Validate all file references and resource links in documentation
@@ -25,16 +34,17 @@ Run ``drift --no-llm`` to execute your custom programmatic validation rules with
 
 See :doc:`configuration` for rule examples and :doc:`quickstart` for starter rules.
 
-**Conversation Quality Analysis**
+Conversation Quality Analysis (Optional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Conversation analysis helps teams identify where AI collaboration can be improved.
-
-Run ``drift`` (requires LLM access and rules with ``type: prompt``) to analyze AI agent conversation logs. Define custom conversation-level validation rules in ``.drift.yaml`` to detect patterns like:
+For teams wanting deeper insights, run ``drift`` with LLM-based rules to analyze AI agent conversations. Define custom conversation-level validation rules in ``.drift.yaml`` to detect patterns like:
 
 - User manually executing steps that slash commands automate
 - AI agent not using available skills for specialized tasks
 - Available automation or capabilities not being utilized
 - Conversations diverging from documented best practices
+
+Requires LLM access and rules with ``type: prompt``.
 
 Getting Started
 ---------------

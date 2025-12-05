@@ -115,6 +115,15 @@ sed -i.bak "s/^version = \".*\"/version = \"$NEW_VERSION\"/" "$PYPROJECT"
 rm "${PYPROJECT}.bak"
 echo -e "${GREEN}✓ Updated version${NC}" >&2
 
+# Update documentation version
+QUICKSTART_DOC="$PROJECT_ROOT/docs/quickstart.rst"
+if [ -f "$QUICKSTART_DOC" ]; then
+    echo -e "${YELLOW}→${NC} Updating docs/quickstart.rst..." >&2
+    sed -i.bak "s/drift version [0-9]\+\.[0-9]\+\.[0-9]\+/drift version $NEW_VERSION/" "$QUICKSTART_DOC"
+    rm "${QUICKSTART_DOC}.bak"
+    echo -e "${GREEN}✓ Updated documentation version${NC}" >&2
+fi
+
 # Update changelog if requested
 if [ "$UPDATE_CHANGELOG" = true ]; then
     echo "" >&2
