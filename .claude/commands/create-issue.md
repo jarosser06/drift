@@ -38,4 +38,7 @@ Create a well-structured GitHub issue with clear requirements.
 The assistant will:
 1. Activate the required skills listed in the frontmatter
 2. Gather information about the issue from the user
-3. Create a properly formatted issue using `mcp__github__create_issue` from the GitHub MCP server
+3. Draft the issue and present it to the user for approval
+4. **ONLY** create the issue using `mcp__github__create_issue` after receiving explicit user approval
+
+**CRITICAL:** The assistant MUST NOT create the GitHub issue until the user has explicitly approved the drafted issue content.

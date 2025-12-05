@@ -67,6 +67,9 @@ The assistant will:
 1. Activate the required skills listed in the frontmatter
 2. Run pre-PR validation (tests and linters)
 3. Review changes to ensure quality
-4. Create a properly formatted PR using `mcp__github__create_pull_request` from the GitHub MCP server
+4. Draft the PR content and present it to the user for approval
+5. **ONLY** create the PR using `mcp__github__create_pull_request` after receiving explicit user approval
+
+**CRITICAL:** The assistant MUST NOT create the GitHub pull request until the user has explicitly approved the drafted PR content.
 
 This will validate code quality and create a well-structured PR ready for review.
