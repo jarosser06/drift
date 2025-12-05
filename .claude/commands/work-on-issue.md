@@ -37,9 +37,12 @@ Implement a complete workflow for a GitHub issue from start to finish.
    - Run `./test.sh --coverage` to verify coverage meets 90%+ requirement
    - Validate all requirements are met
 
-7. **Commit**
-   - Create descriptive commit message
-   - Reference issue number in commit
+7. **Present Summary**
+   - Provide detailed summary of changes made
+   - List all files created and modified
+   - Show quality metrics (coverage, test counts)
+   - Give user opportunity to review before committing
+   - DO NOT automatically commit - wait for user to review and commit manually
 
 **Usage:**
 ```
@@ -60,6 +63,7 @@ The assistant will:
 4. **MUST use Task tool with subagent_type='developer'** for implementation - do NOT implement code directly
 5. **MUST use Task tool with subagent_type='qa'** for testing - do NOT write tests directly
 6. Validate quality with ./lint.sh and ./test.sh
-7. Create descriptive commit referencing the issue
+7. Present summary of changes for user review
+8. **DO NOT commit automatically** - user will review and commit when ready
 
-This workflow ensures specialized agents handle their domains of expertise from issue assignment to implementation ready for PR.
+This workflow ensures specialized agents handle their domains of expertise from issue assignment to implementation, while giving the user full control over when to commit changes.
