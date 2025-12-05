@@ -1,4 +1,4 @@
-"""Unit tests for new validators (DependencyDuplicateValidator, MarkdownLinkValidator)."""
+"""Unit tests for new validators (Claude Dependency Validators, MarkdownLinkValidator)."""
 
 from unittest.mock import Mock, patch
 
@@ -6,7 +6,7 @@ import pytest
 
 from drift.config.models import ValidationRule, ValidationType
 from drift.core.types import DocumentBundle, DocumentFile
-from drift.validation.validators import DependencyDuplicateValidator, MarkdownLinkValidator
+from drift.validation.validators import ClaudeDependencyDuplicateValidator, MarkdownLinkValidator
 
 
 def create_bundle(files, project_path, bundle_id="test-bundle"):
@@ -43,8 +43,8 @@ class TestDependencyDuplicateValidator:
 
     @pytest.fixture
     def validator(self, mock_loader):
-        """Create a DependencyDuplicateValidator instance."""
-        return DependencyDuplicateValidator(mock_loader)
+        """Create a ClaudeDependencyDuplicateValidator instance."""
+        return ClaudeDependencyDuplicateValidator(mock_loader)
 
     @pytest.fixture
     def validation_rule(self):
@@ -262,7 +262,7 @@ name: skill-c
         """Test validation when loader has no project path."""
         loader = Mock()
         loader.project_path = None
-        validator = DependencyDuplicateValidator(loader)
+        validator = ClaudeDependencyDuplicateValidator(loader)
 
         bundle = create_bundle(
             [],

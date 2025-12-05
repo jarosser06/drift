@@ -1,8 +1,4 @@
-"""Generic validators for dependency analysis.
-
-These validators work with any DependencyGraph implementation and can be
-used for different file-based dependency systems.
-"""
+"""Generic validator for detecting circular dependencies."""
 
 import logging
 from pathlib import Path
@@ -16,8 +12,8 @@ from drift.validation.validators.base import BaseValidator
 logger = logging.getLogger(__name__)
 
 
-class DependencyDuplicateValidator(BaseValidator):
-    """Generic validator for detecting duplicate dependencies.
+class CircularDependenciesValidator(BaseValidator):
+    """Generic validator for detecting circular dependencies.
 
     Works with any DependencyGraph implementation. Subclasses should provide
     the graph_class and implement _determine_resource_type for their specific
@@ -47,16 +43,15 @@ class DependencyDuplicateValidator(BaseValidator):
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
     ) -> Optional[DocumentRule]:
-        """Detect duplicate resource declarations in dependency chain.
+        """Detect circular dependencies.
 
         -- rule: ValidationRule with params for resource_dirs
         -- bundle: Document bundle being validated
         -- all_bundles: List of all bundles (needed for cross-bundle analysis)
 
-        Returns DocumentRule if duplicates found, None otherwise.
+        Returns DocumentRule if cycles found, None otherwise.
         """
         if not all_bundles:
-            # Need all bundles for cross-bundle analysis
             return None
 
         if not self.graph_class:
@@ -64,13 +59,12 @@ class DependencyDuplicateValidator(BaseValidator):
 
         resource_dirs = rule.params.get("resource_dirs", [])
         if not resource_dirs:
-            raise ValueError("DependencyDuplicateValidator requires 'resource_dirs' param")
+            raise ValueError("CircularDependenciesValidator requires 'resource_dirs' param")
 
-        # Build dependency graph from all bundles
-        project_path = bundle.project_path
-        graph = self.graph_class(project_path)
+        # Build graph using the provided graph class
+        graph = self.graph_class(bundle.project_path)
 
-        # Load all resources from all bundles
+        # Load all resources
         for b in all_bundles:
             for file in b.files:
                 file_path = Path(file.file_path)
@@ -79,12 +73,11 @@ class DependencyDuplicateValidator(BaseValidator):
                     try:
                         graph.load_resource(file_path, resource_type)
                     except Exception as e:
-                        # Skip files that can't be loaded
                         logger.debug(f"Skipping {file_path}: {e}")
                         continue
 
-        # Check current bundle for duplicates
-        duplicates_found = []
+        # Check for cycles
+        cycles_found = []
         for file in bundle.files:
             file_path = Path(file.file_path)
             resource_type = self._determine_resource_type(file_path)
@@ -94,27 +87,23 @@ class DependencyDuplicateValidator(BaseValidator):
             resource_id = graph.extract_resource_id(file_path, resource_type)
 
             try:
-                duplicates = graph.find_transitive_duplicates(resource_id)
-                if duplicates:
-                    for dup_resource, declared_by in duplicates:
-                        duplicates_found.append((file.relative_path, dup_resource, declared_by))
+                cycles = graph.find_cycles(resource_id)
+                if cycles:
+                    for cycle in cycles:
+                        cycles_found.append((file.relative_path, cycle))
             except KeyError:
-                # Resource not in graph
                 continue
 
-        if duplicates_found:
-            # Build detailed message
+        if cycles_found:
             messages = []
-            for file_rel_path, dup_resource, declared_by in duplicates_found:
-                messages.append(
-                    f"{file_rel_path}: '{dup_resource}' is redundant "
-                    f"(already declared by '{declared_by}')"
-                )
+            for file_rel_path, cycle in cycles_found:
+                cycle_path = " → ".join(cycle)
+                messages.append(f"{file_rel_path}: Cycle detected: {cycle_path}")
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
-                file_paths=[d[0] for d in duplicates_found],
+                file_paths=[c[0] for c in cycles_found],
                 observed_issue=rule.failure_message + ": " + "; ".join(messages),
                 expected_quality=rule.expected_behavior,
                 rule_type="",

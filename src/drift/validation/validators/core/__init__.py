@@ -1,5 +1,8 @@
 """Core validators for generic validation tasks."""
 
+from drift.validation.validators.core.circular_dependencies_validator import (
+    CircularDependenciesValidator,
+)
 from drift.validation.validators.core.dependency_validators import DependencyDuplicateValidator
 from drift.validation.validators.core.file_validators import (
     FileExistsValidator,
@@ -16,9 +19,13 @@ from drift.validation.validators.core.list_validators import (
     ListRegexMatchValidator,
 )
 from drift.validation.validators.core.markdown_validators import MarkdownLinkValidator
+from drift.validation.validators.core.max_dependency_depth_validator import (
+    MaxDependencyDepthValidator,
+)
 from drift.validation.validators.core.regex_validators import RegexMatchValidator
 
 __all__ = [
+    "CircularDependenciesValidator",
     "DependencyDuplicateValidator",
     "FileExistsValidator",
     "FileSizeValidator",
@@ -26,6 +33,7 @@ __all__ = [
     "ListMatchValidator",
     "ListRegexMatchValidator",
     "MarkdownLinkValidator",
+    "MaxDependencyDepthValidator",
     "RegexMatchValidator",
     "TokenCountValidator",
     "YamlFrontmatterValidator",

@@ -82,8 +82,17 @@ class ValidationType(str, Enum):
     CROSS_FILE_REFERENCE = "cross_file_reference"
     LIST_MATCH = "list_match"
     LIST_REGEX_MATCH = "list_regex_match"
-    DEPENDENCY_DUPLICATE = "dependency_duplicate"
     MARKDOWN_LINK = "markdown_link"
+
+    # Generic dependency validators (can be extended for other tools)
+    DEPENDENCY_DUPLICATE = "dependency_duplicate"
+    CIRCULAR_DEPENDENCIES = "circular_dependencies"
+    MAX_DEPENDENCY_DEPTH = "max_dependency_depth"
+
+    # Claude Code-specific validators
+    CLAUDE_DEPENDENCY_DUPLICATE = "claude_dependency_duplicate"
+    CLAUDE_CIRCULAR_DEPENDENCIES = "claude_circular_dependencies"
+    CLAUDE_MAX_DEPENDENCY_DEPTH = "claude_max_dependency_depth"
     CLAUDE_SKILL_SETTINGS = "claude_skill_settings"
     CLAUDE_SETTINGS_DUPLICATES = "claude_settings_duplicates"
     CLAUDE_MCP_PERMISSIONS = "claude_mcp_permissions"
@@ -314,7 +323,7 @@ class DriftConfig(BaseModel):
     temp_dir: str = Field("/tmp/drift", description="Temporary directory for analysis")
     cache_enabled: bool = Field(True, description="Enable LLM response caching")
     cache_dir: str = Field(".drift/cache", description="Directory for cache files")
-    cache_ttl: int = Field(86400, description="Cache TTL in seconds (default: 24 hours)")
+    cache_ttl: int = Field(2592000, description="Cache TTL in seconds (default: 30 days)")
     parallel_execution: ParallelExecutionConfig = Field(
         default_factory=lambda: ParallelExecutionConfig(enabled=True),
         description="Parallel execution configuration for validation rules",

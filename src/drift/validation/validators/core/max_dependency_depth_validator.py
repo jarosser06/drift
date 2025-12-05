@@ -1,8 +1,4 @@
-"""Generic validators for dependency analysis.
-
-These validators work with any DependencyGraph implementation and can be
-used for different file-based dependency systems.
-"""
+"""Generic validator for detecting excessive dependency chain depth."""
 
 import logging
 from pathlib import Path
@@ -16,8 +12,22 @@ from drift.validation.validators.base import BaseValidator
 logger = logging.getLogger(__name__)
 
 
-class DependencyDuplicateValidator(BaseValidator):
-    """Generic validator for detecting duplicate dependencies.
+class MaxDependencyDepthValidator(BaseValidator):
+    """Generic validator for detecting excessive dependency chain depth.
+
+    This validator detects when a resource's dependency chain exceeds a
+    configurable maximum depth. Deep dependency chains can be hard to maintain,
+    understand, and debug.
+
+    The depth is calculated as the longest path from the resource to any leaf
+    dependency (a dependency with no further dependencies).
+
+    Example:
+        If A depends on B, B depends on C, and C depends on D:
+        - A has depth 3 (A → B → C → D)
+        - B has depth 2 (B → C → D)
+        - C has depth 1 (C → D)
+        - D has depth 0 (no dependencies)
 
     Works with any DependencyGraph implementation. Subclasses should provide
     the graph_class and implement _determine_resource_type for their specific
@@ -47,13 +57,13 @@ class DependencyDuplicateValidator(BaseValidator):
         bundle: DocumentBundle,
         all_bundles: Optional[List[DocumentBundle]] = None,
     ) -> Optional[DocumentRule]:
-        """Detect duplicate resource declarations in dependency chain.
+        """Detect when dependency chain exceeds maximum depth.
 
-        -- rule: ValidationRule with params for resource_dirs
+        -- rule: ValidationRule with params for max_depth and resource_dirs
         -- bundle: Document bundle being validated
         -- all_bundles: List of all bundles (needed for cross-bundle analysis)
 
-        Returns DocumentRule if duplicates found, None otherwise.
+        Returns DocumentRule if depth exceeded, None otherwise.
         """
         if not all_bundles:
             # Need all bundles for cross-bundle analysis
@@ -62,9 +72,12 @@ class DependencyDuplicateValidator(BaseValidator):
         if not self.graph_class:
             raise ValueError("graph_class must be provided")
 
+        # Extract params
+        max_depth = rule.params.get("max_depth", 5)
         resource_dirs = rule.params.get("resource_dirs", [])
+
         if not resource_dirs:
-            raise ValueError("DependencyDuplicateValidator requires 'resource_dirs' param")
+            raise ValueError("MaxDependencyDepthValidator requires 'resource_dirs' param")
 
         # Build dependency graph from all bundles
         project_path = bundle.project_path
@@ -83,8 +96,8 @@ class DependencyDuplicateValidator(BaseValidator):
                         logger.debug(f"Skipping {file_path}: {e}")
                         continue
 
-        # Check current bundle for duplicates
-        duplicates_found = []
+        # Check current bundle for excessive depth
+        depth_violations = []
         for file in bundle.files:
             file_path = Path(file.file_path)
             resource_type = self._determine_resource_type(file_path)
@@ -94,27 +107,27 @@ class DependencyDuplicateValidator(BaseValidator):
             resource_id = graph.extract_resource_id(file_path, resource_type)
 
             try:
-                duplicates = graph.find_transitive_duplicates(resource_id)
-                if duplicates:
-                    for dup_resource, declared_by in duplicates:
-                        duplicates_found.append((file.relative_path, dup_resource, declared_by))
+                depth, path = graph.get_dependency_depth(resource_id)
+                if depth > max_depth:
+                    depth_violations.append((file.relative_path, depth, path))
             except KeyError:
                 # Resource not in graph
                 continue
 
-        if duplicates_found:
+        if depth_violations:
             # Build detailed message
             messages = []
-            for file_rel_path, dup_resource, declared_by in duplicates_found:
+            for file_rel_path, depth, path in depth_violations:
+                chain_path = " → ".join(path)
                 messages.append(
-                    f"{file_rel_path}: '{dup_resource}' is redundant "
-                    f"(already declared by '{declared_by}')"
+                    f"{file_rel_path}: Depth {depth} exceeds maximum {max_depth}. "
+                    f"Chain: {chain_path}"
                 )
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
-                file_paths=[d[0] for d in duplicates_found],
+                file_paths=[v[0] for v in depth_violations],
                 observed_issue=rule.failure_message + ": " + "; ".join(messages),
                 expected_quality=rule.expected_behavior,
                 rule_type="",

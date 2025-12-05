@@ -12,11 +12,15 @@ from drift.config.models import ClientType, ValidationRule, ValidationType
 from drift.core.types import DocumentBundle, DocumentRule
 from drift.validation.validators.base import BaseValidator
 from drift.validation.validators.client import (
+    ClaudeCircularDependenciesValidator,
+    ClaudeDependencyDuplicateValidator,
+    ClaudeMaxDependencyDepthValidator,
     ClaudeMcpPermissionsValidator,
     ClaudeSettingsDuplicatesValidator,
     ClaudeSkillSettingsValidator,
 )
 from drift.validation.validators.core import (
+    CircularDependenciesValidator,
     DependencyDuplicateValidator,
     FileExistsValidator,
     FileSizeValidator,
@@ -24,6 +28,7 @@ from drift.validation.validators.core import (
     ListMatchValidator,
     ListRegexMatchValidator,
     MarkdownLinkValidator,
+    MaxDependencyDepthValidator,
     RegexMatchValidator,
     TokenCountValidator,
     YamlFrontmatterValidator,
@@ -78,6 +83,7 @@ class ValidatorRegistry:
         -- loader: Optional document loader for resource access
         """
         self._validators = {
+            # Core validators
             ValidationType.FILE_EXISTS: FileExistsValidator(loader),
             ValidationType.FILE_NOT_EXISTS: FileExistsValidator(loader),
             ValidationType.FILE_SIZE: FileSizeValidator(loader),
@@ -88,8 +94,17 @@ class ValidatorRegistry:
             ValidationType.REGEX_MATCH: RegexMatchValidator(loader),
             ValidationType.LIST_MATCH: ListMatchValidator(loader),
             ValidationType.LIST_REGEX_MATCH: ListRegexMatchValidator(loader),
-            ValidationType.DEPENDENCY_DUPLICATE: DependencyDuplicateValidator(loader),
             ValidationType.MARKDOWN_LINK: MarkdownLinkValidator(loader),
+            # Generic dependency validators (base classes, extensible)
+            ValidationType.DEPENDENCY_DUPLICATE: DependencyDuplicateValidator(loader),
+            ValidationType.CIRCULAR_DEPENDENCIES: CircularDependenciesValidator(loader),
+            ValidationType.MAX_DEPENDENCY_DEPTH: MaxDependencyDepthValidator(loader),
+            # Claude Code-specific validators
+            ValidationType.CLAUDE_DEPENDENCY_DUPLICATE: ClaudeDependencyDuplicateValidator(loader),
+            ValidationType.CLAUDE_CIRCULAR_DEPENDENCIES: ClaudeCircularDependenciesValidator(
+                loader
+            ),
+            ValidationType.CLAUDE_MAX_DEPENDENCY_DEPTH: ClaudeMaxDependencyDepthValidator(loader),
             ValidationType.CLAUDE_SKILL_SETTINGS: ClaudeSkillSettingsValidator(loader),
             ValidationType.CLAUDE_SETTINGS_DUPLICATES: ClaudeSettingsDuplicatesValidator(loader),
             ValidationType.CLAUDE_MCP_PERMISSIONS: ClaudeMcpPermissionsValidator(loader),
@@ -215,10 +230,14 @@ class ValidatorRegistry:
 
 __all__ = [
     "BaseValidator",
-    "ClientType",
+    "CircularDependenciesValidator",
+    "ClaudeCircularDependenciesValidator",
+    "ClaudeDependencyDuplicateValidator",
     "ClaudeMcpPermissionsValidator",
+    "ClaudeMaxDependencyDepthValidator",
     "ClaudeSettingsDuplicatesValidator",
     "ClaudeSkillSettingsValidator",
+    "ClientType",
     "DependencyDuplicateValidator",
     "FileExistsValidator",
     "FileSizeValidator",
@@ -226,6 +245,7 @@ __all__ = [
     "ListMatchValidator",
     "ListRegexMatchValidator",
     "MarkdownLinkValidator",
+    "MaxDependencyDepthValidator",
     "RegexMatchValidator",
     "TokenCountValidator",
     "ValidatorRegistry",

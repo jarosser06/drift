@@ -51,8 +51,6 @@ Drift follows a test-driven development approach:
 Step 1: Define Your Standards
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**IMPORTANT:** Drift requires ``.drift.yaml`` with rule definitions. Without rules, Drift has nothing to check.
-
 Create ``.drift.yaml`` in your project root with starter rules:
 
 .. code-block:: yaml
@@ -253,7 +251,12 @@ Drift validates your project by executing rules defined in ``.drift.yaml``. Each
 - ``regex_match`` - Pattern matching in file content
 - ``yaml_frontmatter`` - Validate YAML frontmatter structure
 - ``markdown_link`` - Check for broken links
-- ``dependency_duplicate`` - Detect redundant dependencies
+- ``circular_dependencies`` - Detect circular dependency cycles (generic)
+- ``max_dependency_depth`` - Detect excessively deep dependency chains (generic)
+- ``dependency_duplicate`` - Detect redundant dependencies (generic)
+- ``claude_circular_dependencies`` - Detect circular dependency cycles in Claude Code resources
+- ``claude_max_dependency_depth`` - Detect excessively deep dependency chains in Claude Code
+- ``claude_dependency_duplicate`` - Detect redundant transitive dependencies in Claude Code
 - ``prompt`` - Use LLM for semantic analysis (requires API access)
 
 See :doc:`configuration` for complete list and examples.

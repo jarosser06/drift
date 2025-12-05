@@ -1,10 +1,10 @@
-"""Tests for DependencyDuplicateValidator."""
+"""Tests for Claude Dependency Duplicate Validator."""
 
 import pytest
 
 from drift.config.models import ValidationRule, ValidationType
 from drift.core.types import DocumentBundle, DocumentFile
-from drift.validation.validators import DependencyDuplicateValidator
+from drift.validation.validators import ClaudeDependencyDuplicateValidator
 
 
 class TestDependencyDuplicateValidator:
@@ -130,12 +130,12 @@ class TestDependencyDuplicateValidator:
 
     def test_computation_type(self):
         """Test that validator has correct computation type."""
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         assert validator.computation_type == "programmatic"
 
     def test_detects_redundant_skill_dependency(self, bundle_skill_c, all_bundles):
         """Test detection of redundant transitive skill dependency."""
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -153,7 +153,7 @@ class TestDependencyDuplicateValidator:
 
     def test_detects_redundant_command_dependency(self, bundle_command, all_bundles):
         """Test detection of redundant transitive dependency in command."""
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -186,7 +186,7 @@ class TestDependencyDuplicateValidator:
             project_path=project_root,
         )
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -200,7 +200,7 @@ class TestDependencyDuplicateValidator:
 
     def test_returns_none_without_all_bundles(self, bundle_skill_c):
         """Test validator returns None when all_bundles not provided."""
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -214,7 +214,7 @@ class TestDependencyDuplicateValidator:
 
     def test_raises_error_without_resource_dirs(self, bundle_skill_c, all_bundles):
         """Test validator raises error when resource_dirs param missing."""
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -230,7 +230,7 @@ class TestDependencyDuplicateValidator:
         """Test _determine_resource_type identifies skills correctly."""
         from pathlib import Path
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
 
         # Test skill path
         skill_path = Path(".claude/skills/test-skill/SKILL.md")
@@ -240,7 +240,7 @@ class TestDependencyDuplicateValidator:
         """Test _determine_resource_type identifies commands correctly."""
         from pathlib import Path
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
 
         # Test command path
         cmd_path = Path(".claude/commands/test-cmd.md")
@@ -250,7 +250,7 @@ class TestDependencyDuplicateValidator:
         """Test _determine_resource_type identifies agents correctly."""
         from pathlib import Path
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
 
         # Test agent path
         agent_path = Path(".claude/agents/test-agent.md")
@@ -260,7 +260,7 @@ class TestDependencyDuplicateValidator:
         """Test _determine_resource_type returns None for unknown types."""
         from pathlib import Path
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
 
         # Test unknown path
         unknown_path = Path("some/other/file.md")
@@ -288,7 +288,7 @@ class TestDependencyDuplicateValidator:
             project_path=project_root,
         )
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",
@@ -306,7 +306,7 @@ class TestDependencyDuplicateValidator:
         # Create bundles without the full dependency chain
         incomplete_bundles = [bundle_command]
 
-        validator = DependencyDuplicateValidator()
+        validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
             rule_type=ValidationType.DEPENDENCY_DUPLICATE,
             description="Check for redundant dependencies",

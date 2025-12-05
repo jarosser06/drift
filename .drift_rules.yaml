@@ -961,3 +961,99 @@ agent_tools_format:
         flags: 8
       failure_message: "Agent tools field uses YAML list format (- Read) instead of comma-separated format"
       expected_behavior: "Tools should be comma-separated on one line: 'tools: Read, Write, Edit, Grep, Glob' not YAML list with dashes"
+
+skill_circular_dependencies:
+  description: "Skills have circular dependency cycles"
+  scope: project_level
+  context: "Circular dependencies in skills create infinite loops and prevent proper skill loading. Each skill's dependency graph must be acyclic."
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: skill
+    file_patterns:
+      - .claude/skills/*/SKILL.md
+    bundle_strategy: individual
+  phases:
+    - name: check_cycles
+      type: circular_dependencies
+      description: "Check for circular dependencies in skill dependency graphs"
+      failure_message: "Found circular dependencies in skills"
+      expected_behavior: "Skills should not have circular dependency cycles"
+      params:
+        resource_dirs:
+          - .claude/skills
+
+# Claude Code Dependency Validation Examples
+command_circular_dependencies:
+  description: "Commands must not have circular skill dependencies"
+  scope: project_level
+  context: "Circular dependencies cause loading failures and maintenance issues"
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: command
+    file_patterns:
+      - .claude/commands/*.md
+    bundle_strategy: individual
+  phases:
+    - name: check_circular_deps
+      type: claude_circular_dependencies
+      description: "Detect circular dependency cycles"
+      params:
+        resource_dirs:
+          - .claude/commands
+          - .claude/skills
+          - .claude/agents
+      failure_message: "Found circular dependency in command"
+      expected_behavior: "Commands should not have circular skill dependencies"
+
+skill_max_depth:
+  description: "Skill dependency chains should not exceed maximum depth"
+  scope: project_level
+  context: "Deep dependency chains are hard to maintain and slow to load"
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: skill
+    file_patterns:
+      - .claude/skills/*/SKILL.md
+    bundle_strategy: individual
+  phases:
+    - name: check_depth
+      type: claude_max_dependency_depth
+      description: "Ensure dependencies don't exceed maximum depth"
+      params:
+        max_depth: 3
+        resource_dirs:
+          - .claude/commands
+          - .claude/skills
+          - .claude/agents
+      failure_message: "Skill dependency chain exceeds maximum depth"
+      expected_behavior: "Skill dependencies should not exceed depth of 3"
+
+agent_duplicate_dependencies_claude:
+  description: "Agents should only declare direct skill dependencies (Claude validator)"
+  scope: project_level
+  context: "Transitive dependencies are automatically included by Claude Code"
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: agent
+    file_patterns:
+      - .claude/agents/*.md
+    bundle_strategy: individual
+  phases:
+    - name: check_duplicates
+      type: claude_dependency_duplicate
+      description: "Check for redundant transitive dependencies"
+      params:
+        resource_dirs:
+          - .claude/commands
+          - .claude/skills
+          - .claude/agents
+      failure_message: "Found redundant skill dependencies in agent"
+      expected_behavior: "Agents should only declare direct dependencies, not transitive ones"

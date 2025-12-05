@@ -5,9 +5,17 @@ from drift.validation.validators.client.claude import (
     ClaudeSettingsDuplicatesValidator,
     ClaudeSkillSettingsValidator,
 )
+from drift.validation.validators.client.claude_dependency import (
+    ClaudeCircularDependenciesValidator,
+    ClaudeDependencyDuplicateValidator,
+    ClaudeMaxDependencyDepthValidator,
+)
 
 __all__ = [
+    "ClaudeCircularDependenciesValidator",
+    "ClaudeDependencyDuplicateValidator",
     "ClaudeMcpPermissionsValidator",
+    "ClaudeMaxDependencyDepthValidator",
     "ClaudeSettingsDuplicatesValidator",
     "ClaudeSkillSettingsValidator",
 ]
