@@ -34,16 +34,6 @@ Comprehensive guide for validating code examples against actual implementation.
 
 **Use when**: Checking if documentation code examples are accurate and working.
 
-### 📖 [Subjective Language Detection](resources/subjective-language.md)
-Guide for identifying and removing subjective or marketing language from documentation.
-
-**Use when**: Reviewing documentation for objective, factual language.
-
-### 📖 [Common Documentation Issues](resources/common-issues.md)
-Common documentation problems specific to Drift framework.
-
-**Use when**: Performing a comprehensive documentation audit.
-
 ## Audit Process
 
 ### Phase 1: Code Example Validation
