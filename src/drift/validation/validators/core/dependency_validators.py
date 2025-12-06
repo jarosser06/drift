@@ -103,22 +103,54 @@ class DependencyDuplicateValidator(BaseValidator):
                 continue
 
         if duplicates_found:
-            # Build detailed message
-            messages = []
+            # Build detailed failure information
+            duplicate_details = []
             for file_rel_path, dup_resource, declared_by in duplicates_found:
-                messages.append(
-                    f"{file_rel_path}: '{dup_resource}' is redundant "
-                    f"(already declared by '{declared_by}')"
+                duplicate_details.append(
+                    {
+                        "file": file_rel_path,
+                        "duplicate_resource": dup_resource,
+                        "declared_by": declared_by,
+                    }
                 )
+
+            # Format primary duplicate for the main message
+            primary_dup = duplicates_found[0]
+            failure_details = {
+                "duplicate_resource": primary_dup[1],
+                "declared_by": primary_dup[2],
+                "duplicate_count": len(duplicates_found),
+                "all_duplicates": duplicate_details,
+            }
+
+            # Format observed issue with details
+            if len(duplicates_found) == 1:
+                detailed_message = self._format_message(
+                    rule.failure_message
+                    + ": '{duplicate_resource}' is redundant "
+                    + "(already declared by '{declared_by}')",
+                    failure_details,
+                )
+            else:
+                template = rule.failure_message + ": {duplicate_count} duplicates detected"
+                detailed_message = self._format_message(template, failure_details)
+                # Add details for each duplicate
+                dup_summaries = [
+                    f"{dd['file']}: '{dd['duplicate_resource']}' "
+                    f"(declared by '{dd['declared_by']}')"
+                    for dd in duplicate_details
+                ]
+                detailed_message += " (" + "; ".join(dup_summaries) + ")"
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[d[0] for d in duplicates_found],
-                observed_issue=rule.failure_message + ": " + "; ".join(messages),
+                observed_issue=detailed_message,
                 expected_quality=rule.expected_behavior,
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
+                failure_details=failure_details,
             )
 
         return None

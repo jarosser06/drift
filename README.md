@@ -268,6 +268,47 @@ document_bundle:
 - `individual`: Each file validated separately (for file-specific checks)
 - `collection`: All files validated together (for cross-file checks)
 
+### Detailed Failure Messages
+
+Many validators support **failure details** with template placeholders for actionable error messages. Use `{placeholder}` syntax in `failure_message` to reference specific values:
+
+```yaml
+phases:
+  - name: check_depth
+    type: max_dependency_depth
+    params:
+      max_depth: 3
+      resource_dirs:
+        - .claude/agents
+        - .claude/skills
+    failure_message: "Dependency depth {actual_depth} exceeds max {max_depth}"
+    expected_behavior: "Keep dependency chains under 3 levels"
+```
+
+**Example output:**
+```
+Dependency depth 5 exceeds max 3. Chain: agent_a → skill_b → skill_c → skill_d → skill_e
+```
+
+**Before (generic message):**
+```yaml
+failure_message: "Dependency validation failed"
+# Output: "Dependency validation failed"
+```
+
+**After (with placeholders):**
+```yaml
+failure_message: "Circular dependency: {circular_path}"
+# Output: "Circular dependency: agent_a → skill_b → agent_a"
+```
+
+Validators that support `failure_details`:
+- `dependency_duplicate` - `{duplicate_resource}`, `{declared_by}`, `{duplicate_count}`
+- `circular_dependencies` - `{circular_path}`, `{cycle_count}`
+- `max_dependency_depth` - `{actual_depth}`, `{max_depth}`, `{dependency_chain}`
+
+See [docs/validators.md](docs/validators.md) for complete validator documentation and all available placeholders.
+
 ### Validation Phase Types
 
 #### Programmatic Validators (No LLM Required)

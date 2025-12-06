@@ -95,19 +95,42 @@ class CircularDependenciesValidator(BaseValidator):
                 continue
 
         if cycles_found:
-            messages = []
+            # Build detailed failure information
+            cycle_details = []
             for file_rel_path, cycle in cycles_found:
                 cycle_path = " → ".join(cycle)
-                messages.append(f"{file_rel_path}: Cycle detected: {cycle_path}")
+                cycle_details.append({"file": file_rel_path, "cycle_path": cycle_path})
+
+            # Format primary cycle for the main message
+            primary_cycle = " → ".join(cycles_found[0][1])
+            failure_details = {
+                "circular_path": primary_cycle,
+                "cycle_count": len(cycles_found),
+                "all_cycles": cycle_details,
+            }
+
+            # Format observed issue with details
+            if len(cycles_found) == 1:
+                detailed_message = self._format_message(
+                    rule.failure_message + ": {circular_path}", failure_details
+                )
+            else:
+                detailed_message = self._format_message(
+                    rule.failure_message + ": {cycle_count} cycles detected", failure_details
+                )
+                # Add details for each cycle
+                cycle_summaries = [f"{cd['file']}: {cd['cycle_path']}" for cd in cycle_details]
+                detailed_message += " (" + "; ".join(cycle_summaries) + ")"
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[c[0] for c in cycles_found],
-                observed_issue=rule.failure_message + ": " + "; ".join(messages),
+                observed_issue=detailed_message,
                 expected_quality=rule.expected_behavior,
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
+                failure_details=failure_details,
             )
 
         return None

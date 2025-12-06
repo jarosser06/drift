@@ -243,3 +243,11 @@ class DocumentRule(BaseModel):
     expected_quality: str = Field(..., description="What the expected quality/behavior should be")
     rule_type: str = Field(..., description="Type of rule that was violated")
     context: str = Field("", description="Additional context about the issue")
+    failure_details: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description=(
+            "Optional structured failure details for message templating. "
+            "Validators can provide specific details (e.g., circular_path, actual_depth) "
+            "that can be interpolated into violation messages for more actionable output."
+        ),
+    )

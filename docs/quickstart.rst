@@ -107,7 +107,7 @@ After creating ``.drift.yaml``, run validation to see what fails:
 
 .. code-block:: bash
 
-    drift --no-llm
+    drift
 
 What happens:
 
@@ -119,7 +119,7 @@ What happens:
 Understanding the Output
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Example output when running ``drift --no-llm`` with the starter rules above:
+Example output when running ``drift`` with the starter rules above:
 
 .. code-block:: text
 
@@ -156,7 +156,7 @@ Example output when running ``drift --no-llm`` with the starter rules above:
 Let's break down each section:
 
 **Summary Section**
-  - **Total conversations**: AI conversation logs analyzed (0 with ``--no-llm``)
+  - **Total conversations**: AI conversation logs analyzed (0 for programmatic validation)
   - **Total rules**: Validation rules that ran (3 from your ``.drift.yaml``)
   - **Total violations**: Issues found (2 problems: missing CLAUDE.md and agents.md)
   - **Total checks**: Files/bundles validated (8 total checks)
@@ -221,7 +221,7 @@ Re-run validation to verify your fixes:
 
 .. code-block:: bash
 
-    drift --no-llm --rules claude_md_missing,agents_md_exists
+    drift --rules claude_md_missing,agents_md_exists
 
 Expected output::
 
@@ -368,7 +368,7 @@ Example 1: Detecting Redundant Dependencies
 
 .. code-block:: bash
 
-    drift --no-llm --rules command_duplicate_dependencies
+    drift --rules command_duplicate_dependencies
 
 **Output:**
 
@@ -431,7 +431,7 @@ Example 2: Fixing Agent Tools Format
 
 .. code-block:: bash
 
-    drift --no-llm --rules agent_tools_format
+    drift --rules agent_tools_format
 
 **Output:**
 
@@ -474,7 +474,7 @@ Example 3: Validating CLAUDE.md Exists
 
 .. code-block:: bash
 
-    drift --no-llm --rules claude_md_missing
+    drift --rules claude_md_missing
 
 **Output if missing:**
 
@@ -539,7 +539,7 @@ Then populate it with essential project information:
 
 .. code-block:: bash
 
-    drift --no-llm --rules claude_md_missing
+    drift --rules claude_md_missing
 
 Expected output::
 
@@ -629,13 +629,13 @@ Run validation for only the rules you care about:
 .. code-block:: bash
 
     # Check agent configuration only
-    drift --no-llm --rules agent_frontmatter,agent_tools_format,agent_broken_links
+    drift --rules agent_frontmatter,agent_tools_format,agent_broken_links
 
     # Check dependency health across all resource types
-    drift --no-llm --rules command_duplicate_dependencies,skill_duplicate_dependencies,agent_duplicate_dependencies
+    drift --rules command_duplicate_dependencies,skill_duplicate_dependencies,agent_duplicate_dependencies
 
     # Check link integrity only
-    drift --no-llm --rules command_broken_links,skill_broken_links,agent_broken_links
+    drift --rules command_broken_links,skill_broken_links,agent_broken_links
 
 Conversation Analysis
 ---------------------
@@ -755,9 +755,8 @@ Now that you understand the basics:
 3. **Integrate with CI/CD** - Add Drift to your automated workflows
 4. **Try Conversation Analysis** - Set up LLM access to analyze AI interaction patterns
 
-**Common next actions:**
+**Next steps:**
 
-- Run ``drift --no-llm`` regularly to catch configuration issues
 - Add pre-commit hooks to enforce validation
 - Create custom rules for project-specific conventions
 - Analyze AI conversations from last 7 days with ``drift --days 7``
