@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle
 from drift.validation.validators.core.format_validators import YamlFrontmatterValidator
 
@@ -42,7 +42,7 @@ This is the content of the skill.
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate skill frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title", "description"]},
@@ -65,7 +65,7 @@ title: Test Skill
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate skill frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title", "description", "tags"]},
@@ -89,7 +89,7 @@ This file has no frontmatter.
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="README.md",
             params={"required_fields": ["title"]},
@@ -113,7 +113,7 @@ description: A test skill
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title"]},
@@ -138,7 +138,7 @@ description: [unclosed array
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title"]},
@@ -161,7 +161,7 @@ description: [unclosed array
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title"]},
@@ -197,7 +197,7 @@ version: 1.0.0
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter schema",
             file_path="SKILL.md",
             params={"required_fields": ["title", "description"], "schema": schema},
@@ -232,7 +232,7 @@ version: invalid-version
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter schema",
             file_path="SKILL.md",
             params={"schema": schema},
@@ -247,7 +247,7 @@ version: invalid-version
     def test_file_not_found(self, validator, bundle):
         """Test error when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Test rule",
             file_path="nonexistent.md",
             params={"required_fields": ["title"]},
@@ -262,7 +262,7 @@ version: invalid-version
     def test_missing_file_path(self, validator, bundle):
         """Test that validation passes when file_path is missing (bundle mode with empty files)."""
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Test rule",
             params={"required_fields": ["title"]},
             failure_message="Failure",
@@ -286,7 +286,7 @@ title: Test Skill
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter exists",
             file_path="SKILL.md",
             failure_message="No frontmatter",
@@ -312,7 +312,7 @@ title: Test
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Test rule",
             file_path="SKILL.md",
             params={"required_fields": ["title"]},
@@ -346,7 +346,7 @@ dependencies:
         test_file.write_text(content)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate complex frontmatter",
             file_path="SKILL.md",
             params={"required_fields": ["title", "description", "metadata", "dependencies"]},
@@ -385,7 +385,7 @@ dependencies:
         monkeypatch.setattr(builtins, "open", mock_open)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Test rule",
             file_path="SKILL.md",
             params={"required_fields": ["title"]},
@@ -433,7 +433,7 @@ version: 1.0.0
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Test rule",
             file_path="SKILL.md",
             params={"schema": schema},
@@ -473,7 +473,7 @@ tags:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="SKILL.md",
             params={"schema": schema},
@@ -503,7 +503,7 @@ description: A test skill
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate frontmatter",
             file_path="SKILL.md",
             params={"schema": schema},

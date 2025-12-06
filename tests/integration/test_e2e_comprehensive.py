@@ -363,7 +363,7 @@ class TestComprehensiveE2E:
                         },
                         "rules": [
                             {
-                                "rule_type": "file_exists",
+                                "rule_type": "core:file_exists",
                                 "description": "CLAUDE.md must exist in project root",
                                 "file_path": "CLAUDE.md",
                                 "failure_message": "CLAUDE.md file is missing from project root",
@@ -1593,7 +1593,7 @@ rule_definitions:
         file_patterns: ["CLAUDE.md"]
         bundle_strategy: "collection"
       rules:
-        - rule_type: "file_exists"
+        - rule_type: "core:file_exists"
           description: "CLAUDE.md must exist"
           file_path: "CLAUDE.md"
           failure_message: "CLAUDE.md is missing"
@@ -1692,7 +1692,7 @@ rule_definitions:
         file_patterns: ["README.md"]
         bundle_strategy: "collection"
       rules:
-        - rule_type: "regex_match"
+        - rule_type: "core:regex_match"
           description: "README should contain version in X.Y.Z format"
           file_path: "README.md"
           pattern: "Version: \\\\d+\\\\.\\\\d+\\\\.\\\\d+"
@@ -1976,7 +1976,7 @@ rule_definitions:
         file_patterns: ["CLAUDE.md"]
         bundle_strategy: "collection"
       rules:
-        - rule_type: "file_exists"
+        - rule_type: "core:file_exists"
           description: "CLAUDE.md must exist"
           file_path: "CLAUDE.md"
           failure_message: "Missing"
@@ -2049,7 +2049,7 @@ rule_definitions:
         file_patterns: [".claude/skills/*/SKILL.md"]
         bundle_strategy: "individual"
       rules:
-        - rule_type: "regex_match"
+        - rule_type: "core:regex_match"
           description: "Skill should have examples"
           file_path: "SKILL.md"
           pattern: "## Examples"
@@ -2093,7 +2093,7 @@ rule_definitions:
         file_patterns: ["*.md"]
         bundle_strategy: "collection"
       rules:
-        - rule_type: "regex_match"
+        - rule_type: "core:regex_match"
           description: "Should have license section"
           file_path: "README.md"
           pattern: "## License"

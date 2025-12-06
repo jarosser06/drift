@@ -157,6 +157,9 @@ class AnalysisSummary(BaseModel):
     by_type: Dict[str, int] = Field(
         default_factory=dict, description="Rule violation count by type"
     )
+    by_group: Dict[str, int] = Field(
+        default_factory=dict, description="Rule violation count by group"
+    )
     by_agent: Dict[str, int] = Field(
         default_factory=dict, description="Rule violation count by agent tool"
     )

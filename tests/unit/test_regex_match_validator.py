@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.regex_validators import RegexMatchValidator
 
@@ -45,7 +45,7 @@ class TestRegexMatchValidator:
     def test_regex_match_passes(self, validator, bundle_with_file):
         """Test that validation passes when pattern matches."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check for Prerequisites section",
             file_path="test.md",
             pattern=r"## Prerequisites",
@@ -59,7 +59,7 @@ class TestRegexMatchValidator:
     def test_regex_match_fails(self, validator, bundle_with_file):
         """Test that validation fails when pattern doesn't match."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check for Installation section",
             file_path="test.md",
             pattern=r"## Installation",
@@ -92,7 +92,7 @@ class TestRegexMatchValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Match line start",
             file_path="test.txt",
             pattern=r"^Second",
@@ -107,7 +107,7 @@ class TestRegexMatchValidator:
     def test_regex_match_file_not_found(self, validator, bundle_with_file):
         """Test validation when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check nonexistent file",
             file_path="nonexistent.md",
             pattern=r"test",
@@ -123,7 +123,7 @@ class TestRegexMatchValidator:
     def test_regex_match_without_file_path_validates_bundle(self, validator, bundle_with_file):
         """Test that validator validates all files in bundle when file_path is not specified."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check all files in bundle",
             pattern=r"## Prerequisites",
             failure_message="Missing Prerequisites section",
@@ -145,7 +145,7 @@ class TestRegexMatchValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check empty bundle",
             pattern=r"test",
             failure_message="Pattern not found",
@@ -183,7 +183,7 @@ class TestRegexMatchValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check for Prerequisites in all files",
             pattern=r"## Prerequisites",
             failure_message="Missing Prerequisites section",
@@ -199,7 +199,7 @@ class TestRegexMatchValidator:
     def test_regex_match_missing_pattern(self, validator, bundle_with_file):
         """Test that validator raises error when pattern is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="No pattern",
             file_path="test.md",
             failure_message="Error",
@@ -216,7 +216,7 @@ class TestRegexMatchValidator:
 
         with pytest.raises(ValidationError, match="Invalid regex pattern"):
             ValidationRule(
-                rule_type=ValidationType.REGEX_MATCH,
+                rule_type="core:regex_match",
                 description="Invalid regex",
                 file_path="test.md",
                 pattern=r"[invalid(regex",  # Unclosed bracket
@@ -246,7 +246,7 @@ class TestRegexMatchValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Read protected file",
             file_path="test.md",
             pattern=r"test",
@@ -288,7 +288,7 @@ class TestRegexMatchValidator:
 
         # Should not match (case-sensitive)
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Case-sensitive match",
             file_path="test.md",
             pattern=r"hello",
@@ -320,7 +320,7 @@ class TestRegexMatchValidator:
 
         # Should match with IGNORECASE
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Case-insensitive match",
             file_path="test.md",
             pattern=r"hello",

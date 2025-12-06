@@ -6,7 +6,7 @@ to declare which client types they support (ALL, CLAUDE, etc.).
 
 import pytest
 
-from drift.config.models import ClientType, ValidationType
+from drift.config.models import ClientType
 from drift.validation.validators import ValidatorRegistry
 
 
@@ -19,13 +19,13 @@ class TestValidatorClientSupport:
 
         # All core validators should support ALL clients
         core_validators = [
-            ValidationType.FILE_EXISTS,
-            ValidationType.FILE_NOT_EXISTS,
-            ValidationType.REGEX_MATCH,
-            ValidationType.LIST_MATCH,
-            ValidationType.LIST_REGEX_MATCH,
-            ValidationType.DEPENDENCY_DUPLICATE,
-            ValidationType.MARKDOWN_LINK,
+            "core:file_exists",
+            "core:file_exists",
+            "core:regex_match",
+            "core:list_match",
+            "core:list_regex_match",
+            "core:dependency_duplicate",
+            "core:markdown_link",
         ]
 
         for rule_type in core_validators:
@@ -37,7 +37,7 @@ class TestValidatorClientSupport:
         """Test that Claude-specific validators only support CLAUDE client."""
         registry = ValidatorRegistry()
 
-        clients = registry.get_supported_clients(ValidationType.CLAUDE_SKILL_SETTINGS)
+        clients = registry.get_supported_clients("core:claude_skill_settings")
         assert ClientType.CLAUDE in clients
         assert ClientType.ALL not in clients
         assert len(clients) == 1
@@ -47,28 +47,28 @@ class TestValidatorClientSupport:
         registry = ValidatorRegistry()
 
         # Validators with ALL support should support any client type
-        assert registry.supports_client(ValidationType.REGEX_MATCH, ClientType.ALL)
-        assert registry.supports_client(ValidationType.REGEX_MATCH, ClientType.CLAUDE)
+        assert registry.supports_client("core:regex_match", ClientType.ALL)
+        assert registry.supports_client("core:regex_match", ClientType.CLAUDE)
 
     def test_supports_client_with_specific_type(self):
         """Test supports_client method for client-specific validators."""
         registry = ValidatorRegistry()
 
         # Claude-specific validator should only support CLAUDE
-        assert registry.supports_client(ValidationType.CLAUDE_SKILL_SETTINGS, ClientType.CLAUDE)
-        assert not registry.supports_client(ValidationType.CLAUDE_SKILL_SETTINGS, ClientType.ALL)
+        assert registry.supports_client("core:claude_skill_settings", ClientType.CLAUDE)
+        assert not registry.supports_client("core:claude_skill_settings", ClientType.ALL)
 
     def test_get_supported_clients_invalid_type(self):
         """Test get_supported_clients raises error for invalid rule type."""
         registry = ValidatorRegistry()
 
         with pytest.raises(ValueError, match="Unsupported validation rule type"):
-            # FILE_COUNT is not implemented yet
-            registry.get_supported_clients(ValidationType.FILE_COUNT)
+            # Use an actually invalid type
+            registry.get_supported_clients("invalid:nonexistent_type")
 
     def test_supports_client_invalid_type(self):
         """Test supports_client returns False for invalid rule type."""
         registry = ValidatorRegistry()
 
         # Should return False for unknown rule types instead of raising
-        assert not registry.supports_client(ValidationType.FILE_COUNT, ClientType.CLAUDE)
+        assert not registry.supports_client("invalid:nonexistent_type", ClientType.CLAUDE)

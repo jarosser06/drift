@@ -202,6 +202,9 @@ class TestDriftAnalyzer:
         assert summary.conversations_without_drift == 1
         assert "incomplete_work" in summary.by_type
         assert summary.by_type["incomplete_work"] == 1
+        # Check by_group (sample_learning has no group_name, so defaults to "General")
+        assert "General" in summary.by_group
+        assert summary.by_group["General"] == 1
 
     @patch("drift.core.analyzer.ClaudeCodeLoader")
     @patch("drift.core.analyzer.BedrockProvider")
@@ -1179,7 +1182,7 @@ class TestDriftAnalyzer:
             phases=[
                 PhaseDefinition(
                     name="check",
-                    type="file_exists",
+                    type="core:file_exists",
                     prompt="",
                     model="haiku",
                     available_resources=[],
@@ -1385,7 +1388,6 @@ class TestDriftAnalyzer:
             DocumentBundleConfig,
             ValidationRule,
             ValidationRulesConfig,
-            ValidationType,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
@@ -1393,7 +1395,7 @@ class TestDriftAnalyzer:
         validation_config = ValidationRulesConfig(
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.FILE_EXISTS,
+                    rule_type="core:file_exists",
                     description="Test rule",
                     file_path="nonexistent.txt",
                     failure_message="Failed",
@@ -1459,7 +1461,7 @@ class TestDriftAnalyzer:
             phases=[
                 PhaseDefinition(
                     name="check_file",
-                    type="file_exists",
+                    type="core:file_exists",
                     file_path="test.md",
                     failure_message="Test file not found",
                     expected_behavior="Test file should exist",
@@ -1509,7 +1511,7 @@ class TestDriftAnalyzer:
             phases=[
                 PhaseDefinition(
                     name="check_missing_file",
-                    type="file_exists",
+                    type="core:file_exists",
                     file_path="nonexistent.md",
                     failure_message="File not found",
                     expected_behavior="File should exist",
@@ -1609,7 +1611,6 @@ class TestDriftAnalyzer:
             DocumentBundleConfig,
             ValidationRule,
             ValidationRulesConfig,
-            ValidationType,
         )
         from drift.core.types import DocumentBundle, DocumentFile
 
@@ -1617,7 +1618,7 @@ class TestDriftAnalyzer:
         validation_config = ValidationRulesConfig(
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.REGEX_MATCH,
+                    rule_type="core:regex_match",
                     description="Test rule",
                     file_path="test.md",
                     pattern=".*",  # Valid pattern

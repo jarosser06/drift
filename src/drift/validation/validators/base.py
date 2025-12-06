@@ -19,6 +19,22 @@ class BaseValidator(ABC):
 
     @property
     @abstractmethod
+    def validation_type(self) -> str:
+        """Return the namespaced validation type for this validator.
+
+        Must be implemented by all validators to declare their validation type.
+        Format: namespace:type (e.g., "core:file_exists", "security:vulnerability_scan")
+
+        Returns namespaced validation type string.
+
+        Raises NotImplementedError if not implemented by subclass.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement validation_type property"
+        )
+
+    @property
+    @abstractmethod
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return the computation type for this validator.
 
@@ -43,6 +59,39 @@ class BaseValidator(ABC):
         Returns list of ClientType enum values.
         """
         return [ClientType.ALL]
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return the default failure message template for this validator.
+
+        This message is used when no custom failure_message is provided in the rule.
+        The template can include {placeholder} variables that will be filled from
+        failure_details.
+
+        Override this property to provide a validator-specific default message.
+        If not overridden, returns a generic message based on validation_type.
+
+        Returns message template string with optional {placeholder} syntax.
+
+        Examples:
+            "File {file_path} does not exist"
+            "Circular dependency detected: {circular_path}"
+            "File exceeds maximum size of {max_size} bytes"
+        """
+        return f"Validation failed for {self.validation_type}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return the default expected behavior description for this validator.
+
+        This description is used when no custom expected_behavior is provided in the rule.
+
+        Override this property to provide a validator-specific default.
+        If not overridden, returns a generic message based on validation_type.
+
+        Returns expected behavior description string.
+        """
+        return f"Should pass {self.validation_type} validation"
 
     @abstractmethod
     def validate(
@@ -74,6 +123,46 @@ class BaseValidator(ABC):
             )
         """
         pass
+
+    def _get_failure_message(
+        self, rule: ValidationRule, details: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Get the effective failure message (custom or default).
+
+        Uses rule.failure_message if provided, otherwise falls back to
+        the validator's default_failure_message. Formats the message with
+        failure_details if provided.
+
+        -- rule: ValidationRule with optional failure_message
+        -- details: Optional dictionary of values for template placeholders
+
+        Returns formatted failure message string.
+
+        Examples:
+            >>> # With custom message
+            >>> rule = ValidationRule(failure_message="Custom: {path}")
+            >>> self._get_failure_message(rule, {"path": "foo.txt"})
+            'Custom: foo.txt'
+
+            >>> # With default message
+            >>> rule = ValidationRule(failure_message=None)
+            >>> self._get_failure_message(rule, {"path": "foo.txt"})
+            'File foo.txt does not exist'  # Uses validator default
+        """
+        template = rule.failure_message or self.default_failure_message
+        return self._format_message(template, details)
+
+    def _get_expected_behavior(self, rule: ValidationRule) -> str:
+        """Get the effective expected behavior (custom or default).
+
+        Uses rule.expected_behavior if provided, otherwise falls back to
+        the validator's default_expected_behavior.
+
+        -- rule: ValidationRule with optional expected_behavior
+
+        Returns expected behavior description string.
+        """
+        return rule.expected_behavior or self.default_expected_behavior
 
     def _format_message(self, template: str, details: Optional[Dict[str, Any]] = None) -> str:
         """Format a message template with failure details.

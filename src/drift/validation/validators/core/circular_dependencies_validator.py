@@ -33,9 +33,24 @@ class CircularDependenciesValidator(BaseValidator):
         self.graph_class = graph_class
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:circular_dependencies"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Circular dependency detected: {circular_path}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "No circular dependencies should exist"
 
     def validate(
         self,
@@ -110,24 +125,30 @@ class CircularDependenciesValidator(BaseValidator):
             }
 
             # Format observed issue with details
-            if len(cycles_found) == 1:
-                detailed_message = self._format_message(
-                    rule.failure_message + ": {circular_path}", failure_details
-                )
-            else:
-                detailed_message = self._format_message(
-                    rule.failure_message + ": {cycle_count} cycles detected", failure_details
-                )
-                # Add details for each cycle
-                cycle_summaries = [f"{cd['file']}: {cd['cycle_path']}" for cd in cycle_details]
-                detailed_message += " (" + "; ".join(cycle_summaries) + ")"
+            # Use custom message if provided, otherwise use default with template
+            observed_issue = self._get_failure_message(rule, failure_details)
+
+            # If custom message doesn't contain {circular_path}, ensure cycle info is present
+            # This handles cases where users provide custom messages without template vars
+            if "{circular_path}" not in (rule.failure_message or ""):
+                if "{circular_path}" not in observed_issue:
+                    # Custom message without template - append cycle details
+                    if len(cycles_found) == 1:
+                        observed_issue += f": {primary_cycle}"
+                    else:
+                        cycle_summaries = [
+                            f"{cd['file']}: {cd['cycle_path']}" for cd in cycle_details
+                        ]
+                        observed_issue += (
+                            f" ({len(cycles_found)} cycles: " + "; ".join(cycle_summaries) + ")"
+                        )
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[c[0] for c in cycles_found],
-                observed_issue=detailed_message,
-                expected_quality=rule.expected_behavior,
+                observed_issue=observed_issue,
+                expected_quality=self._get_expected_behavior(rule),
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
                 failure_details=failure_details,

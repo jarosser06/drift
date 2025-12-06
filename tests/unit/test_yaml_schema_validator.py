@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.format_validators import YamlSchemaValidator
 
@@ -53,7 +53,7 @@ class TestYamlSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate config.yaml",
             file_path="config.yaml",
             params={"schema": schema},
@@ -80,7 +80,7 @@ class TestYamlSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate config.yaml",
             file_path="config.yaml",
             params={"schema": schema},
@@ -107,7 +107,7 @@ class TestYamlSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate config.yaml",
             file_path="config.yaml",
             params={"schema": schema},
@@ -139,7 +139,7 @@ class TestYamlSchemaValidator:
         schema_file.write_text(json.dumps(schema))
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate data.yaml",
             file_path="data.yaml",
             params={"schema_file": "schema.json"},
@@ -156,7 +156,7 @@ class TestYamlSchemaValidator:
         data_file.write_text("key: value\n")
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate data.yaml",
             file_path="data.yaml",
             params={"schema_file": "nonexistent.json"},
@@ -171,7 +171,7 @@ class TestYamlSchemaValidator:
     def test_missing_file_path(self, validator, bundle):
         """Test that validation fails when file_path is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             params={"schema": {"type": "object"}},
             failure_message="Failure",
@@ -187,7 +187,7 @@ class TestYamlSchemaValidator:
         test_file.write_text("key: value\n")
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             failure_message="Failure",
@@ -203,7 +203,7 @@ class TestYamlSchemaValidator:
         test_file.write_text("key: value\n")
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"other_key": "value"},  # Has params but no schema/schema_file
@@ -218,7 +218,7 @@ class TestYamlSchemaValidator:
     def test_file_not_found(self, validator, bundle):
         """Test error when YAML file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="nonexistent.yaml",
             params={"schema": {"type": "object"}},
@@ -236,7 +236,7 @@ class TestYamlSchemaValidator:
         test_file.write_text("key: value\n  bad indentation:\n")
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="invalid.yaml",
             params={"schema": {"type": "object"}},
@@ -259,7 +259,7 @@ class TestYamlSchemaValidator:
         test_file.write_text("key: value\n")
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema": {"type": "object"}},
@@ -307,7 +307,7 @@ class TestYamlSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate nested config",
             file_path="config.yaml",
             params={"schema": schema},
@@ -343,7 +343,7 @@ class TestYamlSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Validate array",
             file_path="list.yaml",
             params={"schema": schema},
@@ -386,7 +386,7 @@ class TestYamlSchemaValidator:
         schema = {"type": "object", "properties": {"name": {"type": "string"}}}
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema": schema},
@@ -426,7 +426,7 @@ class TestYamlSchemaValidator:
         schema = {"type": "object", "properties": {"name": {"type": "string"}}}
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema": schema},
@@ -467,7 +467,7 @@ class TestYamlSchemaValidator:
         monkeypatch.setattr(builtins, "open", mock_open)
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema_file": "schema.json"},
@@ -504,7 +504,7 @@ class TestYamlSchemaValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema_file": "schema.json"},
@@ -545,7 +545,7 @@ required:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema_file": "schema.yaml"},
@@ -580,7 +580,7 @@ required:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema": schema},
@@ -611,7 +611,7 @@ required:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_SCHEMA,
+            rule_type="core:yaml_schema",
             description="Test rule",
             file_path="data.yaml",
             params={"schema": schema},

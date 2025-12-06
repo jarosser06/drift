@@ -13,7 +13,6 @@ from drift.config.models import (
     RuleDefinition,
     ValidationRule,
     ValidationRulesConfig,
-    ValidationType,
 )
 from drift.core.analyzer import DriftAnalyzer
 
@@ -78,7 +77,7 @@ class TestRuleBasedValidation:
             phases=[
                 PhaseDefinition(
                     name="check_file",
-                    type="file_exists",
+                    type="core:file_exists",
                     file_path="CLAUDE.md",
                     failure_message="CLAUDE.md not found",
                     expected_behavior="CLAUDE.md should exist",
@@ -113,7 +112,7 @@ class TestRuleBasedValidation:
             phases=[
                 PhaseDefinition(
                     name="check_file",
-                    type="file_exists",
+                    type="core:file_exists",
                     file_path="MISSING.md",
                     failure_message="MISSING.md not found",
                     expected_behavior="MISSING.md should exist",
@@ -147,20 +146,22 @@ class TestRuleBasedValidation:
             scope="project_level",
             context="Testing inverted logic",
             requires_project_context=True,
-            document_bundle=DocumentBundleConfig(
-                bundle_type="configuration",
-                file_patterns=["CLAUDE.md"],
-                bundle_strategy=BundleStrategy.COLLECTION,
+            validation_rules=ValidationRulesConfig(
+                document_bundle=DocumentBundleConfig(
+                    bundle_type="configuration",
+                    file_patterns=["CLAUDE.md"],
+                    bundle_strategy=BundleStrategy.COLLECTION,
+                ),
+                rules=[
+                    ValidationRule(
+                        rule_type="core:file_not_exists",
+                        description="CLAUDE.md must not exist",
+                        file_path="CLAUDE.md",
+                        failure_message="CLAUDE.md exists but should not",
+                        expected_behavior="CLAUDE.md should be absent",
+                    )
+                ],
             ),
-            phases=[
-                PhaseDefinition(
-                    name="check_file",
-                    type="file_not_exists",
-                    file_path="CLAUDE.md",
-                    failure_message="CLAUDE.md exists but should not",
-                    expected_behavior="CLAUDE.md should be absent",
-                )
-            ],
         )
 
         base_config.rule_definitions["claude_not_exist"] = learning_type_config
@@ -195,7 +196,7 @@ class TestRuleBasedValidation:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         description="At least one skill must exist",
                         file_path=".claude/skills/*/SKILL.md",
                         failure_message="No skill files found",
@@ -233,21 +234,21 @@ class TestRuleBasedValidation:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         description="README must exist",
                         file_path="README.md",
                         failure_message="README.md not found",
                         expected_behavior="README.md should exist",
                     ),
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         description="CLAUDE must exist",
                         file_path="CLAUDE.md",
                         failure_message="CLAUDE.md not found",
                         expected_behavior="CLAUDE.md should exist",
                     ),
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         description="MISSING check (will fail)",
                         file_path="MISSING.md",
                         failure_message="MISSING.md not found",

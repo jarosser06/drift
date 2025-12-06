@@ -11,7 +11,6 @@ from drift.config.models import (
     RuleDefinition,
     ValidationRule,
     ValidationRulesConfig,
-    ValidationType,
 )
 from drift.core.analyzer import _get_supported_clients_from_rule
 from drift.validation.validators import ValidatorRegistry
@@ -40,7 +39,7 @@ class TestRuleClientFiltering:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         file_path="test.txt",
                         description="Test",
                         failure_message="Fail",
@@ -72,14 +71,14 @@ class TestRuleClientFiltering:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,
+                        rule_type="core:file_exists",
                         file_path="test.txt",
                         description="Test",
                         failure_message="Fail",
                         expected_behavior="Pass",
                     ),
                     ValidationRule(
-                        rule_type=ValidationType.REGEX_MATCH,
+                        rule_type="core:regex_match",
                         pattern="test",
                         description="Test",
                         failure_message="Fail",
@@ -111,7 +110,7 @@ class TestRuleClientFiltering:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.CLAUDE_SKILL_SETTINGS,
+                        rule_type="core:claude_skill_settings",
                         description="Test",
                         failure_message="Fail",
                         expected_behavior="Pass",
@@ -142,14 +141,14 @@ class TestRuleClientFiltering:
                 ),
                 rules=[
                     ValidationRule(
-                        rule_type=ValidationType.FILE_EXISTS,  # Supports ALL
+                        rule_type="core:file_exists",  # Supports ALL
                         file_path="test.txt",
                         description="Test",
                         failure_message="Fail",
                         expected_behavior="Pass",
                     ),
                     ValidationRule(
-                        rule_type=ValidationType.CLAUDE_SKILL_SETTINGS,  # Claude only
+                        rule_type="core:claude_skill_settings",  # Claude only
                         description="Test",
                         failure_message="Fail",
                         expected_behavior="Pass",

@@ -410,7 +410,7 @@ claude_md_missing:
     - claude-code
   phases:
     - name: check_file
-      type: file_exists
+      type: core:file_exists
       file_path: CLAUDE.md
       failure_message: "CLAUDE.md file is missing from project root"
       expected_behavior: "Project should have CLAUDE.md file documenting structure and conventions"
@@ -430,7 +430,7 @@ command_duplicate_dependencies:
     bundle_strategy: individual
   phases:
     - name: check_duplicates
-      type: dependency_duplicate
+      type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in commands"
       failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Commands should only declare direct dependencies, not transitive ones"
@@ -453,7 +453,7 @@ skill_duplicate_dependencies:
     bundle_strategy: individual
   phases:
     - name: check_duplicates
-      type: dependency_duplicate
+      type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in skills"
       failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Skills should only declare direct dependencies, not transitive ones"
@@ -470,7 +470,7 @@ skill_filename_consistency:
     - claude-code
   phases:
     - name: check_skill_files
-      type: file_exists
+      type: core:file_exists
       file_path: .claude/skills/*/SKILL.md
       failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
       expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
@@ -527,7 +527,7 @@ agent_duplicate_dependencies:
     bundle_strategy: individual
   phases:
     - name: check_duplicates
-      type: dependency_duplicate
+      type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in agents"
       failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
@@ -550,7 +550,7 @@ command_broken_links:
     bundle_strategy: individual
   phases:
     - name: check_links
-      type: markdown_link
+      type: core:markdown_link
       description: "Check for broken links in command documentation"
       failure_message: "Found broken links in commands"
       expected_behavior: "All file references and links should be valid"
@@ -580,7 +580,7 @@ skill_broken_links:
     bundle_strategy: individual
   phases:
     - name: check_links
-      type: markdown_link
+      type: core:markdown_link
       description: "Check for broken links in skill documentation"
       failure_message: "Found broken links in skills"
       expected_behavior: "All file references and links should be valid"
@@ -610,7 +610,7 @@ agent_broken_links:
     bundle_strategy: individual
   phases:
     - name: check_links
-      type: markdown_link
+      type: core:markdown_link
       description: "Check for broken links in agent documentation"
       failure_message: "Found broken links in agents"
       expected_behavior: "All file references and links should be valid"
@@ -635,7 +635,7 @@ claude_skill_permissions:
     - claude-code
   phases:
     - name: check_skill_permissions
-      type: claude_skill_settings
+      type: core:claude_skill_settings
       failure_message: "Skills missing from .claude/settings.json permissions.allow array"
       expected_behavior: "Every skill directory in .claude/skills/ should have a corresponding Skill(name) entry in .claude/settings.json"
 
@@ -646,7 +646,7 @@ claude_settings_duplicates:
   requires_project_context: true
   phases:
     - name: check_duplicate_permissions
-      type: claude_settings_duplicates
+      type: core:claude_settings_duplicates
       failure_message: "Duplicate permission entries found in .claude/settings.json"
       expected_behavior: "All permission entries in .claude/settings.json permissions.allow should be unique"
 
@@ -657,7 +657,7 @@ claude_mcp_permissions:
   requires_project_context: true
   phases:
     - name: check_mcp_permissions
-      type: claude_mcp_permissions
+      type: core:claude_mcp_permissions
       failure_message: "MCP servers missing from .claude/settings.json permissions.allow array"
       expected_behavior: "Every MCP server in .mcp.json should have a corresponding MCP(server-name) entry in .claude/settings.json"
 
@@ -676,7 +676,7 @@ claude_md_quality:
     resource_patterns: []
   phases:
     - name: check_line_count
-      type: file_size
+      type: core:file_size
       file_path: CLAUDE.md
       max_count: 300
       failure_message: "CLAUDE.md exceeds 300 lines (best practice for concise context)"
@@ -825,7 +825,7 @@ agent_frontmatter:
     bundle_strategy: individual
   phases:
     - name: check_frontmatter
-      type: yaml_frontmatter
+      type: core:yaml_frontmatter
       params:
         required_fields:
           - name
@@ -877,7 +877,7 @@ command_frontmatter:
     bundle_strategy: individual
   phases:
     - name: check_frontmatter
-      type: yaml_frontmatter
+      type: core:yaml_frontmatter
       params:
         required_fields:
           - description
@@ -954,7 +954,7 @@ agent_tools_format:
     bundle_strategy: individual
   phases:
     - name: check_tools_comma_separated
-      type: regex_match
+      type: core:regex_match
       description: "Validate tools field uses comma-separated format on single line"
       params:
         pattern: '^tools:\s+[A-Za-z][\w_]+(?:,\s*[A-Za-z][\w_]+)*\s*$'
@@ -976,7 +976,7 @@ skill_circular_dependencies:
     bundle_strategy: individual
   phases:
     - name: check_cycles
-      type: circular_dependencies
+      type: core:circular_dependencies
       description: "Check for circular dependencies in skill dependency graphs"
       failure_message: "Circular dependency detected: {circular_path}"
       expected_behavior: "Skills should not have circular dependency cycles"
@@ -999,7 +999,7 @@ command_circular_dependencies:
     bundle_strategy: individual
   phases:
     - name: check_circular_deps
-      type: claude_circular_dependencies
+      type: core:claude_circular_dependencies
       description: "Detect circular dependency cycles"
       params:
         resource_dirs:
@@ -1023,7 +1023,7 @@ skill_max_depth:
     bundle_strategy: individual
   phases:
     - name: check_depth
-      type: claude_max_dependency_depth
+      type: core:claude_max_dependency_depth
       description: "Ensure dependencies don't exceed maximum depth"
       params:
         max_depth: 3
@@ -1048,7 +1048,7 @@ agent_duplicate_dependencies_claude:
     bundle_strategy: individual
   phases:
     - name: check_duplicates
-      type: claude_dependency_duplicate
+      type: core:claude_dependency_duplicate
       description: "Check for redundant transitive dependencies"
       params:
         resource_dirs:

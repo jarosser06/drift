@@ -7,7 +7,6 @@ from drift.config.models import (
     DocumentBundleConfig,
     ValidationRule,
     ValidationRulesConfig,
-    ValidationType,
 )
 from drift.documents.loader import DocumentLoader
 from drift.validation.validators import ClaudeDependencyDuplicateValidator, MarkdownLinkValidator
@@ -99,7 +98,7 @@ Expert in code style and formatting standards.
             ),
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+                    rule_type="core:dependency_duplicate",
                     description="Check for duplicate skill dependencies",
                     failure_message="Found redundant skill dependencies",
                     expected_behavior=(
@@ -179,7 +178,7 @@ Also see [nonexistent](docs/does-not-exist.md).
             ),
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.MARKDOWN_LINK,
+                    rule_type="core:markdown_link",
                     description="Check for broken links in documentation",
                     failure_message="Found broken links",
                     expected_behavior="All links should point to existing files",
@@ -223,7 +222,7 @@ Also see [nonexistent](docs/does-not-exist.md).
             ),
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.MARKDOWN_LINK,
+                    rule_type="core:markdown_link",
                     description="Check for broken links",
                     failure_message="Found broken links",
                     expected_behavior="All links should be valid",
@@ -294,7 +293,7 @@ Missing [nonexistent file](does-not-exist.md).
             ),
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.MARKDOWN_LINK,
+                    rule_type="core:markdown_link",
                     description="Check for broken links",
                     failure_message="Found broken links",
                     expected_behavior="All links should be valid",
@@ -396,14 +395,14 @@ Check the [missing guide](guide.md).
             ),
             rules=[
                 ValidationRule(
-                    rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+                    rule_type="core:dependency_duplicate",
                     description="Check for duplicate dependencies",
                     failure_message="Found redundant dependencies",
                     expected_behavior="No transitive duplicates",
                     params={"resource_dirs": [".claude/commands", ".claude/skills"]},
                 ),
                 ValidationRule(
-                    rule_type=ValidationType.MARKDOWN_LINK,
+                    rule_type="core:markdown_link",
                     description="Check for broken links",
                     failure_message="Found broken links",
                     expected_behavior="All links should be valid",
@@ -426,9 +425,9 @@ Check the [missing guide](guide.md).
         all_results = []
         for bundle in bundles:
             for rule in validation_config.rules:
-                if rule.rule_type == ValidationType.DEPENDENCY_DUPLICATE:
+                if rule.rule_type == "core:dependency_duplicate":
                     result = dep_validator.validate(rule, bundle, bundles)
-                elif rule.rule_type == ValidationType.MARKDOWN_LINK:
+                elif rule.rule_type == "core:markdown_link":
                     result = link_validator.validate(rule, bundle, bundles)
                 else:
                     result = None

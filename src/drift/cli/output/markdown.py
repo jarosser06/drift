@@ -143,6 +143,13 @@ class MarkdownFormatter(OutputFormatter):
                 count_str = self._colorize(str(errored_count), self.YELLOW)
                 lines.append(f"- Checks errored: {count_str}")
 
+        # By group
+        if result.summary.by_group:
+            group_counts = ", ".join(
+                f"{group} ({count})" for group, count in result.summary.by_group.items()
+            )
+            lines.append(f"- By group: {group_counts}")
+
         # By type
         if result.summary.by_type:
             type_counts = ", ".join(

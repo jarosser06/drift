@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeDependencyDuplicateValidator
 
@@ -19,7 +19,7 @@ class TestDependencyDuplicateValidatorFailureDetails:
     def validation_rule(self):
         """Create standard validation rule."""
         return ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found redundant dependency",
@@ -520,7 +520,7 @@ class TestDependencyDuplicateValidatorFailureDetails:
         bundles.append(cmd_bundle)
 
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills", ".claude/commands"]},
             failure_message="Found redundant dependency",

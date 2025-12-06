@@ -47,9 +47,24 @@ class MaxDependencyDepthValidator(BaseValidator):
         self.graph_class = graph_class
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:max_dependency_depth"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Dependency depth {actual_depth} exceeds maximum {max_depth}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "Dependency depth should not exceed maximum"
 
     def validate(
         self,
@@ -135,29 +150,30 @@ class MaxDependencyDepthValidator(BaseValidator):
             }
 
             # Format observed issue with details
-            if len(depth_violations) == 1:
-                detailed_message = self._format_message(
-                    rule.failure_message
-                    + ": Depth {actual_depth} exceeds maximum {max_depth}. "
-                    + "Chain: {dependency_chain}",
-                    failure_details,
-                )
-            else:
-                template = rule.failure_message + ": {violation_count} violations detected"
-                detailed_message = self._format_message(template, failure_details)
-                # Add details for each violation
-                violation_summaries = [
-                    f"{vd['file']}: Depth {vd['actual_depth']} exceeds {max_depth}"
-                    for vd in violation_details
-                ]
-                detailed_message += " (" + "; ".join(violation_summaries) + ")"
+            observed_issue = self._get_failure_message(rule, failure_details)
+
+            # If custom message doesn't contain placeholders, append details
+            if "{actual_depth}" not in (rule.failure_message or ""):
+                if len(depth_violations) == 1:
+                    observed_issue += (
+                        f": Depth {primary_violation[1]} exceeds maximum {max_depth}. "
+                        f"Chain: {primary_chain}"
+                    )
+                else:
+                    observed_issue += f": {len(depth_violations)} violations detected"
+                    # Add details for each violation
+                    violation_summaries = [
+                        f"{vd['file']}: Depth {vd['actual_depth']} exceeds {max_depth}"
+                        for vd in violation_details
+                    ]
+                    observed_issue += " (" + "; ".join(violation_summaries) + ")"
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[v[0] for v in depth_violations],
-                observed_issue=detailed_message,
-                expected_quality=rule.expected_behavior,
+                observed_issue=observed_issue,
+                expected_quality=self._get_expected_behavior(rule),
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
                 failure_details=failure_details,

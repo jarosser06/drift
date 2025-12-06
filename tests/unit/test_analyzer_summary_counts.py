@@ -45,7 +45,7 @@ def test_summary_counts_consistency_with_severity():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file2.md exists",
                                 file_path="file2.md",
                                 failure_message="file2.md missing",
@@ -68,7 +68,7 @@ def test_summary_counts_consistency_with_severity():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file3.md exists",
                                 file_path="file3.md",
                                 failure_message="file3.md missing",
@@ -91,7 +91,7 @@ def test_summary_counts_consistency_with_severity():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file5.md exists",
                                 file_path="file5.md",
                                 failure_message="file5.md missing",
@@ -114,7 +114,7 @@ def test_summary_counts_consistency_with_severity():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file4.md exists",
                                 file_path="file4.md",
                                 failure_message="file4.md missing",
@@ -221,7 +221,7 @@ def test_summary_counts_math_consistency():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file1.md exists",
                                 file_path="file1.md",
                                 failure_message="file1.md missing",
@@ -244,7 +244,7 @@ def test_summary_counts_math_consistency():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file2.md exists",
                                 file_path="file2.md",
                                 failure_message="file2.md missing",
@@ -267,7 +267,7 @@ def test_summary_counts_math_consistency():
                         ),
                         rules=[
                             ValidationRule(
-                                rule_type="file_exists",
+                                rule_type="core:file_exists",
                                 description="Check file3.md exists",
                                 file_path="file3.md",
                                 failure_message="file3.md missing",

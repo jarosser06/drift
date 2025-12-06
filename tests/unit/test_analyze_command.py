@@ -41,6 +41,7 @@ class TestMergeResults:
                 total_conversations=1,
                 total_rule_violations=2,
                 by_type={"incomplete_work": 2},
+                by_group={"Workflow": 2},
             ),
             results=[],
         )
@@ -50,6 +51,7 @@ class TestMergeResults:
                 total_conversations=0,
                 total_rule_violations=1,
                 by_type={"claude_md_missing": 1},
+                by_group={"Documentation": 1},
             ),
             results=[],
         )
@@ -59,6 +61,8 @@ class TestMergeResults:
         assert merged.summary.total_rule_violations == 3
         assert merged.summary.by_type["incomplete_work"] == 2
         assert merged.summary.by_type["claude_md_missing"] == 1
+        assert merged.summary.by_group["Workflow"] == 2
+        assert merged.summary.by_group["Documentation"] == 1
 
     def test_merge_by_type_with_overlapping_types(self):
         """Test merging when both results have the same learning type."""
@@ -68,6 +72,7 @@ class TestMergeResults:
                 total_conversations=1,
                 total_rule_violations=2,
                 by_type={"incomplete_work": 2},
+                by_group={"Workflow": 2},
             ),
             results=[],
         )
@@ -77,6 +82,7 @@ class TestMergeResults:
                 total_conversations=0,
                 total_rule_violations=3,
                 by_type={"incomplete_work": 3},
+                by_group={"Workflow": 3},
             ),
             results=[],
         )
@@ -85,6 +91,7 @@ class TestMergeResults:
 
         assert merged.summary.total_rule_violations == 5
         assert merged.summary.by_type["incomplete_work"] == 5
+        assert merged.summary.by_group["Workflow"] == 5
 
     def test_merge_document_learnings_metadata(self):
         """Test that document_rules metadata is preserved."""

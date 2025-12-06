@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.markdown_validators import MarkdownLinkValidator
 
@@ -50,7 +50,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check markdown links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -87,7 +87,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check markdown links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -126,7 +126,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check external links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -166,7 +166,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -206,7 +206,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -247,7 +247,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -293,7 +293,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -337,7 +337,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check links",
             failure_message="Broken links found",
             expected_behavior="All links should be valid",
@@ -386,7 +386,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check resource references",
             failure_message="Broken resource references found",
             expected_behavior="All resource references should be valid",
@@ -426,7 +426,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check resource references",
             failure_message="Broken resource references found",
             expected_behavior="All resource references should be valid",
@@ -472,7 +472,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check resource references",
             failure_message="Broken resource references found",
             expected_behavior="All resource references should be valid",
@@ -517,7 +517,7 @@ class TestMarkdownLinkValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check resource references",
             failure_message="Broken resource references found",
             expected_behavior="All resource references should be valid",

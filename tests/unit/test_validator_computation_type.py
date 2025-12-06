@@ -2,7 +2,6 @@
 
 import pytest
 
-from drift.config.models import ValidationType
 from drift.validation.validators import ValidatorRegistry
 from drift.validation.validators.base import BaseValidator
 from drift.validation.validators.client import ClaudeSkillSettingsValidator
@@ -55,14 +54,14 @@ def test_registry_get_computation_type():
     registry = ValidatorRegistry()
 
     # Test all registered types
-    assert registry.get_computation_type(ValidationType.FILE_EXISTS) == "programmatic"
-    assert registry.get_computation_type(ValidationType.FILE_NOT_EXISTS) == "programmatic"
-    assert registry.get_computation_type(ValidationType.REGEX_MATCH) == "programmatic"
-    assert registry.get_computation_type(ValidationType.LIST_MATCH) == "programmatic"
-    assert registry.get_computation_type(ValidationType.LIST_REGEX_MATCH) == "programmatic"
-    assert registry.get_computation_type(ValidationType.DEPENDENCY_DUPLICATE) == "programmatic"
-    assert registry.get_computation_type(ValidationType.MARKDOWN_LINK) == "programmatic"
-    assert registry.get_computation_type(ValidationType.CLAUDE_SKILL_SETTINGS) == "programmatic"
+    assert registry.get_computation_type("core:file_exists") == "programmatic"
+    assert registry.get_computation_type("core:file_exists") == "programmatic"
+    assert registry.get_computation_type("core:regex_match") == "programmatic"
+    assert registry.get_computation_type("core:list_match") == "programmatic"
+    assert registry.get_computation_type("core:list_regex_match") == "programmatic"
+    assert registry.get_computation_type("core:dependency_duplicate") == "programmatic"
+    assert registry.get_computation_type("core:markdown_link") == "programmatic"
+    assert registry.get_computation_type("core:claude_skill_settings") == "programmatic"
 
 
 def test_registry_is_programmatic():
@@ -70,8 +69,8 @@ def test_registry_is_programmatic():
     registry = ValidatorRegistry()
 
     # All current validators should be programmatic
-    assert registry.is_programmatic(ValidationType.FILE_EXISTS) is True
-    assert registry.is_programmatic(ValidationType.CLAUDE_SKILL_SETTINGS) is True
+    assert registry.is_programmatic("core:file_exists") is True
+    assert registry.is_programmatic("core:claude_skill_settings") is True
 
 
 def test_base_validator_abstract_computation_type():

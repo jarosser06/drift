@@ -75,6 +75,7 @@ class TestMarkdownFormatter:
                 total_rule_violations=1,
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
+                by_group={"General": 1},
                 by_agent={"claude-code": 1},
                 rules_checked=["incomplete_work"],
             ),
@@ -90,6 +91,7 @@ class TestMarkdownFormatter:
         # Check summary
         assert "Total conversations: 1" in output
         assert "Total rules: 1" in output
+        assert "General (1)" in output
         assert "incomplete_work (1)" in output
         assert "claude-code (1)" in output
 
@@ -719,6 +721,7 @@ class TestJsonFormatter:
                 total_rule_violations=1,
                 conversations_with_drift=1,
                 by_type={"incomplete_work": 1},
+                by_group={"General": 1},
                 by_agent={"claude-code": 1},
             ),
             results=[analysis_result],
@@ -732,6 +735,7 @@ class TestJsonFormatter:
         # Check summary
         assert data["summary"]["conversations_analyzed"] == 1
         assert data["summary"]["conversations_with_drift"] == 1
+        assert data["summary"]["by_group"]["General"] == 1
         assert data["summary"]["by_type"]["incomplete_work"] == 1
         assert data["summary"]["by_agent"]["claude-code"] == 1
 

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle
 from drift.validation.validators.client.claude import ClaudeMcpPermissionsValidator
 
@@ -21,7 +21,7 @@ class TestClaudeMcpPermissionsValidator:
     def validation_rule(self):
         """Create validation rule for testing."""
         return ValidationRule(
-            rule_type=ValidationType.CLAUDE_MCP_PERMISSIONS,
+            rule_type="core:claude_mcp_permissions",
             description="Check for MCP permissions",
             failure_message="MCP servers missing permissions",
             expected_behavior="All MCP servers have permissions",

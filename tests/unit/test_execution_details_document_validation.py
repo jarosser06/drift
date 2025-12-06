@@ -42,7 +42,7 @@ class TestDocumentValidationExecutionDetails:
                             ),
                             rules=[
                                 ValidationRule(
-                                    rule_type="file_exists",
+                                    rule_type="core:file_exists",
                                     description="Validates .claude.md files exist",
                                     file_path=".claude.md",
                                     failure_message=".claude.md file is missing",
@@ -102,7 +102,7 @@ class TestDocumentValidationExecutionDetails:
             validation = claude_md_detail["validation_results"]
 
             assert "rule_type" in validation
-            assert validation["rule_type"] == "file_exists"
+            assert validation["rule_type"] == "core:file_exists"
 
     def test_execution_details_populated_when_no_conversations(self):
         """Test execution_details are populated even when there are 0 conversations."""
@@ -127,7 +127,7 @@ class TestDocumentValidationExecutionDetails:
                             ),
                             rules=[
                                 ValidationRule(
-                                    rule_type="file_exists",
+                                    rule_type="core:file_exists",
                                     description="Test validation",
                                     file_path=".claude.md",
                                     failure_message="Test failure",

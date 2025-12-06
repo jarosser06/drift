@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeDependencyDuplicateValidator, MarkdownLinkValidator
 
@@ -50,7 +50,7 @@ class TestDependencyDuplicateValidator:
     def validation_rule(self):
         """Create a validation rule."""
         return ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for duplicate dependencies",
             failure_message="Found duplicate dependencies",
             expected_behavior="No duplicate dependencies",
@@ -324,7 +324,7 @@ class TestMarkdownLinkValidator:
     def validation_rule(self):
         """Create a validation rule."""
         return ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check for broken links",
             failure_message="Found broken links",
             expected_behavior="All links should be valid",
@@ -486,7 +486,7 @@ class TestMarkdownLinkValidator:
 
         # Create rule with check_local_files disabled
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check for broken links",
             failure_message="Found broken links",
             expected_behavior="All links should be valid",
@@ -519,7 +519,7 @@ class TestMarkdownLinkValidator:
 
         # Create rule with check_external_urls disabled
         rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check for broken links",
             failure_message="Found broken links",
             expected_behavior="All links should be valid",
@@ -682,7 +682,7 @@ your-project/src/main.py
         """Test that custom skip patterns work through validator params."""
         # Create a rule with custom patterns
         validation_rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check for broken links",
             failure_message="Found broken links",
             expected_behavior="All links should be valid",
@@ -718,7 +718,7 @@ your-project/src/main.py
         """Test that filtering can be explicitly disabled."""
         # Create a rule with filtering disabled
         validation_rule = ValidationRule(
-            rule_type=ValidationType.MARKDOWN_LINK,
+            rule_type="core:markdown_link",
             description="Check for broken links",
             failure_message="Found broken links",
             expected_behavior="All links should be valid",

@@ -91,6 +91,10 @@ def _merge_results(
     for type_name, count in doc_result.summary.by_type.items():
         merged_summary.by_type[type_name] = merged_summary.by_type.get(type_name, 0) + count
 
+    # Merge by_group counts
+    for group_name, count in doc_result.summary.by_group.items():
+        merged_summary.by_group[group_name] = merged_summary.by_group.get(group_name, 0) + count
+
     # Merge rule statistics
     if conv_result.summary.rules_checked and doc_result.summary.rules_checked:
         merged_summary.rules_checked = list(

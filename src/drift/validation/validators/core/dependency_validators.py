@@ -37,9 +37,24 @@ class DependencyDuplicateValidator(BaseValidator):
         self.graph_class = graph_class
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:dependency_duplicate"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Duplicate dependency found: {dependency}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "No duplicate dependencies should exist"
 
     def validate(
         self,
@@ -124,30 +139,31 @@ class DependencyDuplicateValidator(BaseValidator):
             }
 
             # Format observed issue with details
-            if len(duplicates_found) == 1:
-                detailed_message = self._format_message(
-                    rule.failure_message
-                    + ": '{duplicate_resource}' is redundant "
-                    + "(already declared by '{declared_by}')",
-                    failure_details,
-                )
-            else:
-                template = rule.failure_message + ": {duplicate_count} duplicates detected"
-                detailed_message = self._format_message(template, failure_details)
+            observed_issue = self._get_failure_message(rule, failure_details)
+
+            # If custom message doesn't contain placeholders, append details
+            if "{duplicate_resource}" not in (rule.failure_message or ""):
+                if len(duplicates_found) == 1:
+                    observed_issue += (
+                        f": '{primary_dup[1]}' is redundant "
+                        f"(already declared by '{primary_dup[2]}')"
+                    )
+                else:
+                    observed_issue += f": {len(duplicates_found)} duplicates detected"
                 # Add details for each duplicate
                 dup_summaries = [
                     f"{dd['file']}: '{dd['duplicate_resource']}' "
                     f"(declared by '{dd['declared_by']}')"
                     for dd in duplicate_details
                 ]
-                detailed_message += " (" + "; ".join(dup_summaries) + ")"
+                observed_issue += " (" + "; ".join(dup_summaries) + ")"
 
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=[d[0] for d in duplicates_found],
-                observed_issue=detailed_message,
-                expected_quality=rule.expected_behavior,
+                observed_issue=observed_issue,
+                expected_quality=self._get_expected_behavior(rule),
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
                 failure_details=failure_details,

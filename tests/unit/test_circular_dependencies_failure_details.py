@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeCircularDependenciesValidator
 
@@ -19,7 +19,7 @@ class TestCircularDependenciesValidatorFailureDetails:
     def validation_rule(self):
         """Create standard validation rule."""
         return ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Circular dependency detected",

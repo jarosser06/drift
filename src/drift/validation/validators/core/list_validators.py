@@ -12,9 +12,24 @@ class ListMatchValidator(BaseValidator):
     """Validator for checking if list items match expected values."""
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:list_match"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "List match validation failed"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "Items should match expected list"
 
     def validate(
         self,
@@ -101,8 +116,8 @@ class ListMatchValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[f.relative_path for f in bundle.files],
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
@@ -110,6 +125,11 @@ class ListMatchValidator(BaseValidator):
 
 class ListRegexMatchValidator(BaseValidator):
     """Validator for checking if list items match regex patterns in files."""
+
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:list_regex_match"
 
     @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
@@ -210,8 +230,8 @@ class ListRegexMatchValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[f.relative_path for f in bundle.files],
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
