@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-06
+
+- Add support for custom validator plugins
+- Add support for rule groups to organize validation rules
+- Add detailed failure information to validators
+- Add dependency graph validation framework with Claude Code validators
+
 ## [0.3.0] - 2025-12-04
 
 - Add support for separate rules file with `--rules-file` option (local and remote file support)
