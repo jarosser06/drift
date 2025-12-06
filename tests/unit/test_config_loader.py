@@ -503,12 +503,12 @@ class TestRulesFileLoading:
     def test_merge_rules_overlapping(self):
         """Test merging rules with overlap (later overrides earlier)."""
         base = {
-            "rule1": {"description": "Original description"},
-            "rule2": {"description": "Second rule"},
+            "rule1": {"description": "Original description", "group_name": "GroupA"},
+            "rule2": {"description": "Second rule", "group_name": "GroupB"},
         }
         new = {
-            "rule1": {"description": "Updated description"},
-            "rule3": {"description": "Third rule"},
+            "rule1": {"description": "Updated description", "group_name": "GroupA"},
+            "rule3": {"description": "Third rule", "group_name": "GroupC"},
         }
 
         result = ConfigLoader._merge_rules(base, new)
@@ -811,6 +811,7 @@ class TestRulesFileLoading:
                 "scope": "conversation_level",
                 "context": "Original",
                 "requires_project_context": False,
+                "group_name": "TestGroup",
             }
         }
         with open(rules_file1, "w") as f:
@@ -824,6 +825,7 @@ class TestRulesFileLoading:
                 "scope": "conversation_level",
                 "context": "Updated",
                 "requires_project_context": True,
+                "group_name": "TestGroup",
             }
         }
         with open(rules_file2, "w") as f:
@@ -878,6 +880,7 @@ class TestRulesFileLoading:
                 "scope": "conversation_level",
                 "context": "Default",
                 "requires_project_context": False,
+                "group_name": "TestGroup",
             }
         }
         with open(default_rules_file, "w") as f:
@@ -891,6 +894,7 @@ class TestRulesFileLoading:
                 "scope": "conversation_level",
                 "context": "CLI",
                 "requires_project_context": True,
+                "group_name": "TestGroup",
             }
         }
         with open(cli_rules_file, "w") as f:
@@ -918,6 +922,7 @@ class TestRulesFileLoading:
                     "scope": "conversation_level",
                     "context": "Config",
                     "requires_project_context": False,
+                    "group_name": "TestGroup",
                 }
             }
         }
@@ -932,6 +937,7 @@ class TestRulesFileLoading:
                 "scope": "conversation_level",
                 "context": "Rules file",
                 "requires_project_context": True,
+                "group_name": "TestGroup",
             }
         }
         with open(default_rules_file, "w") as f:

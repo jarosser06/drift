@@ -242,6 +242,13 @@ class RuleDefinition(BaseModel):
             "If None, defaults based on scope: conversation_level=warning, project_level=fail"
         ),
     )
+    group_name: Optional[str] = Field(
+        None,
+        description=(
+            "Group name for organizing rules in output. "
+            "If None, uses default_group_name from config"
+        ),
+    )
     supported_clients: Optional[List[str]] = Field(
         None, description="Which clients this rule applies to (None = all clients)"
     )
@@ -310,6 +317,9 @@ class DriftConfig(BaseModel):
         default_factory=dict, description="Available model definitions"
     )
     default_model: str = Field("haiku", description="Default model to use")
+    default_group_name: str = Field(
+        "General", description="Default group name for rules without explicit group_name"
+    )
     rule_definitions: Dict[str, RuleDefinition] = Field(
         default_factory=dict, description="Rule definitions for drift detection"
     )

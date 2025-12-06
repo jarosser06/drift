@@ -72,6 +72,7 @@ def get_default_config() -> DriftConfig:
         providers=DEFAULT_PROVIDERS,
         models=DEFAULT_MODELS,
         default_model="haiku",
+        default_group_name="General",
         rule_definitions=DEFAULT_RULE_DEFINITIONS,
         agent_tools=DEFAULT_AGENT_TOOLS,
         conversations=DEFAULT_CONVERSATION_SELECTION,
