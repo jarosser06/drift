@@ -182,7 +182,35 @@ def test_parse_conversation_missing_messages_key():
 
 ## Documentation Issues
 
-### 9. Missing or Poor Docstrings
+### 9. Code Changes Without Documentation Updates
+
+**❌ WRONG:**
+```python
+# New feature added to analyzer.py
+class DriftAnalyzer:
+    def __init__(self, config: dict, plugins: list):  # plugins is NEW
+        self.config = config
+        self.plugins = plugins  # New parameter!
+        # But docstring not updated! Missing plugins parameter!
+```
+
+**✅ RIGHT:**
+```python
+# analyzer.py - Code and docstring updated
+class DriftAnalyzer:
+    def __init__(self, config: dict, plugins: list):
+        """Initialize drift analyzer.
+
+        -- config: Configuration dictionary
+        -- plugins: List of validation plugins to load  # NEW parameter documented
+        """
+        self.config = config
+        self.plugins = plugins
+```
+
+**Why it matters:** Outdated documentation confuses users and wastes time.
+
+### 10. Missing or Poor Docstrings
 
 **❌ WRONG:**
 ```python

@@ -8,6 +8,8 @@ from drift.validation.validators.base import BaseValidator
 class ConcreteValidator(BaseValidator):
     """Concrete implementation of BaseValidator for testing."""
 
+    validation_type = "test:concrete"
+
     @property
     def computation_type(self):
         """Return computation type."""

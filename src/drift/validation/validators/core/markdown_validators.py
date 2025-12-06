@@ -13,9 +13,24 @@ class MarkdownLinkValidator(BaseValidator):
     """Validator for checking links in markdown content."""
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:markdown_link"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Broken link found: {link}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "All markdown links should be valid"
 
     def validate(
         self,
@@ -113,12 +128,15 @@ class MarkdownLinkValidator(BaseValidator):
             for file_rel_path, link, reason in broken_links:
                 messages.append(f"{file_rel_path}: [{link}] - {reason}")
 
+            observed_issue = self._get_failure_message(rule)
+            observed_issue += ": " + "; ".join(messages)
+
             return DocumentRule(
                 bundle_id=bundle.bundle_id,
                 bundle_type=bundle.bundle_type,
                 file_paths=list(set(bl[0] for bl in broken_links)),
-                observed_issue=rule.failure_message + ": " + "; ".join(messages),
-                expected_quality=rule.expected_behavior,
+                observed_issue=observed_issue,
+                expected_quality=self._get_expected_behavior(rule),
                 rule_type="",
                 context=f"Validation rule: {rule.description}",
             )

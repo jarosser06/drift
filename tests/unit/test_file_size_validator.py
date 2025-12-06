@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.file_validators import FileSizeValidator
 
@@ -63,7 +63,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check CLAUDE.md line count",
             file_path="CLAUDE.md",
             max_count=300,
@@ -96,7 +96,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check CLAUDE.md line count",
             file_path="CLAUDE.md",
             max_count=300,
@@ -132,7 +132,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check line count",
             file_path="test.md",
             max_count=300,
@@ -165,7 +165,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check minimum line count",
             file_path="test.md",
             min_count=10,
@@ -200,7 +200,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check byte size",
             file_path="test.txt",
             max_size=1000,
@@ -235,7 +235,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check byte size",
             file_path="test.txt",
             max_size=1000,
@@ -249,7 +249,7 @@ class TestFileSizeValidator:
     def test_file_not_found(self, validator, bundle_with_file):
         """Test validation when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check nonexistent file",
             file_path="nonexistent.md",
             max_count=100,
@@ -265,7 +265,7 @@ class TestFileSizeValidator:
     def test_missing_file_path(self, validator, bundle_with_file):
         """Test that validator raises error when file_path is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="No file path",
             max_count=100,
             failure_message="Error",
@@ -278,7 +278,7 @@ class TestFileSizeValidator:
     def test_no_constraints(self, validator, bundle_with_file):
         """Test that validation passes when no constraints are specified."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="No constraints",
             file_path="test.md",
             failure_message="Error",
@@ -310,7 +310,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check both constraints",
             file_path="test.md",
             max_count=100,
@@ -347,7 +347,7 @@ class TestFileSizeValidator:
 
         # Empty file should pass max constraints
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check empty file",
             file_path="empty.md",
             max_count=100,
@@ -379,7 +379,7 @@ class TestFileSizeValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_SIZE,
+            rule_type="core:file_size",
             description="Check single line",
             file_path="single.md",
             max_count=10,

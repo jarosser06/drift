@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeMaxDependencyDepthValidator
 
@@ -19,7 +19,7 @@ class TestMaxDependencyDepthValidatorFailureDetails:
     def validation_rule(self):
         """Create standard validation rule with max_depth=3."""
         return ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain exceeds maximum depth",
@@ -325,7 +325,7 @@ class TestMaxDependencyDepthValidatorFailureDetails:
 
         # Use max_depth of 2 to trigger violation
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Dependency chain exceeds maximum depth",
@@ -502,7 +502,7 @@ class TestMaxDependencyDepthValidatorFailureDetails:
             )
 
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain exceeds maximum depth",

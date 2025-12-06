@@ -12,9 +12,24 @@ class RegexMatchValidator(BaseValidator):
     """Validator for checking if file content matches a regex pattern."""
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:regex_match"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Pattern match validation failed"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "File should match the specified pattern"
 
     def validate(
         self,
@@ -166,8 +181,8 @@ class RegexMatchValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )

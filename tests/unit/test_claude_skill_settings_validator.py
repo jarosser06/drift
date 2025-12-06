@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle
 from drift.validation.validators import ClaudeSkillSettingsValidator
 
@@ -21,7 +21,7 @@ class TestClaudeSkillSettingsValidator:
     def rule(self):
         """Create validation rule."""
         return ValidationRule(
-            rule_type=ValidationType.CLAUDE_SKILL_SETTINGS,
+            rule_type="core:claude_skill_settings",
             description="Check that all skills have permissions",
             failure_message="Skills missing from settings.json permissions",
             expected_behavior="All skills should have Skill() entries in permissions.allow",
@@ -84,9 +84,14 @@ class TestClaudeSkillSettingsValidator:
         # Validate
         result = validator.validate(rule, bundle)
         assert result is not None
-        assert "linting" in result.context
-        assert "python-docs" in result.context
-        assert "Skills missing from permissions.allow" in result.context
+        # Skills should be in the observed_issue now, not context
+        assert "linting" in result.observed_issue
+        assert "python-docs" in result.observed_issue
+        assert "Skills missing" in result.observed_issue
+        # Should have failure_details
+        assert result.failure_details is not None
+        assert "missing_skills" in result.failure_details
+        assert "linting, python-docs" in result.failure_details["missing_skills"]
 
     def test_validation_passes_with_no_skills_directory(self, validator, rule, bundle, tmp_path):
         """Test that validation passes when there's no skills directory."""
@@ -166,7 +171,7 @@ class TestClaudeSkillSettingsValidator:
 
         result = validator.validate(rule, bundle)
         assert result is not None
-        assert "testing" in result.context
+        assert "testing" in result.observed_issue
 
     def test_validation_handles_missing_allow_key(self, validator, rule, bundle, tmp_path):
         """Test that validation handles permissions without allow key."""
@@ -182,7 +187,7 @@ class TestClaudeSkillSettingsValidator:
 
         result = validator.validate(rule, bundle)
         assert result is not None
-        assert "testing" in result.context
+        assert "testing" in result.observed_issue
 
     def test_regex_pattern_matches_skill_entries(self, validator, rule, bundle, tmp_path):
         """Test that regex correctly extracts skill names from Skill() entries."""
@@ -223,8 +228,11 @@ class TestClaudeSkillSettingsValidator:
 
         result = validator.validate(rule, bundle)
         assert result is not None
-        assert "new-skill" in result.context
-        assert "Add entries like 'Skill(new-skill)'" in result.context
+        assert "new-skill" in result.observed_issue
+        # Check that failure_details contains the missing skill
+        assert result.failure_details is not None
+        assert "missing_skills" in result.failure_details
+        assert "new-skill" in result.failure_details["missing_skills"]
 
     def test_validation_with_multiple_missing_skills(self, validator, rule, bundle, tmp_path):
         """Test that validation reports all missing skills."""
@@ -242,8 +250,8 @@ class TestClaudeSkillSettingsValidator:
 
         result = validator.validate(rule, bundle)
         assert result is not None
-        assert "skill2" in result.context
-        assert "skill3" in result.context
+        assert "skill2" in result.observed_issue
+        assert "skill3" in result.observed_issue
 
     def test_validation_file_paths_in_result(self, validator, rule, bundle, tmp_path):
         """Test that validation result includes correct file path."""

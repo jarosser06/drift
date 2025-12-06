@@ -58,13 +58,28 @@ Comprehensive checklist for reviewing code in Drift.
 
 ## Documentation
 
+**CRITICAL: Verify documentation matches code changes**
+
 - [ ] Docstrings on all public functions
 - [ ] Parameters documented with `-- param:`
 - [ ] Return values documented
 - [ ] Exceptions documented (Raises)
-- [ ] README updated if needed
-- [ ] CLI help text updated
-- [ ] Examples for complex features
+- [ ] **Configuration changes documented where appropriate**
+- [ ] **CLI changes reflected in help text**
+- [ ] Examples for complex features in docstrings
+- [ ] **All code changes reflected in documentation**
+- [ ] **New attributes/parameters documented in docstrings**
+- [ ] **Breaking changes clearly documented**
+
+## Recommendations
+
+**CRITICAL: All recommendations must be research-backed**
+
+- [ ] Recommendations researched using Context7 MCP or official docs
+- [ ] Sources cited for each recommendation
+- [ ] Recommendations verified against project's Python version
+- [ ] Recommendations checked against existing codebase patterns
+- [ ] Only high-impact, well-researched recommendations included
 
 ## Security
 

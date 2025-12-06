@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeCircularDependenciesValidator
 
@@ -107,7 +107,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -143,7 +143,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -178,7 +178,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -229,7 +229,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -264,7 +264,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -293,7 +293,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={},  # Missing resource_dirs
             failure_message="Found circular dependency",
@@ -327,7 +327,7 @@ class TestCircularDependenciesValidator:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check for circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",

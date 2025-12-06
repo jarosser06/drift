@@ -42,6 +42,7 @@ class JsonFormatter(OutputFormatter):
                 "total_rule_violations": result.summary.total_rule_violations,
                 "conversations_with_drift": result.summary.conversations_with_drift,
                 "conversations_without_drift": result.summary.conversations_without_drift,
+                "by_group": result.summary.by_group,
                 "by_type": result.summary.by_type,
                 "by_agent": result.summary.by_agent,
             },

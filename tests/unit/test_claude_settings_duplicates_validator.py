@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle
 from drift.validation.validators.client.claude import ClaudeSettingsDuplicatesValidator
 
@@ -21,7 +21,7 @@ class TestClaudeSettingsDuplicatesValidator:
     def validation_rule(self):
         """Create validation rule for testing."""
         return ValidationRule(
-            rule_type=ValidationType.CLAUDE_SETTINGS_DUPLICATES,
+            rule_type="core:claude_settings_duplicates",
             description="Check for duplicate permissions",
             failure_message="Duplicate permissions found",
             expected_behavior="No duplicate permissions",

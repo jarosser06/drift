@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeDependencyDuplicateValidator
 
@@ -137,7 +137,7 @@ class TestDependencyDuplicateValidator:
         """Test detection of redundant transitive skill dependency."""
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found redundant skill dependencies",
@@ -155,7 +155,7 @@ class TestDependencyDuplicateValidator:
         """Test detection of redundant transitive dependency in command."""
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/commands", ".claude/skills"]},
             failure_message="Found redundant dependencies",
@@ -188,7 +188,7 @@ class TestDependencyDuplicateValidator:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found redundant dependencies",
@@ -202,7 +202,7 @@ class TestDependencyDuplicateValidator:
         """Test validator returns None when all_bundles not provided."""
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found redundant dependencies",
@@ -216,7 +216,7 @@ class TestDependencyDuplicateValidator:
         """Test validator raises error when resource_dirs param missing."""
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={},  # Missing resource_dirs
             failure_message="Found redundant dependencies",
@@ -290,7 +290,7 @@ class TestDependencyDuplicateValidator:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found redundant dependencies",
@@ -308,7 +308,7 @@ class TestDependencyDuplicateValidator:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check for redundant dependencies",
             params={"resource_dirs": [".claude/commands", ".claude/skills"]},
             failure_message="Found redundant dependencies",

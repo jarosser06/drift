@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.utils.claude_dependency_graph import ClaudeDependencyGraph
 from drift.validation.validators.client.claude_dependency import (
@@ -58,7 +58,7 @@ class TestGraphClassValidation:
         validator = CircularDependenciesValidator(loader=None, graph_class=None)
 
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Failed",
@@ -98,7 +98,7 @@ class TestGraphClassValidation:
         validator = DependencyDuplicateValidator(loader=None, graph_class=None)
 
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Failed",
@@ -138,7 +138,7 @@ class TestGraphClassValidation:
         validator = MaxDependencyDepthValidator(loader=None, graph_class=None)
 
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Failed",
@@ -241,13 +241,13 @@ class TestResourceTypeEdgeCases:
 
         for validator in validators:
             if isinstance(validator, ClaudeCircularDependenciesValidator):
-                rule_type = ValidationType.CIRCULAR_DEPENDENCIES
+                rule_type = "core:circular_dependencies"
                 failure_msg = "Circular dependency found"
             elif isinstance(validator, ClaudeDependencyDuplicateValidator):
-                rule_type = ValidationType.DEPENDENCY_DUPLICATE
+                rule_type = "core:dependency_duplicate"
                 failure_msg = "Redundant dependency found"
             else:
-                rule_type = ValidationType.MAX_DEPENDENCY_DEPTH
+                rule_type = "core:max_dependency_depth"
                 failure_msg = "Max depth exceeded"
 
             rule = ValidationRule(
@@ -306,7 +306,7 @@ class TestExceptionHandlingDuringResourceLoading:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Redundant dependency",
@@ -350,7 +350,7 @@ class TestExceptionHandlingDuringResourceLoading:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Circular dependency",
@@ -394,7 +394,7 @@ class TestExceptionHandlingDuringResourceLoading:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Max depth exceeded",
@@ -453,7 +453,7 @@ class TestKeyErrorHandlingInDuplicateDetection:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Test rule",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Redundant dependency",
@@ -749,7 +749,7 @@ class TestEndToEndIntegration:
 
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Detect cycles",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Circular dependency found",
@@ -815,7 +815,7 @@ class TestEndToEndIntegration:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Max depth exceeded",
@@ -875,7 +875,7 @@ class TestEndToEndIntegration:
 
         validator = ClaudeDependencyDuplicateValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check redundancy",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Redundant dependency",
@@ -941,10 +941,16 @@ class TestMultipleFilesInBundle:
         validators = [
             (
                 ClaudeCircularDependenciesValidator(),
-                ValidationType.CIRCULAR_DEPENDENCIES,
+                "core:claude_circular_dependencies",
             ),
-            (ClaudeDependencyDuplicateValidator(), ValidationType.DEPENDENCY_DUPLICATE),
-            (ClaudeMaxDependencyDepthValidator(), ValidationType.MAX_DEPENDENCY_DEPTH),
+            (
+                ClaudeDependencyDuplicateValidator(),
+                "core:claude_dependency_duplicate",
+            ),
+            (
+                ClaudeMaxDependencyDepthValidator(),
+                "core:claude_max_dependency_depth",
+            ),
         ]
 
         for validator, rule_type in validators:

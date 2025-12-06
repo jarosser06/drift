@@ -656,7 +656,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
-                        type="file_exists",
+                        type="core:file_exists",
                         file_path="test.txt",
                         failure_message="Missing",
                         expected_behavior="Should exist",
@@ -727,7 +727,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
-                        type="file_exists",
+                        type="core:file_exists",
                         file_path="test.txt",
                         failure_message="Missing",
                         expected_behavior="Should exist",
@@ -812,7 +812,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
-                        type="file_exists",
+                        type="core:file_exists",
                         file_path="test.txt",
                         failure_message="Missing",
                         expected_behavior="Should exist",
@@ -964,7 +964,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
-                        type="file_exists",
+                        type="core:file_exists",
                         file_path="test.txt",
                         failure_message="Missing",
                         expected_behavior="Should exist",
@@ -998,7 +998,7 @@ class TestAnalyzeCommand:
                 phases=[
                     PhaseDefinition(
                         name="test",
-                        type="file_exists",
+                        type="core:file_exists",
                         file_path="test.txt",
                         failure_message="Missing",
                         expected_behavior="Should exist",
@@ -1162,7 +1162,7 @@ class TestAnalyzeCommand:
                 "phases": [
                     {
                         "name": "test",
-                        "type": "file_exists",
+                        "type": "core:file_exists",
                         "file_path": "test.txt",
                         "failure_message": "Missing",
                         "expected_behavior": "Should exist",
@@ -1222,7 +1222,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "README.md",
                             "failure_message": "Missing README",
                             "expected_behavior": "Should have README",
@@ -1280,7 +1280,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "README.md",
                             "failure_message": "Missing README",
                             "expected_behavior": "Should have README",
@@ -1347,7 +1347,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "README.md",
                             "failure_message": "Missing README",
                             "expected_behavior": "Should have README",
@@ -1405,7 +1405,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "README.md",
                             "failure_message": "Missing README",
                             "expected_behavior": "Should have README",
@@ -1456,7 +1456,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check_readme",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "README.md",
                             "failure_message": "README.md is missing",
                             "expected_behavior": "Project should have README.md",
@@ -1471,7 +1471,7 @@ class TestAnalyzeCommand:
                     "phases": [
                         {
                             "name": "check_license",
-                            "type": "file_exists",
+                            "type": "core:file_exists",
                             "file_path": "LICENSE",
                             "failure_message": "LICENSE is missing",
                             "expected_behavior": "Project should have LICENSE",

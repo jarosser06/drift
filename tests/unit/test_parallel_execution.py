@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from drift.config.models import DriftConfig, ParallelExecutionConfig, ValidationRule, ValidationType
+from drift.config.models import DriftConfig, ParallelExecutionConfig, ValidationRule
 from drift.core.analyzer import DriftAnalyzer
 from drift.core.types import DocumentBundle, DocumentFile, DocumentRule
 
@@ -50,21 +50,21 @@ def sample_validation_rules():
     """Create sample validation rules for testing."""
     return [
         ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule 1",
             file_path="test1.txt",
             failure_message="File test1.txt should exist",
             expected_behavior="File should exist",
         ),
         ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule 2",
             file_path="test2.txt",
             failure_message="File test2.txt should exist",
             expected_behavior="File should exist",
         ),
         ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule 3",
             file_path="test3.txt",
             failure_message="File test3.txt should exist",
@@ -136,7 +136,7 @@ class TestExecutionRouting:
         analyzer = DriftAnalyzer(config=mock_config, project_path=temp_project)
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Single test rule",
             file_path="test.txt",
             failure_message="File should exist",
@@ -172,7 +172,7 @@ class TestExecutionRouting:
 
         rules = [
             ValidationRule(
-                rule_type=ValidationType.FILE_EXISTS,
+                rule_type="core:file_exists",
                 description=f"Test rule {i}",
                 file_path=f"test{i}.txt",
                 failure_message=f"File test{i}.txt should exist",
@@ -219,7 +219,7 @@ class TestExecutionRouting:
 
         rules = [
             ValidationRule(
-                rule_type=ValidationType.FILE_EXISTS,
+                rule_type="core:file_exists",
                 description=f"Test rule {i}",
                 file_path=f"test{i}.txt",
                 failure_message=f"File test{i}.txt should exist",
@@ -443,7 +443,7 @@ class TestAsyncHelpers:
         analyzer = DriftAnalyzer(config=mock_config, project_path=temp_project)
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule",
             file_path="test.txt",
             failure_message="File should exist",
@@ -475,7 +475,7 @@ class TestAsyncHelpers:
         analyzer = DriftAnalyzer(config=mock_config, project_path=temp_project)
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule",
             file_path="test.txt",
             failure_message="File should exist",
@@ -505,7 +505,7 @@ class TestAsyncHelpers:
         analyzer = DriftAnalyzer(config=mock_config, project_path=temp_project)
 
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule",
             file_path="test.txt",
             failure_message="File should exist",

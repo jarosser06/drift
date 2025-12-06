@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.format_validators import YamlFrontmatterValidator
 
@@ -51,7 +51,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter",
             params={"required_fields": ["name", "description", "model"]},
             failure_message="Missing required fields",
@@ -95,7 +95,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter",
             params={"required_fields": ["name", "description", "model"]},
             failure_message="Missing required fields",
@@ -151,7 +151,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter",
             params={"required_fields": ["name", "description", "model"]},
             failure_message="Missing required fields",
@@ -184,7 +184,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate command frontmatter",
             params={"required_fields": ["description"]},
             failure_message="Missing frontmatter",
@@ -218,7 +218,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate command frontmatter",
             params={"required_fields": ["description"]},
             failure_message="Invalid YAML",
@@ -264,7 +264,7 @@ Content
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter with schema",
             params={"required_fields": ["name", "description", "model"], "schema": schema},
             failure_message="Schema validation failed",
@@ -309,7 +309,7 @@ Content
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter with schema",
             params={"schema": schema},
             failure_message="Schema validation failed",
@@ -331,7 +331,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter",
             params={"required_fields": ["name", "description", "model"]},
             failure_message="Missing required fields",
@@ -376,7 +376,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate command frontmatter",
             params={"required_fields": ["description"]},
             failure_message="Missing description",
@@ -410,7 +410,7 @@ Content
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate command frontmatter",
             params={"required_fields": ["description"]},
             failure_message="Missing description",
@@ -445,7 +445,7 @@ Content
 
         # Rule with file_path (legacy mode)
         rule = ValidationRule(
-            rule_type=ValidationType.YAML_FRONTMATTER,
+            rule_type="core:yaml_frontmatter",
             description="Validate agent frontmatter",
             file_path="test.md",
             params={"required_fields": ["name", "description", "model"]},

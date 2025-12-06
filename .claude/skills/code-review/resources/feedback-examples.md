@@ -255,6 +255,50 @@ Looking forward to the updates!
 LGTM! Simple, focused fix with tests. Ready to merge. ✅
 ```
 
+## Research-Backed Recommendations
+
+**CRITICAL:** All recommendations MUST be researched using authoritative sources.
+
+### Good - Research-Backed Recommendation
+
+```
+Consider using `pytest.fixture(scope="session")` for the database connection
+in tests/conftest.py:12.
+
+According to the pytest documentation (researched via Context7 MCP), session-scoped
+fixtures are initialized once per test session and shared across all tests, which
+will significantly improve test performance for the test suite.
+
+Source: pytest official docs - "Fixture scopes" section
+Reference: https://docs.pytest.org/en/stable/fixture.html#scope
+```
+
+### Bad - Unresearched Recommendation
+
+```
+You should use a session fixture, it's better for performance.
+```
+
+### Good - Library Recommendation
+
+```
+For structured logging, consider using Python's built-in `logging.dictConfig`
+instead of a third-party library.
+
+Research via Python official docs shows that dictConfig (available in stdlib
+since Python 3.2) supports JSON/YAML configuration and structured output without
+adding dependencies.
+
+Source: Python 3.10+ logging.config documentation
+Applied to project: Python 3.10+ requirement confirmed in pyproject.toml
+```
+
+### Bad - Assumption-Based Recommendation
+
+```
+Consider using structlog for better logging.
+```
+
 ## Tips for Good Feedback
 
 1. **Be specific** - Reference file names and line numbers
@@ -265,3 +309,5 @@ LGTM! Simple, focused fix with tests. Ready to merge. ✅
 6. **Acknowledge good work** - Point out what's done well
 7. **Ask questions** - "Is there a reason you chose X over Y?"
 8. **Focus on code, not person** - "This function" not "You"
+9. **Research recommendations** - Use Context7 MCP or official docs before suggesting patterns
+10. **Cite sources** - Always include documentation references for recommendations

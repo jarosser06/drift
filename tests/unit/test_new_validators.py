@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle
 from drift.documents.loader import DocumentLoader
 from drift.validation.validators import (
@@ -55,7 +55,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with all_in mode passes when all items found."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check skills match",
             params={
                 "items": {"type": "string_list", "value": ["skill-one", "skill-two"]},
@@ -73,7 +73,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with all_in mode fails when items missing."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check skills match",
             params={
                 "items": {"type": "string_list", "value": ["skill-one", "skill-missing"]},
@@ -92,7 +92,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with none_in mode passes when no items found."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check no forbidden skills",
             params={
                 "items": {"type": "string_list", "value": ["forbidden-skill"]},
@@ -110,7 +110,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with none_in mode fails when items found."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check no forbidden skills",
             params={
                 "items": {"type": "string_list", "value": ["skill-one"]},
@@ -129,7 +129,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with exact mode passes when lists match."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check exact skill match",
             params={
                 "items": {"type": "string_list", "value": ["skill-one", "skill-two"]},
@@ -147,7 +147,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH with exact mode fails when lists differ."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check exact skill match",
             params={
                 "items": {"type": "string_list", "value": ["skill-one"]},
@@ -165,7 +165,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH uses all_in as default mode."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Check skills",
             params={
                 "items": {"type": "string_list", "value": ["skill-one"]},
@@ -182,7 +182,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH raises error when params missing."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Invalid rule",
             params={},
             failure_message="Error",
@@ -196,7 +196,7 @@ class TestListMatchValidator:
         """Test LIST_MATCH raises error with unknown match_mode."""
         validator = ListMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Invalid mode",
             params={
                 "items": {"type": "string_list", "value": ["skill-one"]},
@@ -253,7 +253,7 @@ class TestListRegexMatchValidator:
         """Test LIST_REGEX_MATCH with all_in mode passes when all found."""
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Check skills authorized",
             params={
                 "items": {"type": "resource_list", "value": "skill"},
@@ -277,7 +277,7 @@ class TestListRegexMatchValidator:
 
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Check skills authorized",
             params={
                 "items": {"type": "resource_list", "value": "skill"},
@@ -297,7 +297,7 @@ class TestListRegexMatchValidator:
         """Test LIST_REGEX_MATCH with none_in mode passes when not found."""
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Check no forbidden skills",
             params={
                 "items": {"type": "string_list", "value": ["forbidden-skill"]},
@@ -316,7 +316,7 @@ class TestListRegexMatchValidator:
         """Test LIST_REGEX_MATCH with none_in mode fails when found."""
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Check no forbidden skills",
             params={
                 "items": {"type": "string_list", "value": ["api-skill"]},
@@ -336,7 +336,7 @@ class TestListRegexMatchValidator:
         """Test LIST_REGEX_MATCH raises error when params missing."""
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Invalid rule",
             params={},
             failure_message="Error",
@@ -350,7 +350,7 @@ class TestListRegexMatchValidator:
         """Test LIST_REGEX_MATCH raises error with unknown match_mode."""
         validator = ListRegexMatchValidator(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Invalid mode",
             params={
                 "items": {"type": "string_list", "value": ["api-skill"]},
@@ -396,18 +396,18 @@ class TestValidatorRegistryWithNewValidators:
     def test_registry_includes_list_match(self, loader):
         """Test registry includes LIST_MATCH validator."""
         registry = ValidatorRegistry(loader)
-        assert ValidationType.LIST_MATCH in registry._validators
+        assert "core:list_match" in registry._validators
 
     def test_registry_includes_list_regex_match(self, loader):
         """Test registry includes LIST_REGEX_MATCH validator."""
         registry = ValidatorRegistry(loader)
-        assert ValidationType.LIST_REGEX_MATCH in registry._validators
+        assert "core:list_regex_match" in registry._validators
 
     def test_registry_execute_list_match_rule(self, bundle, loader):
         """Test registry can execute LIST_MATCH rules."""
         registry = ValidatorRegistry(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_MATCH,
+            rule_type="core:list_match",
             description="Test",
             params={
                 "items": {"type": "string_list", "value": ["test-skill"]},
@@ -427,7 +427,7 @@ class TestValidatorRegistryWithNewValidators:
 
         registry = ValidatorRegistry(loader)
         rule = ValidationRule(
-            rule_type=ValidationType.LIST_REGEX_MATCH,
+            rule_type="core:list_regex_match",
             description="Test",
             params={
                 "items": {"type": "string_list", "value": ["test-skill"]},

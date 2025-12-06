@@ -66,36 +66,9 @@ class ClientType(str, Enum):
     CLAUDE = "claude"  # Claude-specific validator
 
 
-class ValidationType(str, Enum):
-    """Types of validation rules."""
-
-    FILE_EXISTS = "file_exists"
-    FILE_NOT_EXISTS = "file_not_exists"
-    REGEX_MATCH = "regex_match"
-    REGEX_NOT_MATCH = "regex_not_match"
-    FILE_COUNT = "file_count"
-    FILE_SIZE = "file_size"
-    TOKEN_COUNT = "token_count"
-    JSON_SCHEMA = "json_schema"
-    YAML_SCHEMA = "yaml_schema"
-    YAML_FRONTMATTER = "yaml_frontmatter"
-    CROSS_FILE_REFERENCE = "cross_file_reference"
-    LIST_MATCH = "list_match"
-    LIST_REGEX_MATCH = "list_regex_match"
-    MARKDOWN_LINK = "markdown_link"
-
-    # Generic dependency validators (can be extended for other tools)
-    DEPENDENCY_DUPLICATE = "dependency_duplicate"
-    CIRCULAR_DEPENDENCIES = "circular_dependencies"
-    MAX_DEPENDENCY_DEPTH = "max_dependency_depth"
-
-    # Claude Code-specific validators
-    CLAUDE_DEPENDENCY_DUPLICATE = "claude_dependency_duplicate"
-    CLAUDE_CIRCULAR_DEPENDENCIES = "claude_circular_dependencies"
-    CLAUDE_MAX_DEPENDENCY_DEPTH = "claude_max_dependency_depth"
-    CLAUDE_SKILL_SETTINGS = "claude_skill_settings"
-    CLAUDE_SETTINGS_DUPLICATES = "claude_settings_duplicates"
-    CLAUDE_MCP_PERMISSIONS = "claude_mcp_permissions"
+# Validation type pattern - must be namespaced
+# e.g., "core:file_exists", "security:vulnerability_scan"
+VALIDATION_TYPE_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*:[a-z_][a-z0-9_]*$")
 
 
 class ParamType(str, Enum):
@@ -112,7 +85,10 @@ class ParamType(str, Enum):
 class ValidationRule(BaseModel):
     """A single validation rule."""
 
-    rule_type: ValidationType = Field(..., description="Type of validation to perform")
+    rule_type: str = Field(
+        ...,
+        description="Type of validation (namespaced, e.g., 'core:file_exists')",
+    )
     description: str = Field(..., description="Human-readable description of what this rule checks")
 
     # Typed parameters for validation
@@ -148,9 +124,19 @@ class ValidationRule(BaseModel):
         None, description="Glob pattern for target files that should exist"
     )
 
-    # Error messaging
-    failure_message: str = Field(..., description="Message to display when validation fails")
-    expected_behavior: str = Field(..., description="Description of expected/correct behavior")
+    # Error messaging (optional - validators provide defaults)
+    failure_message: Optional[str] = Field(
+        None,
+        description=(
+            "Message to display when validation fails " "(uses validator default if not provided)"
+        ),
+    )
+    expected_behavior: Optional[str] = Field(
+        None,
+        description=(
+            "Description of expected/correct behavior " "(uses validator default if not provided)"
+        ),
+    )
 
     @field_validator("pattern")
     @classmethod
@@ -195,7 +181,14 @@ class PhaseDefinition(BaseModel):
         ...,
         description=(
             "Analysis type: 'prompt' for LLM-based, "
-            "or validation type like 'file_exists', 'regex_match', etc."
+            "or validation type like 'core:file_exists', 'security:vulnerability_scan', etc."
+        ),
+    )
+    provider: Optional[str] = Field(
+        None,
+        description=(
+            "Provider for custom validators (format: 'module.path:ClassName'). "
+            "Required for non-core types, must be None/empty for core: types."
         ),
     )
     prompt: Optional[str] = Field(None, description="Prompt instructions for prompt-based phases")
@@ -214,6 +207,54 @@ class PhaseDefinition(BaseModel):
     file_path: Optional[str] = Field(None, description="File path for file validation phases")
     failure_message: Optional[str] = Field(None, description="Message when validation fails")
     expected_behavior: Optional[str] = Field(None, description="Description of expected behavior")
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: Optional[str], info: Any) -> Optional[str]:
+        """Validate provider field based on type.
+
+        Core types (core:*) must not have a provider.
+        Non-core types must have a provider.
+        """
+        # Access the type field from validation context
+        values = info.data
+        type_value = values.get("type", "")
+
+        # Skip validation for 'prompt' type
+        if type_value == "prompt":
+            return v
+
+        # Validate namespace format if type is specified
+        if type_value and ":" in type_value:
+            if not VALIDATION_TYPE_PATTERN.match(type_value):
+                raise ValueError(
+                    f"Invalid validation type format: '{type_value}'. "
+                    "Must match pattern: namespace:type (e.g., 'core:file_exists')"
+                )
+
+            # Core types must not have provider
+            if type_value.startswith("core:"):
+                if v:
+                    raise ValueError(
+                        f"Core validation type '{type_value}' must not have a provider. "
+                        "Set provider to None or omit it."
+                    )
+            # Non-core types must have provider
+            else:
+                if not v:
+                    raise ValueError(
+                        f"Custom validation type '{type_value}' requires a provider. "
+                        "Specify provider as 'module.path:ClassName'."
+                    )
+                # Validate provider format: module.path:ClassName
+                if ":" not in v or not v.split(":")[0] or not v.split(":")[1]:
+                    raise ValueError(
+                        f"Invalid provider format: '{v}'. Must be "
+                        "'module.path:ClassName' "
+                        "(e.g., 'mypackage.validators:SecurityValidator')"
+                    )
+
+        return v
 
 
 class SeverityLevel(str, Enum):

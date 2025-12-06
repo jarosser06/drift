@@ -10,7 +10,6 @@ from drift.config.models import (
     DocumentBundleConfig,
     ValidationRule,
     ValidationRulesConfig,
-    ValidationType,
 )
 from drift.core.types import DocumentBundle
 from drift.validation.validators import FileExistsValidator, ValidatorRegistry
@@ -22,56 +21,56 @@ class TestValidationRule:
     def test_valid_file_exists_rule(self):
         """Test creating a valid file existence rule."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check CLAUDE.md exists",
             file_path="CLAUDE.md",
             failure_message="CLAUDE.md not found",
             expected_behavior="CLAUDE.md should exist",
         )
-        assert rule.rule_type == ValidationType.FILE_EXISTS
+        assert rule.rule_type == "core:file_exists"
         assert rule.file_path == "CLAUDE.md"
         assert rule.pattern is None
 
     def test_valid_regex_rule(self):
         """Test creating a valid regex matching rule."""
         rule = ValidationRule(
-            rule_type=ValidationType.REGEX_MATCH,
+            rule_type="core:regex_match",
             description="Check for Prerequisites section",
             pattern=r"^## Prerequisites",
             flags=re.MULTILINE,
             failure_message="Missing Prerequisites section",
             expected_behavior="Should have Prerequisites section",
         )
-        assert rule.rule_type == ValidationType.REGEX_MATCH
+        assert rule.rule_type == "core:regex_match"
         assert rule.pattern == r"^## Prerequisites"
         assert rule.flags == re.MULTILINE
 
-    def test_valid_file_count_rule(self):
-        """Test creating a valid file count rule."""
+    def test_valid_file_size_rule(self):
+        """Test creating a valid file size rule."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_COUNT,
-            description="Limit number of commands",
-            file_path=".claude/commands/*.md",
+            rule_type="core:file_size",
+            description="Limit number of lines in commands",
+            file_path=".claude/commands/test.md",
             max_count=20,
-            failure_message="Too many commands",
-            expected_behavior="Should have <= 20 commands",
+            failure_message="Too many lines",
+            expected_behavior="Should have <= 20 lines",
         )
-        assert rule.rule_type == ValidationType.FILE_COUNT
+        assert rule.rule_type == "core:file_size"
         assert rule.max_count == 20
         assert rule.min_count is None
 
-    def test_valid_cross_file_reference_rule(self):
-        """Test creating a valid cross-file reference rule."""
+    def test_valid_markdown_link_rule(self):
+        """Test creating a valid markdown link validation rule."""
         rule = ValidationRule(
-            rule_type=ValidationType.CROSS_FILE_REFERENCE,
-            description="Check skill references",
+            rule_type="core:markdown_link",
+            description="Check markdown links",
             source_pattern=".claude/commands/*.md",
             reference_pattern=r"\[([^\]]+)\]\(.*?/skills/([^/]+)/SKILL\.md\)",
             target_pattern=".claude/skills/*/SKILL.md",
             failure_message="Broken skill reference",
             expected_behavior="All references should be valid",
         )
-        assert rule.rule_type == ValidationType.CROSS_FILE_REFERENCE
+        assert rule.rule_type == "core:markdown_link"
         assert rule.source_pattern == ".claude/commands/*.md"
         assert rule.reference_pattern is not None
 
@@ -79,7 +78,7 @@ class TestValidationRule:
         """Test that invalid regex pattern raises ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
             ValidationRule(
-                rule_type=ValidationType.REGEX_MATCH,
+                rule_type="core:regex_match",
                 description="Invalid regex",
                 pattern=r"[invalid(regex",  # Unclosed bracket
                 failure_message="Test",
@@ -91,7 +90,7 @@ class TestValidationRule:
         """Test that invalid reference pattern raises ValidationError."""
         with pytest.raises(ValidationError) as exc_info:
             ValidationRule(
-                rule_type=ValidationType.CROSS_FILE_REFERENCE,
+                rule_type="core:markdown_link",
                 description="Invalid reference pattern",
                 reference_pattern=r"[invalid(regex",  # Unclosed bracket
                 failure_message="Test",
@@ -106,7 +105,7 @@ class TestValidationRulesConfig:
     def test_valid_validation_rules_config(self):
         """Test creating a valid validation rules configuration."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test rule",
             file_path="test.md",
             failure_message="Test failure",
@@ -132,7 +131,7 @@ class TestValidationRulesConfig:
     def test_default_scope(self):
         """Test default scope is document_level."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Test",
             file_path="test.md",
             failure_message="Test",
@@ -156,14 +155,14 @@ class TestValidationRulesConfig:
         """Test validation config with multiple rules."""
         rules = [
             ValidationRule(
-                rule_type=ValidationType.FILE_EXISTS,
+                rule_type="core:file_exists",
                 description="Rule 1",
                 file_path="test1.md",
                 failure_message="Test 1",
                 expected_behavior="Test 1",
             ),
             ValidationRule(
-                rule_type=ValidationType.FILE_EXISTS,
+                rule_type="core:file_exists",
                 description="Rule 2",
                 file_path="test2.md",
                 failure_message="Test 2",
@@ -216,7 +215,7 @@ class TestFileExistsValidator:
     def test_file_exists_passes(self, sample_bundle):
         """Test that validation passes when file exists."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check README exists",
             file_path="README.md",
             failure_message="README not found",
@@ -231,7 +230,7 @@ class TestFileExistsValidator:
     def test_file_exists_fails(self, sample_bundle):
         """Test that validation fails when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check missing file",
             file_path="MISSING.md",
             failure_message="MISSING.md not found",
@@ -249,7 +248,7 @@ class TestFileExistsValidator:
     def test_glob_pattern_with_matches_passes(self, sample_bundle):
         """Test that glob pattern validation passes when files match."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check skill files exist",
             file_path=".claude/skills/*/SKILL.md",
             failure_message="No skill files found",
@@ -264,7 +263,7 @@ class TestFileExistsValidator:
     def test_glob_pattern_no_matches_fails(self, sample_bundle):
         """Test that glob pattern validation fails when no files match."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check missing pattern",
             file_path=".claude/commands/*.md",
             failure_message="No command files found",
@@ -280,7 +279,7 @@ class TestFileExistsValidator:
     def test_missing_file_path_raises_error(self, sample_bundle):
         """Test that validator raises error when file_path is None."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Missing file path",
             failure_message="Test",
             expected_behavior="Test",
@@ -317,13 +316,13 @@ class TestValidatorRegistry:
         """Test that registry initializes with validators."""
         registry = ValidatorRegistry()
 
-        assert ValidationType.FILE_EXISTS in registry._validators
-        assert ValidationType.FILE_NOT_EXISTS in registry._validators
+        assert "core:file_exists" in registry._validators
+        assert "core:regex_match" in registry._validators
 
     def test_execute_file_exists_rule(self, sample_bundle):
-        """Test executing FILE_EXISTS rule through registry."""
+        """Test executing core:file_exists rule through registry."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_EXISTS,
+            rule_type="core:file_exists",
             description="Check file exists",
             file_path="EXISTS.md",
             failure_message="File not found",
@@ -335,45 +334,47 @@ class TestValidatorRegistry:
 
         assert result is None  # File exists, validation passes
 
-    def test_execute_file_not_exists_rule_inverted(self, sample_bundle):
-        """Test that FILE_NOT_EXISTS inverts the result correctly."""
-        # File EXISTS.md exists, so FILE_NOT_EXISTS should fail
+    def test_execute_file_exists_with_missing_file_fails(self, sample_bundle):
+        """Test that core:file_exists fails when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_NOT_EXISTS,
-            description="File should not exist",
-            file_path="EXISTS.md",
-            failure_message="File should not exist",
-            expected_behavior="File should be absent",
-        )
-
-        registry = ValidatorRegistry()
-        result = registry.execute_rule(rule, sample_bundle)
-
-        assert result is not None  # File exists but shouldn't, validation fails
-        assert result.observed_issue == "File should not exist"
-
-    def test_execute_file_not_exists_passes_when_missing(self, sample_bundle):
-        """Test that FILE_NOT_EXISTS passes when file is missing."""
-        # MISSING.md doesn't exist, so FILE_NOT_EXISTS should pass
-        rule = ValidationRule(
-            rule_type=ValidationType.FILE_NOT_EXISTS,
-            description="File should not exist",
+            rule_type="core:file_exists",
+            description="Check missing file",
             file_path="MISSING.md",
-            failure_message="File should not exist",
-            expected_behavior="File should be absent",
+            failure_message="File not found",
+            expected_behavior="File should exist",
         )
 
         registry = ValidatorRegistry()
         result = registry.execute_rule(rule, sample_bundle)
 
-        assert result is None  # File doesn't exist as desired, validation passes
+        assert result is not None  # File doesn't exist, validation fails
+        assert result.observed_issue == "File not found"
+
+    def test_execute_regex_match_rule(self, sample_bundle, tmp_path):
+        """Test executing core:regex_match rule through registry."""
+        # Create a test file with content
+        (sample_bundle.project_path / "test.txt").write_text("Hello World\nTest Pattern\n")
+
+        rule = ValidationRule(
+            rule_type="core:regex_match",
+            description="Check for pattern",
+            file_path="test.txt",
+            pattern=r"Test Pattern",
+            failure_message="Pattern not found",
+            expected_behavior="Pattern should exist",
+        )
+
+        registry = ValidatorRegistry()
+        result = registry.execute_rule(rule, sample_bundle)
+
+        assert result is None  # Pattern found, validation passes
 
     def test_unsupported_rule_type_raises_error(self, sample_bundle):
         """Test that unsupported rule types raise ValueError."""
-        # Create a rule with FILE_COUNT which we haven't implemented yet
+        # Create a rule with unknown type
         rule = ValidationRule(
-            rule_type=ValidationType.FILE_COUNT,
-            description="Test file count",
+            rule_type="custom:unknown",
+            description="Test unknown type",
             failure_message="Test",
             expected_behavior="Test",
         )

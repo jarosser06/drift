@@ -11,9 +11,24 @@ class FileExistsValidator(BaseValidator):
     """Validator for checking file existence."""
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:file_exists"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "File {file_path} does not exist"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "File should exist"
 
     def validate(
         self,
@@ -79,14 +94,18 @@ class FileExistsValidator(BaseValidator):
 
         Returns DocumentRule representing the failure.
         """
+        # Create failure details for template substitution
+        failure_details = {"file_path": file_paths[0] if file_paths else "unknown"}
+
         return DocumentRule(
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule, failure_details),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
+            failure_details=failure_details,
         )
 
 
@@ -94,9 +113,24 @@ class FileSizeValidator(BaseValidator):
     """Validator for checking file size constraints."""
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:file_size"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "File size constraint violated"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "File should meet size constraints"
 
     def validate(
         self,
@@ -197,7 +231,7 @@ class FileSizeValidator(BaseValidator):
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=observed_issue,
-            expected_quality=rule.expected_behavior,
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )
@@ -218,9 +252,24 @@ class TokenCountValidator(BaseValidator):
     """
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:token_count"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "File token count constraint violated"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "File should meet token count constraints"
 
     def validate(
         self,
@@ -405,7 +454,7 @@ class TokenCountValidator(BaseValidator):
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=observed_issue,
-            expected_quality=rule.expected_behavior,
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import (
     ClaudeCircularDependenciesValidator,
@@ -102,7 +102,7 @@ class TestFailureDetailsIntegration:
         # Test circular dependency validator
         circular_validator = ClaudeCircularDependenciesValidator()
         circular_rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check circular dependencies",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Circular dependency detected",
@@ -114,7 +114,7 @@ class TestFailureDetailsIntegration:
         # Test max depth validator
         depth_validator = ClaudeMaxDependencyDepthValidator()
         depth_rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Depth exceeded",
@@ -126,7 +126,7 @@ class TestFailureDetailsIntegration:
         # Test duplicate validator
         duplicate_validator = ClaudeDependencyDuplicateValidator()
         duplicate_rule = ValidationRule(
-            rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+            rule_type="core:dependency_duplicate",
             description="Check duplicates",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Duplicate detected",
@@ -154,7 +154,7 @@ class TestFailureDetailsIntegration:
             (
                 ClaudeCircularDependenciesValidator(),
                 ValidationRule(
-                    rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+                    rule_type="core:circular_dependencies",
                     description="Check circular dependencies",
                     params={"resource_dirs": [".claude/skills"]},
                     failure_message="Circular dependency",
@@ -166,7 +166,7 @@ class TestFailureDetailsIntegration:
             (
                 ClaudeMaxDependencyDepthValidator(),
                 ValidationRule(
-                    rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+                    rule_type="core:max_dependency_depth",
                     description="Check depth",
                     params={"resource_dirs": [".claude/skills"], "max_depth": 2},
                     failure_message="Depth exceeded",
@@ -178,7 +178,7 @@ class TestFailureDetailsIntegration:
             (
                 ClaudeDependencyDuplicateValidator(),
                 ValidationRule(
-                    rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+                    rule_type="core:dependency_duplicate",
                     description="Check duplicates",
                     params={"resource_dirs": [".claude/skills"]},
                     failure_message="Duplicate detected",
@@ -210,21 +210,21 @@ class TestFailureDetailsIntegration:
 
         rules = [
             ValidationRule(
-                rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+                rule_type="core:circular_dependencies",
                 description="Check circular",
                 params={"resource_dirs": [".claude/skills"]},
                 failure_message="Circular",
                 expected_behavior="No cycles",
             ),
             ValidationRule(
-                rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+                rule_type="core:max_dependency_depth",
                 description="Check depth",
                 params={"resource_dirs": [".claude/skills"], "max_depth": 2},
                 failure_message="Depth",
                 expected_behavior="Max 2",
             ),
             ValidationRule(
-                rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+                rule_type="core:dependency_duplicate",
                 description="Check dup",
                 params={"resource_dirs": [".claude/skills"]},
                 failure_message="Dup",
@@ -257,6 +257,8 @@ class TestFailureDetailsIntegration:
         class LegacyValidator(BaseValidator):
             """Validator that doesn't use failure_details."""
 
+            validation_type = "legacy:test"
+
             @property
             def computation_type(self):
                 return "programmatic"
@@ -278,7 +280,7 @@ class TestFailureDetailsIntegration:
 
         validator = LegacyValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Test",
             params={},
             failure_message="Test",
@@ -295,7 +297,7 @@ class TestFailureDetailsIntegration:
         """Test that failure_details is preserved when creating DocumentRule."""
         validator = ClaudeCircularDependenciesValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check circular",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Circular dependency",
@@ -318,7 +320,7 @@ class TestFailureDetailsIntegration:
         # Circular dependencies
         circular_validator = ClaudeCircularDependenciesValidator()
         circular_rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Check circular",
             params={"resource_dirs": [".claude/skills"]},
             failure_message="Found circular dependency",
@@ -335,7 +337,7 @@ class TestFailureDetailsIntegration:
         # Max depth
         depth_validator = ClaudeMaxDependencyDepthValidator()
         depth_rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Depth exceeded",
@@ -355,6 +357,8 @@ class TestFailureDetailsIntegration:
 
         class MinimalValidator(BaseValidator):
             """Validator with minimal failure_details."""
+
+            validation_type = "minimal:test"
 
             @property
             def computation_type(self):
@@ -394,7 +398,7 @@ class TestFailureDetailsIntegration:
 
         validator = MinimalValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+            rule_type="core:circular_dependencies",
             description="Test",
             params={},
             failure_message="Test message",
@@ -412,7 +416,7 @@ class TestFailureDetailsIntegration:
         # Test that placeholders in failure_message get replaced
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Depth {actual_depth} exceeds max {max_depth}",
@@ -438,21 +442,21 @@ class TestFailureDetailsIntegration:
 
         rules = [
             ValidationRule(
-                rule_type=ValidationType.CIRCULAR_DEPENDENCIES,
+                rule_type="core:circular_dependencies",
                 description="Check",
                 params={"resource_dirs": [".claude/skills"]},
                 failure_message="Issue",
                 expected_behavior="Expected",
             ),
             ValidationRule(
-                rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+                rule_type="core:max_dependency_depth",
                 description="Check",
                 params={"resource_dirs": [".claude/skills"], "max_depth": 2},
                 failure_message="Issue",
                 expected_behavior="Expected",
             ),
             ValidationRule(
-                rule_type=ValidationType.DEPENDENCY_DUPLICATE,
+                rule_type="core:dependency_duplicate",
                 description="Check",
                 params={"resource_dirs": [".claude/skills"]},
                 failure_message="Issue",

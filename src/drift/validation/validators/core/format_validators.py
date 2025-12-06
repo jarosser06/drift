@@ -16,9 +16,24 @@ class JsonSchemaValidator(BaseValidator):
     """
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:json_schema"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "JSON schema validation failed"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "File should conform to JSON schema"
 
     def validate(
         self,
@@ -167,7 +182,7 @@ class JsonSchemaValidator(BaseValidator):
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=observed_issue,
-            expected_quality=rule.expected_behavior,
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )
@@ -179,6 +194,11 @@ class YamlSchemaValidator(BaseValidator):
     Validates YAML files against schema specifications (same format as JSON Schema).
     Supports inline schemas via params or external schema files.
     """
+
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:yaml_schema"
 
     @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
@@ -349,7 +369,7 @@ class YamlSchemaValidator(BaseValidator):
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=observed_issue,
-            expected_quality=rule.expected_behavior,
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )
@@ -361,6 +381,11 @@ class YamlFrontmatterValidator(BaseValidator):
     Validates that Markdown files have valid YAML frontmatter
     with required fields.
     """
+
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:yaml_frontmatter"
 
     @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
@@ -436,7 +461,7 @@ class YamlFrontmatterValidator(BaseValidator):
                     bundle_type=bundle.bundle_type,
                     file_paths=[f[0] for f in failed_files],
                     observed_issue="; ".join(messages),
-                    expected_quality=rule.expected_behavior,
+                    expected_quality=self._get_expected_behavior(rule),
                     rule_type="",
                     context=f"Validation rule: {rule.description}",
                 )
@@ -584,7 +609,7 @@ class YamlFrontmatterValidator(BaseValidator):
             bundle_type=bundle.bundle_type,
             file_paths=file_paths,
             observed_issue=observed_issue,
-            expected_quality=rule.expected_behavior,
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}",
         )

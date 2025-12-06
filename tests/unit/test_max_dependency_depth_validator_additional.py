@@ -2,7 +2,7 @@
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators import ClaudeMaxDependencyDepthValidator
 
@@ -40,7 +40,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain too deep",
@@ -75,7 +75,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain too deep",
@@ -112,7 +112,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain too deep",
@@ -147,7 +147,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain too deep",
@@ -204,7 +204,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 3},
             failure_message="Dependency chain too deep",
@@ -280,7 +280,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 2},
             failure_message="Dependency chain too deep",
@@ -346,7 +346,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/agents", ".claude/skills"], "max_depth": 2},
             failure_message="Dependency chain too deep",
@@ -402,7 +402,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 0},
             failure_message="Dependency chain too deep",
@@ -458,7 +458,7 @@ class TestMaxDependencyDepthValidatorExceptionHandling:
 
         validator = ClaudeMaxDependencyDepthValidator()
         rule = ValidationRule(
-            rule_type=ValidationType.MAX_DEPENDENCY_DEPTH,
+            rule_type="core:max_dependency_depth",
             description="Check dependency depth",
             params={"resource_dirs": [".claude/skills"], "max_depth": 1000},
             failure_message="Dependency chain too deep",

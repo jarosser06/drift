@@ -22,6 +22,11 @@ class ClaudeCircularDependenciesValidator(BaseCircularValidator):
     Uses YAML frontmatter 'skills' field for dependency information.
     """
 
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_circular_dependencies"
+
     def __init__(self, loader: Any = None) -> None:
         """Initialize with ClaudeDependencyGraph.
 
@@ -53,6 +58,11 @@ class ClaudeMaxDependencyDepthValidator(BaseDepthValidator):
     Detects when Claude Code resource dependency chains exceed maximum depth.
     Uses YAML frontmatter 'skills' field for dependency information.
     """
+
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_max_dependency_depth"
 
     def __init__(self, loader: Any = None) -> None:
         """Initialize with ClaudeDependencyGraph.
@@ -86,6 +96,11 @@ class ClaudeDependencyDuplicateValidator(BaseDuplicateValidator):
     is already declared by a transitive dependency.
     Uses YAML frontmatter 'skills' field for dependency information.
     """
+
+    @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_dependency_duplicate"
 
     def __init__(self, loader: Any = None) -> None:
         """Initialize with ClaudeDependencyGraph.

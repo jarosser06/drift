@@ -36,7 +36,6 @@ from drift.config.models import (
     RuleDefinition,
     SeverityLevel,
     ValidationRule,
-    ValidationType,
 )
 from drift.core.types import (
     AnalysisResult,
@@ -81,9 +80,9 @@ def _has_programmatic_phases(phases: List[Any], registry: ValidatorRegistry) -> 
             continue
 
         try:
-            # Convert string type to ValidationType
-            rule_type = ValidationType(phase_type)
-            if registry.is_programmatic(rule_type):
+            # Check if this is a programmatic validator
+            provider = getattr(phase, "provider", None)
+            if registry.is_programmatic(phase_type, provider):
                 return True
         except (ValueError, KeyError):
             # Unknown type - assume it's LLM-based
@@ -803,8 +802,9 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
             checks_errored=0,
         )
 
-        # Count rules by type and agent
+        # Count rules by type, group, and agent
         by_type: Dict[str, int] = {}
+        by_group: Dict[str, int] = {}
         by_agent: Dict[str, int] = {}
         all_rule_errors: Dict[str, str] = {}
 
@@ -820,6 +820,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 # By type
                 by_type[learning.rule_type] = by_type.get(learning.rule_type, 0) + 1
 
+                # By group
+                group_name = learning.group_name or "General"
+                by_group[group_name] = by_group.get(group_name, 0) + 1
+
                 # By agent
                 by_agent[learning.agent_tool] = by_agent.get(learning.agent_tool, 0) + 1
 
@@ -828,6 +832,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 all_rule_errors[rule_name] = error_msg
 
         summary.by_type = by_type
+        summary.by_group = by_group
         summary.by_agent = by_agent
 
         # Track which rules were checked, passed, warned, failed, and errored
@@ -1085,9 +1090,13 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         )
 
         by_type: Dict[str, int] = {}
+        by_group: Dict[str, int] = {}
         for doc_learning in all_document_learnings:
             by_type[doc_learning.rule_type] = by_type.get(doc_learning.rule_type, 0) + 1
+            group_name = doc_learning.group_name or "General"
+            by_group[group_name] = by_group.get(group_name, 0) + 1
         summary.by_type = by_type
+        summary.by_group = by_group
 
         summary.rules_checked = list(document_types.keys())
 
@@ -1200,8 +1209,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     continue
 
                 try:
-                    phase_rule_type = ValidationType(phase_type)
-                    if registry.is_programmatic(phase_rule_type):
+                    if registry.is_programmatic(phase_type):
                         programmatic_phases.append(phase)
                 except (ValueError, KeyError):
                     # Unknown type - skip
@@ -1213,11 +1221,12 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
                 for phase in programmatic_phases:
                     rule = ValidationRule(
-                        rule_type=ValidationType(phase.type),
+                        rule_type=phase.type,
                         description=type_config.description,
                         file_path=phase.file_path,
-                        failure_message=phase.failure_message or type_config.description,
-                        expected_behavior=(phase.expected_behavior or type_config.context),
+                        # Validator provides defaults if None
+                        failure_message=phase.failure_message,
+                        expected_behavior=phase.expected_behavior,
                         **phase.params,
                     )
 
@@ -1417,9 +1426,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                         "files": [f.relative_path for f in bundle.files],
                     },
                     "validation_results": {
-                        "rule_type": rule.rule_type.value
-                        if hasattr(rule.rule_type, "value")
-                        else str(rule.rule_type),
+                        "rule_type": rule.rule_type,
                         "params": rule.params if hasattr(rule, "params") else {},
                     },
                 }
@@ -1542,9 +1549,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     "files": [f.relative_path for f in bundle.files],
                 },
                 "validation_results": {
-                    "rule_type": rule.rule_type.value
-                    if hasattr(rule.rule_type, "value")
-                    else str(rule.rule_type),
+                    "rule_type": rule.rule_type,
                     "params": rule.params if hasattr(rule, "params") else {},
                 },
             }

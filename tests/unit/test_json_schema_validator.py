@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.format_validators import JsonSchemaValidator
 
@@ -66,7 +66,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate data.json",
             file_path="data.json",
             params={"schema": schema},
@@ -97,7 +97,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate data.json",
             file_path="data.json",
             params={"schema": schema},
@@ -129,7 +129,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate data.json",
             file_path="data.json",
             params={"schema": schema},
@@ -167,7 +167,7 @@ class TestJsonSchemaValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate data.json",
             file_path="data.json",
             params={"schema_file": "schema.json"},
@@ -181,7 +181,7 @@ class TestJsonSchemaValidator:
     def test_external_schema_file_not_found(self, validator, bundle_with_json):
         """Test that validation fails gracefully when schema file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate config.json",
             file_path="config.json",
             params={"schema_file": "nonexistent_schema.json"},
@@ -210,7 +210,7 @@ class TestJsonSchemaValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate data.json",
             file_path="data.json",
             params={"schema_file": "bad_schema.json"},
@@ -227,7 +227,7 @@ class TestJsonSchemaValidator:
     def test_missing_file_path(self, validator, bundle_with_json):
         """Test that validator raises error when file_path is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="No file path",
             params={"schema": {"type": "object"}},
             failure_message="Error",
@@ -240,7 +240,7 @@ class TestJsonSchemaValidator:
     def test_missing_params(self, validator, bundle_with_json):
         """Test that validator raises error when params is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="No params",
             file_path="config.json",
             failure_message="Error",
@@ -253,7 +253,7 @@ class TestJsonSchemaValidator:
     def test_missing_schema_and_schema_file(self, validator, bundle_with_json):
         """Test that validation fails when neither schema nor schema_file provided."""
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="No schema",
             file_path="config.json",
             params={"other_param": "value"},
@@ -268,7 +268,7 @@ class TestJsonSchemaValidator:
     def test_file_not_found(self, validator, bundle_with_json):
         """Test validation when JSON file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Check nonexistent file",
             file_path="nonexistent.json",
             params={"schema": {"type": "object"}},
@@ -294,7 +294,7 @@ class TestJsonSchemaValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate bad JSON",
             file_path="bad.json",
             params={"schema": {"type": "object"}},
@@ -320,7 +320,7 @@ class TestJsonSchemaValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate JSON",
             file_path="data.json",
             params={"schema": {"type": "object"}},
@@ -375,7 +375,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate nested structure",
             file_path="nested.json",
             params={"schema": schema},
@@ -415,7 +415,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate array",
             file_path="array.json",
             params={"schema": schema},
@@ -445,7 +445,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate enum",
             file_path="enum.json",
             params={"schema": schema},
@@ -475,7 +475,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate enum",
             file_path="enum.json",
             params={"schema": schema},
@@ -506,7 +506,7 @@ class TestJsonSchemaValidator:
         schema = {"type": "object", "properties": {}}
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate empty object",
             file_path="empty.json",
             params={"schema": schema},
@@ -536,7 +536,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate with extra properties",
             file_path="data.json",
             params={"schema": schema},
@@ -567,7 +567,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Validate strict schema",
             file_path="data.json",
             params={"schema": schema},
@@ -606,7 +606,7 @@ class TestJsonSchemaValidator:
         schema = {"type": "object", "properties": {"name": {"type": "string"}}}
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Test rule",
             file_path="data.json",
             params={"schema": schema},
@@ -638,7 +638,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Test rule",
             file_path="data.json",
             params={"schema": schema},
@@ -678,7 +678,7 @@ class TestJsonSchemaValidator:
         monkeypatch.setattr(builtins, "open", mock_open)
 
         _ = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Test rule",
             file_path="data.json",
             params={"schema_file": "schema.json"},
@@ -706,7 +706,7 @@ class TestJsonSchemaValidator:
         }
 
         rule = ValidationRule(
-            rule_type=ValidationType.JSON_SCHEMA,
+            rule_type="core:json_schema",
             description="Test rule",
             file_path="data.json",
             params={"schema": schema},

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from drift.config.models import ValidationRule, ValidationType
+from drift.config.models import ValidationRule
 from drift.core.types import DocumentBundle, DocumentFile
 from drift.validation.validators.core.file_validators import TokenCountValidator
 
@@ -67,7 +67,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check CLAUDE.md token count",
             file_path="CLAUDE.md",
             max_count=1500,
@@ -118,7 +118,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check CLAUDE.md token count",
             file_path="CLAUDE.md",
             max_count=1500,
@@ -172,7 +172,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=1000,
@@ -222,7 +222,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=100,
@@ -263,7 +263,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=100,
@@ -307,7 +307,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=1000,
@@ -357,7 +357,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=100,
@@ -398,7 +398,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=1000,
@@ -420,7 +420,7 @@ class TestTokenCountValidator:
     def test_unsupported_provider(self, validator, bundle_with_file):
         """Test that validation fails with unsupported provider."""
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=1000,
@@ -454,7 +454,7 @@ class TestTokenCountValidator:
 
         # Rule without params (should default to anthropic)
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check token count",
             file_path="test.md",
             max_count=1000,
@@ -477,7 +477,7 @@ class TestTokenCountValidator:
     def test_file_not_found(self, validator, bundle_with_file):
         """Test validation when file doesn't exist."""
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check nonexistent file",
             file_path="nonexistent.md",
             max_count=1000,
@@ -494,7 +494,7 @@ class TestTokenCountValidator:
     def test_missing_file_path(self, validator, bundle_with_file):
         """Test that validator raises error when file_path is missing."""
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="No file path",
             max_count=1000,
             params={"provider": "anthropic"},
@@ -526,7 +526,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Read protected file",
             file_path="test.md",
             max_count=1000,
@@ -564,7 +564,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check minimum tokens",
             file_path="test.md",
             min_count=100,
@@ -603,7 +603,7 @@ class TestTokenCountValidator:
     def test_no_constraints_passes(self, validator, bundle_with_file, monkeypatch):
         """Test that validation passes when no constraints are specified."""
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="No constraints",
             file_path="test.md",
             params={"provider": "anthropic"},
@@ -643,7 +643,7 @@ class TestTokenCountValidator:
         )
 
         rule = ValidationRule(
-            rule_type=ValidationType.TOKEN_COUNT,
+            rule_type="core:token_count",
             description="Check tokens",
             file_path="test.md",
             max_count=1000,

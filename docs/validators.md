@@ -4,6 +4,8 @@ This document provides comprehensive documentation for all validator types avail
 
 ## Table of Contents
 
+- [Default Failure Messages](#default-failure-messages)
+- [Custom Validator Plugins](#custom-validator-plugins)
 - [Failure Details Feature](#failure-details-feature)
 - [File Validators](#file-validators)
 - [Regex Validators](#regex-validators)
@@ -13,6 +15,330 @@ This document provides comprehensive documentation for all validator types avail
 - [Dependency Validators](#dependency-validators)
 - [Claude Code Validators](#claude-code-validators)
 - [LLM-Based Validators](#llm-based-validators)
+
+---
+
+## Default Failure Messages
+
+Validators provide sensible default failure messages, eliminating the need to specify `failure_message` and `expected_behavior` in every validation rule.
+
+### Overview
+
+Every validator includes built-in default messages that describe what failed and what's expected. You can still override these with custom messages when needed, and custom messages support template variable substitution using `{placeholder}` syntax.
+
+### How It Works
+
+1. **No custom message**: Validator uses its default message
+2. **Custom message with templates**: Variables like `{file_path}` are replaced with actual values
+3. **Custom message without templates**: Validator appends relevant details automatically
+
+### Benefits
+
+- **Less configuration**: Validators work out-of-the-box without requiring message configuration
+- **Consistent messaging**: Built-in messages follow a standard format across all validators
+- **Flexible customization**: Override defaults when you need custom wording or localization
+- **Always show details**: Even custom messages without placeholders get relevant details appended
+
+### Example: Using Defaults
+
+```yaml
+# Minimal configuration - uses validator defaults
+phases:
+  - name: Check README
+    type: core:file_exists
+    file_path: README.md
+    # No failure_message needed!
+    # Default: "File {file_path} does not exist"
+```
+
+### Example: Custom Message with Templates
+
+```yaml
+# Custom message with template variables
+phases:
+  - name: Check README
+    type: core:file_exists
+    file_path: README.md
+    failure_message: "⚠️ Missing required file: {file_path}"
+    expected_behavior: "All projects must have a README"
+```
+
+### Example: Custom Message without Templates
+
+```yaml
+# Custom message without templates still gets details appended
+phases:
+  - name: Check Dependencies
+    type: core:circular_dependencies
+    params:
+      resource_dirs: [".claude/skills"]
+    failure_message: "Circular dependency found"
+    # Result: "Circular dependency found: skill-a → skill-b → skill-a"
+```
+
+### Default Messages by Validator
+
+All validators provide contextual default messages. Here are some examples:
+
+**File Validators:**
+- `core:file_exists` → "File {file_path} does not exist"
+- `core:file_size` → "File size constraint violated"
+- `core:token_count` → "File token count constraint violated"
+
+**Dependency Validators:**
+- `core:circular_dependencies` → "Circular dependency detected: {circular_path}"
+- `core:max_dependency_depth` → "Dependency depth {actual_depth} exceeds maximum {max_depth}"
+- `core:dependency_duplicate` → "Duplicate dependency found: {dependency}"
+
+**Format Validators:**
+- `core:json_schema` → "JSON schema validation failed"
+- `core:yaml_schema` → "YAML schema validation failed"
+- `core:yaml_frontmatter` → "YAML frontmatter validation failed"
+
+**Regex & List Validators:**
+- `core:regex_match` → "Pattern match validation failed"
+- `core:list_match` → "List match validation failed"
+- `core:markdown_link` → "Broken link found: {link}"
+
+See individual validator documentation below for complete details and available template variables.
+
+---
+
+## Custom Validator Plugins
+
+Drift supports loading custom validators from third-party Python packages, enabling extensible validation beyond the built-in `core:` validators.
+
+### Overview
+
+The plugin system allows you to:
+- Create custom validators for domain-specific checks (security scans, license compliance, etc.)
+- Package and distribute validators as Python packages
+- Load validators dynamically without modifying Drift's codebase
+- Use namespaced validation types to prevent conflicts
+
+### Creating a Custom Validator
+
+1. **Create a validator class** that inherits from `BaseValidator`:
+
+```python
+# my_package/validators.py
+from typing import List, Literal, Optional
+from drift.validation.validators import BaseValidator
+from drift.config.models import ValidationRule
+from drift.core.types import DocumentBundle, DocumentRule
+
+
+class SecurityScanValidator(BaseValidator):
+    """Custom validator for security vulnerability scanning."""
+
+    @property
+    def validation_type(self) -> str:
+        """Return the namespaced validation type."""
+        return "security:vulnerability_scan"
+
+    @property
+    def computation_type(self) -> Literal["programmatic", "llm"]:
+        """This is a programmatic validator."""
+        return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Default message when vulnerabilities found."""
+        return "Security vulnerabilities detected: {vulnerability_count} issues"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Expected behavior description."""
+        return "No security vulnerabilities should exist"
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentRule]:
+        """Run security scan on files in bundle."""
+        # Your validation logic here
+        vulnerabilities = self._scan_for_vulnerabilities(bundle)
+
+        if vulnerabilities:
+            failure_details = {
+                "vulnerability_count": len(vulnerabilities),
+                "vulnerabilities": vulnerabilities
+            }
+
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[v["file"] for v in vulnerabilities],
+                observed_issue=self._get_failure_message(rule, failure_details),
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+                failure_details=failure_details,
+            )
+
+        return None  # Validation passed
+```
+
+2. **Package your validator** as an installable Python package:
+
+```toml
+# pyproject.toml
+[project]
+name = "my-drift-validators"
+version = "1.0.0"
+dependencies = ["ai-drift>=0.4.0"]
+```
+
+3. **Install the package**:
+
+```bash
+pip install my-drift-validators
+```
+
+4. **Use in `.drift.yaml`** with the `provider` field:
+
+```yaml
+phases:
+  - name: Security Scan
+    type: security:vulnerability_scan
+    provider: "my_package.validators:SecurityScanValidator"
+    params:
+      scan_level: "strict"
+    # Optional: override default messages
+    failure_message: "🔒 Found {vulnerability_count} security issues"
+    expected_behavior: "Code must pass security scan"
+```
+
+### Namespace Requirements
+
+- **Format**: `namespace:type` (e.g., `security:scan`, `compliance:license`)
+- **Pattern**: Lowercase letters, numbers, underscores only (`^[a-z_][a-z0-9_]*:[a-z_][a-z0-9_]*$`)
+- **Reserved namespace**: `core:` is reserved for built-in validators
+- **Custom namespaces**: Use your company/project name (e.g., `acme:security_scan`)
+
+### Provider Format
+
+The `provider` field specifies how to load your validator:
+
+**Format**: `module.path:ClassName`
+
+**Examples**:
+- `my_package.validators:SecurityValidator`
+- `company.drift_plugins:LicenseChecker`
+- `my_app.custom_validators:CustomValidator`
+
+### Validation Rules
+
+**Core validators** (`core:*`) must not have a `provider` field, while **custom validators** (any other namespace) require a `provider` field. Invalid combinations will raise a validation error at configuration time.
+
+```yaml
+# Core validator - no provider needed
+phases:
+  - type: core:file_exists
+    file_path: README.md
+
+# Custom validator - provider required
+phases:
+  - type: security:scan
+    provider: "my_pkg.validators:SecurityValidator"
+```
+
+### Best Practices
+
+1. **Namespace uniquely**: Use your organization or package name as the namespace
+2. **Provide defaults**: Always implement `default_failure_message` and `default_expected_behavior`
+3. **Use templates**: Include placeholder variables in default messages for flexibility
+4. **Return details**: Populate `failure_details` with actionable information
+5. **Handle errors**: Raise clear exceptions for invalid configuration
+6. **Document thoroughly**: Provide docstrings explaining parameters and behavior
+
+### Example: Full Custom Validator
+
+```python
+from pathlib import Path
+from typing import List, Literal, Optional
+from drift.validation.validators import BaseValidator
+from drift.config.models import ValidationRule
+from drift.core.types import DocumentBundle, DocumentRule
+
+
+class LicenseCheckValidator(BaseValidator):
+    """Validates that all code files have proper license headers."""
+
+    @property
+    def validation_type(self) -> str:
+        return "compliance:license_check"
+
+    @property
+    def computation_type(self) -> Literal["programmatic", "llm"]:
+        return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        return "Missing license headers in {file_count} files"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        return "All source files should have license headers"
+
+    def validate(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        all_bundles: Optional[List[DocumentBundle]] = None,
+    ) -> Optional[DocumentRule]:
+        required_header = rule.params.get("header", "Copyright")
+        file_extensions = rule.params.get("extensions", [".py", ".js"])
+
+        missing_headers = []
+        for file in bundle.files:
+            if any(file.relative_path.endswith(ext) for ext in file_extensions):
+                content = Path(file.file_path).read_text()
+                if required_header not in content[:500]:  # Check first 500 chars
+                    missing_headers.append(file.relative_path)
+
+        if missing_headers:
+            failure_details = {
+                "file_count": len(missing_headers),
+                "files": missing_headers,
+                "required_header": required_header
+            }
+
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=missing_headers,
+                observed_issue=self._get_failure_message(rule, failure_details),
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+                failure_details=failure_details,
+            )
+
+        return None
+```
+
+**Usage**:
+```yaml
+phases:
+  - name: License Check
+    type: compliance:license_check
+    provider: "my_company.validators:LicenseCheckValidator"
+    params:
+      header: "Copyright (C) 2025"
+      extensions: [".py", ".js", ".ts"]
+```
+
+### Caching and Performance
+
+Drift automatically caches loaded validator classes for performance:
+- Validators are loaded once per validation run
+- Class-level caching prevents redundant imports
+- Multiple rules can share the same validator instance
+
+No special configuration needed - caching is automatic.
 
 ---
 
@@ -1109,26 +1435,6 @@ For slow validation:
 2. Use `--rules` to run specific rules only
 3. Consider splitting large rulesets into separate files
 4. Use programmatic validators where possible
-
----
-
-## Migration Guide
-
-### From Simple Messages to Template Messages
-
-Old way:
-```yaml
-failure_message: "Dependency issues detected"
-```
-
-New way:
-```yaml
-failure_message: "Circular dependency: {circular_path}"
-```
-
-### From Custom Validators to Built-in
-
-If you've written custom validators, consider migrating to built-in validators with `failure_details` support for better maintainability.
 
 ---
 

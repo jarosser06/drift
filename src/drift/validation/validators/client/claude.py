@@ -23,9 +23,24 @@ class ClaudeSkillSettingsValidator(BaseValidator):
     """
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_skill_settings"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Missing Skill() permissions for: {missing_skills}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "All skills in .claude/skills/ must have Skill() permissions in settings.json"
 
     @property
     def supported_clients(self) -> List[ClientType]:
@@ -106,11 +121,26 @@ class ClaudeSkillSettingsValidator(BaseValidator):
 
         if missing_skills:
             missing_list = ", ".join(missing_skills)
-            return self._create_failure_learning(
-                rule=rule,
-                bundle=bundle,
-                context=f"Skills missing from permissions.allow: {missing_list}. "
-                f"Add entries like 'Skill({missing_skills[0]})' to .claude/settings.json",
+            failure_details = {"missing_skills": missing_list}
+
+            observed_issue = self._get_failure_message(rule, failure_details)
+
+            # If custom message doesn't include the skill list, append it
+            if "{missing_skills}" not in (rule.failure_message or ""):
+                # Check if the message already mentions the skills
+                has_skills = all(skill in observed_issue for skill in missing_skills)
+                if not has_skills:
+                    observed_issue += f": {missing_list}"
+
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[".claude/settings.json"],
+                observed_issue=observed_issue,
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+                failure_details=failure_details,
             )
 
         # All skills have permissions - validation passes
@@ -134,8 +164,8 @@ class ClaudeSkillSettingsValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[".claude/settings.json"],
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
@@ -151,9 +181,24 @@ class ClaudeSettingsDuplicatesValidator(BaseValidator):
     """
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_settings_duplicates"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Duplicate permissions found: {duplicates}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "No duplicate entries in .claude/settings.json permissions.allow"
 
     @property
     def supported_clients(self) -> List[ClientType]:
@@ -246,8 +291,8 @@ class ClaudeSettingsDuplicatesValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[".claude/settings.json"],
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )
@@ -263,9 +308,24 @@ class ClaudeMcpPermissionsValidator(BaseValidator):
     """
 
     @property
+    def validation_type(self) -> str:
+        """Return validation type for this validator."""
+        return "core:claude_mcp_permissions"
+
+    @property
     def computation_type(self) -> Literal["programmatic", "llm"]:
         """Return computation type for this validator."""
         return "programmatic"
+
+    @property
+    def default_failure_message(self) -> str:
+        """Return default failure message template."""
+        return "Missing MCP server permissions for: {missing_servers}"
+
+    @property
+    def default_expected_behavior(self) -> str:
+        """Return default expected behavior description."""
+        return "All MCP servers in .mcp.json must have mcp__* permissions in settings.json"
 
     @property
     def supported_clients(self) -> List[ClientType]:
@@ -397,8 +457,8 @@ class ClaudeMcpPermissionsValidator(BaseValidator):
             bundle_id=bundle.bundle_id,
             bundle_type=bundle.bundle_type,
             file_paths=[".claude/settings.json", ".mcp.json"],
-            observed_issue=rule.failure_message,
-            expected_quality=rule.expected_behavior,
+            observed_issue=self._get_failure_message(rule),
+            expected_quality=self._get_expected_behavior(rule),
             rule_type="",  # Will be set by analyzer
             context=f"Validation rule: {rule.description}. {context}",
         )

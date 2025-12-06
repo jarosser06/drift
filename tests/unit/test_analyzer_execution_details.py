@@ -40,7 +40,7 @@ class TestAnalyzerExecutionDetails:
                             ),
                             rules=[
                                 ValidationRule(
-                                    rule_type="file_exists",
+                                    rule_type="core:file_exists",
                                     description="Validates .claude.md exists",
                                     file_path=".claude.md",
                                     failure_message="Missing .claude.md",
@@ -95,7 +95,7 @@ class TestAnalyzerExecutionDetails:
             assert "validation_results" in detail
             validation = detail["validation_results"]
             assert "rule_type" in validation
-            assert validation["rule_type"] == "file_exists"
+            assert validation["rule_type"] == "core:file_exists"
 
     def test_analyze_documents_returns_execution_details_for_failed_rule(self):
         """Test that analyze_documents returns execution_details when a rule fails."""
@@ -119,7 +119,7 @@ class TestAnalyzerExecutionDetails:
                             ),
                             rules=[
                                 ValidationRule(
-                                    rule_type="file_exists",
+                                    rule_type="core:file_exists",
                                     description="Validates .claude.md exists",
                                     file_path=".claude.md",
                                     failure_message="Missing .claude.md",
@@ -180,7 +180,7 @@ class TestAnalyzerExecutionDetails:
                             ),
                             rules=[
                                 ValidationRule(
-                                    rule_type="file_exists",
+                                    rule_type="core:file_exists",
                                     description="Validates .claude.md exists",
                                     file_path=".claude.md",
                                     failure_message="Missing",
