@@ -432,7 +432,7 @@ command_duplicate_dependencies:
     - name: check_duplicates
       type: dependency_duplicate
       description: "Check for redundant transitive dependencies in commands"
-      failure_message: "Found redundant skill dependencies in commands"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Commands should only declare direct dependencies, not transitive ones"
       params:
         resource_dirs:
@@ -455,7 +455,7 @@ skill_duplicate_dependencies:
     - name: check_duplicates
       type: dependency_duplicate
       description: "Check for redundant transitive dependencies in skills"
-      failure_message: "Found redundant skill dependencies in skills"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Skills should only declare direct dependencies, not transitive ones"
       params:
         resource_dirs:
@@ -529,7 +529,7 @@ agent_duplicate_dependencies:
     - name: check_duplicates
       type: dependency_duplicate
       description: "Check for redundant transitive dependencies in agents"
-      failure_message: "Found redundant skill dependencies in agents"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
       params:
         resource_dirs:
@@ -978,7 +978,7 @@ skill_circular_dependencies:
     - name: check_cycles
       type: circular_dependencies
       description: "Check for circular dependencies in skill dependency graphs"
-      failure_message: "Found circular dependencies in skills"
+      failure_message: "Circular dependency detected: {circular_path}"
       expected_behavior: "Skills should not have circular dependency cycles"
       params:
         resource_dirs:
@@ -1006,7 +1006,7 @@ command_circular_dependencies:
           - .claude/commands
           - .claude/skills
           - .claude/agents
-      failure_message: "Found circular dependency in command"
+      failure_message: "Circular dependency detected: {circular_path}"
       expected_behavior: "Commands should not have circular skill dependencies"
 
 skill_max_depth:
@@ -1031,7 +1031,7 @@ skill_max_depth:
           - .claude/commands
           - .claude/skills
           - .claude/agents
-      failure_message: "Skill dependency chain exceeds maximum depth"
+      failure_message: "Dependency depth {actual_depth} exceeds maximum {max_depth}"
       expected_behavior: "Skill dependencies should not exceed depth of 3"
 
 agent_duplicate_dependencies_claude:
@@ -1055,5 +1055,5 @@ agent_duplicate_dependencies_claude:
           - .claude/commands
           - .claude/skills
           - .claude/agents
-      failure_message: "Found redundant skill dependencies in agent"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
       expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
