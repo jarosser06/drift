@@ -55,11 +55,50 @@ class FileExistsValidator(BaseValidator):
             matches = list(project_path.glob(rule.file_path))
             matching_files = [m for m in matches if m.is_file()]
 
+            # Check if parent directory structure exists for the glob pattern
+            # E.g., for .claude/skills/*/SKILL.md, check if .claude/skills/ exists
+            # Extract the parent path before the first wildcard
+            parts = rule.file_path.split("/")
+            parent_parts = []
+            for part in parts:
+                if "*" in part or "?" in part:
+                    break
+                parent_parts.append(part)
+
+            if parent_parts:
+                parent_path = project_path / "/".join(parent_parts)
+                # If parent doesn't exist, pass (nothing to validate)
+                if not (parent_path.exists() and parent_path.is_dir()):
+                    return None
+
+                # Check if there are subdirectories that could contain the files
+                # For patterns like .claude/skills/*/SKILL.md:
+                # - If .claude/skills/ has no subdirectories, pass (nothing to validate)
+                # - If .claude/skills/ has subdirectories, fail if no SKILL.md found
+                try:
+                    # Get the wildcard part to determine what we're looking for
+                    wildcard_idx = next(
+                        (i for i, p in enumerate(parts) if "*" in p or "?" in p), None
+                    )
+                    if wildcard_idx is not None and wildcard_idx < len(parts) - 1:
+                        # Pattern like */SKILL.md - check for subdirectories
+                        has_subdirs = any(p.is_dir() for p in parent_path.iterdir())
+                        if not has_subdirs:
+                            return None  # No subdirectories, nothing to validate
+                    else:
+                        # Pattern like *.md - check for any contents
+                        has_contents = any(parent_path.iterdir())
+                        if not has_contents:
+                            return None  # Empty directory, nothing to validate
+                except (OSError, PermissionError):
+                    # Can't read directory, treat as empty
+                    return None
+
             if matching_files:
                 # Files exist - validation passes
                 return None
             else:
-                # No matching files - validation fails
+                # No matching files but parent/subdirs exist - validation fails
                 return self._create_failure_learning(
                     rule=rule,
                     bundle=bundle,
