@@ -103,6 +103,9 @@ class Rule(BaseModel):
     )
     expected_behavior: str = Field(..., description="What should have happened instead")
     rule_type: str = Field(..., description="Type of rule that was violated")
+    group_name: Optional[str] = Field(
+        default=None, description="Group name for organizing rules in output"
+    )
     workflow_element: WorkflowElement = Field(
         WorkflowElement.UNKNOWN, description="What workflow element needs improvement"
     )
@@ -242,6 +245,9 @@ class DocumentRule(BaseModel):
     observed_issue: str = Field(..., description="What issue was observed")
     expected_quality: str = Field(..., description="What the expected quality/behavior should be")
     rule_type: str = Field(..., description="Type of rule that was violated")
+    group_name: Optional[str] = Field(
+        default=None, description="Group name for organizing rules in output"
+    )
     context: str = Field("", description="Additional context about the issue")
     failure_details: Optional[Dict[str, Any]] = Field(
         default=None,

@@ -79,6 +79,31 @@ class ConfigLoader:
             raise ValueError(f"Invalid YAML in remote rules file {url}: {e}")
 
     @classmethod
+    def _process_rules_file_content(cls, content: Dict[str, Any]) -> Dict[str, Any]:
+        """Process rules file content, handling top-level group_name.
+
+        If the file has a top-level 'group_name' field, apply it to all rules
+        in the file that don't have their own explicit group_name.
+
+        -- content: Raw YAML content from rules file
+
+        Returns processed rules dictionary with group_name removed from top-level.
+        """
+        if not content:
+            return {}
+
+        # Extract top-level group_name if present
+        file_group_name = content.pop("group_name", None)
+
+        # If there's a file-level group_name, apply it to rules without one
+        if file_group_name is not None:
+            for rule_name, rule_def in content.items():
+                if isinstance(rule_def, dict) and "group_name" not in rule_def:
+                    rule_def["group_name"] = file_group_name
+
+        return content
+
+    @classmethod
     def _load_rules_file(cls, source: str) -> Dict[str, Any]:
         """Load rules from file or URL.
 
@@ -89,7 +114,8 @@ class ConfigLoader:
         Raises ValueError if source doesn't exist or has invalid YAML.
         """
         if cls._is_remote_url(source):
-            return cls._load_remote_rules(source)
+            content = cls._load_remote_rules(source)
+            return cls._process_rules_file_content(content)
 
         # Local file
         path = Path(source).expanduser().resolve()
@@ -99,23 +125,34 @@ class ConfigLoader:
         try:
             with open(path, "r") as f:
                 content = yaml.safe_load(f)
-                return content if content is not None else {}
+                content = content if content is not None else {}
+                return cls._process_rules_file_content(content)
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML in rules file {source}: {e}")
         except Exception as e:
             raise ValueError(f"Error loading rules from {source}: {e}")
 
     @classmethod
-    def _merge_rules(cls, base_rules: Dict[str, Any], new_rules: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_rules(
+        cls,
+        base_rules: Dict[str, Any],
+        new_rules: Dict[str, Any],
+        default_group_name: str = "General",
+    ) -> Dict[str, Any]:
         """Merge two rule definition dictionaries.
 
-        Later rules override earlier rules with the same name.
+        Rules with the same name but different groups are allowed.
+        Later rules override earlier rules with the same name AND group.
 
         -- base_rules: Base rule definitions
         -- new_rules: New rule definitions to merge in
+        -- default_group_name: Default group name to use for rules without explicit group
 
         Returns merged rule definitions.
         """
+        # Simply merge - later rules override earlier ones
+        # This allows intentional overrides in the loading priority chain:
+        # CLI rules > .drift_rules.yaml > .drift.yaml rules
         merged = base_rules.copy()
         merged.update(new_rules)
         return merged
@@ -269,6 +306,9 @@ class ConfigLoader:
         if project_dict:
             merged = cls._deep_merge(merged, project_dict)
 
+        # Get default group name from merged config (for duplicate checking)
+        default_group_name = merged.get("default_group_name", "General")
+
         # Load rules with priority order
         rules_dict: Dict[str, Any] = {}
 
@@ -281,7 +321,7 @@ class ConfigLoader:
         if default_rules_file.exists():
             try:
                 default_rules = cls._load_rules_file(str(default_rules_file))
-                rules_dict = cls._merge_rules(rules_dict, default_rules)
+                rules_dict = cls._merge_rules(rules_dict, default_rules, default_group_name)
             except ValueError as e:
                 raise ValueError(f"Error loading {cls.DEFAULT_RULES_FILE}: {e}")
 
@@ -290,7 +330,7 @@ class ConfigLoader:
             for rules_file in rules_files:
                 try:
                     file_rules = cls._load_rules_file(rules_file)
-                    rules_dict = cls._merge_rules(rules_dict, file_rules)
+                    rules_dict = cls._merge_rules(rules_dict, file_rules, default_group_name)
                 except ValueError as e:
                     raise ValueError(f"Error loading rules file '{rules_file}': {e}")
 
@@ -342,5 +382,35 @@ class ConfigLoader:
         if not enabled_tools:
             raise ValueError("At least one agent tool must be enabled")
 
+        # Validate rule name + group name uniqueness
+        ConfigLoader._validate_rule_group_uniqueness(config)
+
         # Note: We don't require rules to be defined since users might
         # only want to use drift for document analysis or have project-specific configs
+
+    @staticmethod
+    def _validate_rule_group_uniqueness(config: DriftConfig) -> None:
+        """Validate that rule name + group name combinations are unique.
+
+        Args:
+            config: Loaded configuration
+
+        Raises:
+            ValueError: If duplicate rule name + group name combinations are found
+        """
+        seen_combinations = {}
+
+        for rule_name, rule_def in config.rule_definitions.items():
+            # Get effective group name (use default if not specified)
+            group_name = rule_def.group_name or config.default_group_name
+
+            # Create unique key from group + rule name
+            combination_key = (group_name, rule_name)
+
+            if combination_key in seen_combinations:
+                raise ValueError(
+                    f"Duplicate rule name '{rule_name}' in group '{group_name}'. "
+                    f"Rule names must be unique within their group."
+                )
+
+            seen_combinations[combination_key] = True

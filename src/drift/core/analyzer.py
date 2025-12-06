@@ -173,6 +173,21 @@ class DriftAnalyzer:
         self._initialize_providers()
         self._initialize_agent_loaders()
 
+    def _get_effective_group_name(self, rule_type: str) -> str:
+        """Get the effective group name for a rule.
+
+        If the rule has an explicit group_name, use that.
+        Otherwise, use the default_group_name from config.
+
+        -- rule_type: Name of the rule type
+
+        Returns the effective group name to use.
+        """
+        if rule_type in self.config.rule_definitions:
+            rule_def = self.config.rule_definitions[rule_type]
+            return rule_def.group_name or self.config.default_group_name
+        return self.config.default_group_name
+
     def _initialize_providers(self) -> None:
         """Initialize LLM providers based on config."""
         for model_name, model_config in self.config.models.items():
@@ -709,8 +724,8 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         return "\n".join(lines)
 
-    @staticmethod
     def _parse_analysis_response(
+        self,
         response: str,
         conversation: Conversation,
         rule_type: str,
@@ -750,6 +765,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 observed_behavior=item.get("observed_behavior", ""),
                 expected_behavior=item.get("expected_behavior", ""),
                 rule_type=rule_type,
+                group_name=self._get_effective_group_name(rule_type),
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 context=item.get("context", ""),
@@ -1033,6 +1049,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 observed_behavior=doc_learning.observed_issue,
                 expected_behavior=doc_learning.expected_quality,
                 rule_type=doc_learning.rule_type,
+                group_name=doc_learning.group_name,  # Transfer group name from DocumentRule
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],
@@ -1661,6 +1678,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 observed_issue=item.get("observed_issue", ""),
                 expected_quality=item.get("expected_quality", ""),
                 rule_type=rule_type,
+                group_name=self._get_effective_group_name(rule_type),
                 context=item.get("context", ""),
             )
             rules.append(learning)
@@ -2109,6 +2127,7 @@ Return JSON with the same format:
         for resource in resources_loaded:
             if not resource.found:
                 # Missing resource IS the drift
+                missing_rule_type = f"missing_{resource.request.resource_type}"
                 learning = Rule(
                     turn_number=0,  # Not turn-specific
                     turn_uuid=None,
@@ -2123,7 +2142,8 @@ Return JSON with the same format:
                         f"{resource.request.resource_type} "
                         f"'{resource.request.resource_id}' should exist in project"
                     ),
-                    rule_type=f"missing_{resource.request.resource_type}",
+                    rule_type=missing_rule_type,
+                    group_name=self._get_effective_group_name(missing_rule_type),
                     workflow_element=WorkflowElement.UNKNOWN,
                     turns_to_resolve=1,
                     turns_involved=[],
@@ -2178,6 +2198,7 @@ Return JSON with the same format:
                 observed_behavior=observed,
                 expected_behavior=expected,
                 rule_type=rule_type,
+                group_name=self._get_effective_group_name(rule_type),
                 workflow_element=WorkflowElement.UNKNOWN,
                 turns_to_resolve=1,
                 turns_involved=[],

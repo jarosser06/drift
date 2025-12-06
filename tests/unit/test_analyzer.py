@@ -81,7 +81,7 @@ class TestDriftAnalyzer:
         # Signals are now part of phase prompt, so just verify prompt has content
         assert len(prompt) > 100
 
-    def test_parse_analysis_response_valid(self, sample_conversation):
+    def test_parse_analysis_response_valid(self, sample_conversation, sample_drift_config):
         """Test parsing valid analysis response."""
         response = json.dumps(
             [
@@ -96,7 +96,8 @@ class TestDriftAnalyzer:
             ]
         )
 
-        rules = DriftAnalyzer._parse_analysis_response(
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        rules = analyzer._parse_analysis_response(
             response,
             sample_conversation,
             "incomplete_work",
@@ -107,11 +108,12 @@ class TestDriftAnalyzer:
         assert rules[0].turn_number == 1
         assert rules[0].rule_type == "incomplete_work"
 
-    def test_parse_analysis_response_empty(self, sample_conversation):
+    def test_parse_analysis_response_empty(self, sample_conversation, sample_drift_config):
         """Test parsing empty analysis response."""
         response = "[]"
 
-        rules = DriftAnalyzer._parse_analysis_response(
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        rules = analyzer._parse_analysis_response(
             response,
             sample_conversation,
             "incomplete_work",
@@ -119,7 +121,7 @@ class TestDriftAnalyzer:
 
         assert rules == []
 
-    def test_parse_analysis_response_with_text(self, sample_conversation):
+    def test_parse_analysis_response_with_text(self, sample_conversation, sample_drift_config):
         """Test parsing response with extra text around JSON."""
         response = (
             "Here's my analysis:\n\n"
@@ -128,7 +130,8 @@ class TestDriftAnalyzer:
             "That's all I found."
         )
 
-        rules = DriftAnalyzer._parse_analysis_response(
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        rules = analyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",
@@ -136,11 +139,12 @@ class TestDriftAnalyzer:
 
         assert len(rules) == 1
 
-    def test_parse_analysis_response_invalid_json(self, sample_conversation):
+    def test_parse_analysis_response_invalid_json(self, sample_conversation, sample_drift_config):
         """Test parsing response with invalid JSON."""
         response = "This is not JSON at all"
 
-        rules = DriftAnalyzer._parse_analysis_response(
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        rules = analyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",
@@ -148,11 +152,12 @@ class TestDriftAnalyzer:
 
         assert rules == []
 
-    def test_parse_analysis_response_no_json_array(self, sample_conversation):
+    def test_parse_analysis_response_no_json_array(self, sample_conversation, sample_drift_config):
         """Test parsing response without JSON array."""
         response = '{"not": "an array"}'
 
-        rules = DriftAnalyzer._parse_analysis_response(
+        analyzer = DriftAnalyzer(config=sample_drift_config)
+        rules = analyzer._parse_analysis_response(
             response,
             sample_conversation,
             "test_type",

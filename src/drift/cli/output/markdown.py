@@ -80,6 +80,20 @@ class MarkdownFormatter(OutputFormatter):
         else:  # conversation_level
             return SeverityLevel.WARNING
 
+    def _get_group_for_rule(self, rule_name: str) -> str:
+        """Get the group name for a rule.
+
+        Args:
+            rule_name: Name of the rule
+
+        Returns:
+            Group name (uses default if rule not found or has no group)
+        """
+        if self.config and rule_name in self.config.rule_definitions:
+            rule_def = self.config.rule_definitions[rule_name]
+            return rule_def.group_name or self.config.default_group_name
+        return "General"
+
     def format(self, result: CompleteAnalysisResult) -> str:
         """Format the analysis result as Markdown.
 
@@ -150,9 +164,22 @@ class MarkdownFormatter(OutputFormatter):
             header = self._colorize("## Checks Passed ✓", self.GREEN)
             lines.append(header)
             lines.append("")
-            for rule in sorted(result.summary.rules_passed):
-                lines.append(f"- **{rule}**: No issues found")
-            lines.append("")
+
+            # Group passed rules by group name
+            passed_by_group: Dict[str, List[str]] = {}
+            for rule_name in result.summary.rules_passed:
+                group_name = self._get_group_for_rule(rule_name)
+                if group_name not in passed_by_group:
+                    passed_by_group[group_name] = []
+                passed_by_group[group_name].append(rule_name)
+
+            # Display by group
+            for group_name in sorted(passed_by_group.keys()):
+                lines.append(f"### {group_name}")
+                lines.append("")
+                for rule in sorted(passed_by_group[group_name]):
+                    lines.append(f"- **{rule}**: No issues found")
+                lines.append("")
 
         # Show checks that errored
         if result.summary.rules_errored:
@@ -224,7 +251,7 @@ class MarkdownFormatter(OutputFormatter):
     def _format_by_type(
         self, learnings_with_results: List[Tuple[AnalysisResult, Rule]], color: str
     ) -> List[str]:
-        """Format rules grouped by learning type.
+        """Format rules grouped by group name and then by rule type.
 
         Args:
             learnings_with_results: List of (AnalysisResult, Rule) tuples
@@ -235,72 +262,85 @@ class MarkdownFormatter(OutputFormatter):
         """
         lines = []
 
-        # Group by learning type
-        by_type: Dict[str, List[Tuple[AnalysisResult, Rule]]] = {}
+        # Group by group name, then by rule type
+        by_group: Dict[str, Dict[str, List[Tuple[AnalysisResult, Rule]]]] = {}
         for analysis_result, learning in learnings_with_results:
+            group_name = learning.group_name or "General"
             rule_type = learning.rule_type
-            if rule_type not in by_type:
-                by_type[rule_type] = []
-            by_type[rule_type].append((analysis_result, learning))
 
-        # Format each learning type
-        for rule_type, items in sorted(by_type.items()):
-            # Type header - use provided color for scope
-            lines.append(self._colorize(f"### {rule_type}", color))
+            if group_name not in by_group:
+                by_group[group_name] = {}
+            if rule_type not in by_group[group_name]:
+                by_group[group_name][rule_type] = []
+
+            by_group[group_name][rule_type].append((analysis_result, learning))
+
+        # Format each group
+        for group_name, by_type in sorted(by_group.items()):
+            # Group header (e.g., "### Workflow Check")
+            lines.append(self._colorize(f"### {group_name}", color))
             lines.append("")
 
-            # Add learning type context/description if available - don't color it
-            if self.config and rule_type in self.config.rule_definitions:
-                type_config = self.config.rule_definitions[rule_type]
-                lines.append(f"*{type_config.context}*")
+            # Format each rule type within the group
+            for rule_type, items in sorted(by_type.items()):
+                # Type sub-header (e.g., "#### skill_completeness")
+                lines.append(self._colorize(f"#### {rule_type}", color))
                 lines.append("")
 
-            # Format each violation of this type
-            for analysis_result, learning in items:
-                # Session info
-                session_info = f"**Session:** {analysis_result.session_id}"
-                if analysis_result.project_path:
-                    project_name = analysis_result.project_path.split("/")[-1]
-                    session_info += f" ({project_name})"
-                lines.append(session_info)
+                # Add learning type context/description if available - don't color it
+                if self.config and rule_type in self.config.rule_definitions:
+                    type_config = self.config.rule_definitions[rule_type]
+                    lines.append(f"*{type_config.context}*")
+                    lines.append("")
 
-                lines.append(f"**Agent Tool:** {analysis_result.agent_tool}")
+                # Format each violation of this type
+                for analysis_result, learning in items:
+                    # Session info
+                    session_info = f"**Session:** {analysis_result.session_id}"
+                    if analysis_result.project_path:
+                        project_name = analysis_result.project_path.split("/")[-1]
+                        session_info += f" ({project_name})"
+                    lines.append(session_info)
 
-                # Show Turn or Source based on learning source type
-                if hasattr(learning, "source_type") and learning.source_type == "document":
-                    # Show affected files for document rules
-                    if hasattr(learning, "affected_files") and learning.affected_files:
-                        if len(learning.affected_files) == 1:
-                            # Single file - use singular "File:"
-                            lines.append(f"**File:** {learning.affected_files[0]}")
-                        else:
-                            # Multiple files - show each on separate line for readability
-                            lines.append("**Files:**")
-                            for file_path in learning.affected_files:
-                                lines.append(f"  - {file_path}")
-                    lines.append("**Source:** document_analysis")
-                elif (
-                    hasattr(learning, "source_type") and learning.source_type == "resource_missing"
-                ):
-                    lines.append("**Source:** resource_validation")
-                else:
-                    # Conversation-based learning - show turn number
-                    if learning.turn_number > 0:
-                        lines.append(f"**Turn:** {learning.turn_number}")
-                    # else: turn_number=0 indicates not turn-specific, don't show it
+                    lines.append(f"**Agent Tool:** {analysis_result.agent_tool}")
 
-                # Observed vs expected behavior - color based on scope
-                # Observed behavior uses the scope color (red/yellow)
-                # Expected behavior is always green (the goal)
-                lines.append(f"**Observed:** {self._colorize(learning.observed_behavior, color)}")
-                lines.append(
-                    f"**Expected:** {self._colorize(learning.expected_behavior, self.GREEN)}"
-                )
+                    # Show Turn or Source based on learning source type
+                    if hasattr(learning, "source_type") and learning.source_type == "document":
+                        # Show affected files for document rules
+                        if hasattr(learning, "affected_files") and learning.affected_files:
+                            if len(learning.affected_files) == 1:
+                                # Single file - use singular "File:"
+                                lines.append(f"**File:** {learning.affected_files[0]}")
+                            else:
+                                # Multiple files - show each on separate line for readability
+                                lines.append("**Files:**")
+                                for file_path in learning.affected_files:
+                                    lines.append(f"  - {file_path}")
+                        lines.append("**Source:** document_analysis")
+                    elif (
+                        hasattr(learning, "source_type")
+                        and learning.source_type == "resource_missing"
+                    ):
+                        lines.append("**Source:** resource_validation")
+                    else:
+                        # Conversation-based learning - show turn number
+                        if learning.turn_number > 0:
+                            lines.append(f"**Turn:** {learning.turn_number}")
+                        # else: turn_number=0 indicates not turn-specific, don't show it
 
-                # Context (if provided) - don't color it
-                if learning.context:
-                    lines.append(f"**Context:** {learning.context}")
+                    # Observed vs expected behavior - color based on scope
+                    # Observed behavior uses the scope color (red/yellow)
+                    # Expected behavior is always green (the goal)
+                    observed_text = self._colorize(learning.observed_behavior, color)
+                    lines.append(f"**Observed:** {observed_text}")
+                    lines.append(
+                        f"**Expected:** {self._colorize(learning.expected_behavior, self.GREEN)}"
+                    )
 
-                lines.append("")
+                    # Context (if provided) - don't color it
+                    if learning.context:
+                        lines.append(f"**Context:** {learning.context}")
+
+                    lines.append("")
 
         return lines
