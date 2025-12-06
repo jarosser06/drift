@@ -89,6 +89,6 @@ Run a basic analysis:
 
 .. code-block:: bash
 
-    drift --no-llm
+    drift
 
 This performs programmatic validation without requiring an LLM provider.

@@ -759,13 +759,15 @@ class TestEndToEndIntegration:
         # Validate skill-a (part of cycle 1)
         result_a = validator.validate(rule, bundles[0], bundles)
         assert result_a is not None
-        assert "cycle" in result_a.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result_a.observed_issue.lower()
         assert "skill-a" in result_a.observed_issue or "skill-b" in result_a.observed_issue
 
         # Validate skill-c (part of cycle 2)
         result_c = validator.validate(rule, bundles[2], bundles)
         assert result_c is not None
-        assert "cycle" in result_c.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result_c.observed_issue.lower()
 
     def test_end_to_end_max_depth_with_multiple_branches(self, tmp_path):
         """Test max depth detection with tree-like structure.

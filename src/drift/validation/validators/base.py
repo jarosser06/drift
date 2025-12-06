@@ -1,7 +1,7 @@
 """Base validator class for rule-based document validation."""
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from drift.config.models import ClientType, ValidationRule
 from drift.core.types import DocumentBundle, DocumentRule
@@ -58,5 +58,56 @@ class BaseValidator(ABC):
         -- all_bundles: Optional list of all bundles (for cross-bundle validation)
 
         Returns DocumentRule if validation fails, None if passes.
+
+        Implementation Note:
+            Validators should populate the failure_details field in DocumentRule
+            when returning validation failures. This enables detailed, actionable
+            violation messages. For example:
+
+            return DocumentRule(
+                ...
+                observed_issue=self._format_message(
+                    rule.failure_message,
+                    {"circular_path": "A → B → C → A"}
+                ),
+                failure_details={"circular_path": "A → B → C → A"}
+            )
         """
         pass
+
+    def _format_message(self, template: str, details: Optional[Dict[str, Any]] = None) -> str:
+        """Format a message template with failure details.
+
+        Supports simple {key} placeholders that are replaced with values from
+        the details dictionary. If a placeholder is not found in details or
+        details is None, the placeholder is left unchanged.
+
+        -- template: Message template with {placeholder} syntax
+        -- details: Optional dictionary of values to interpolate
+
+        Returns formatted message string.
+
+        Examples:
+            >>> self._format_message(
+            ...     "Circular dependency: {circular_path}",
+            ...     {"circular_path": "A → B → A"}
+            ... )
+            'Circular dependency: A → B → A'
+
+            >>> self._format_message(
+            ...     "Depth {actual_depth} exceeds max {max_depth}",
+            ...     {"actual_depth": 5, "max_depth": 3}
+            ... )
+            'Depth 5 exceeds max 3'
+        """
+        if not details:
+            return template
+
+        # Use safe formatting - only replace placeholders that exist in details
+        formatted = template
+        for key, value in details.items():
+            placeholder = f"{{{key}}}"
+            if placeholder in formatted:
+                formatted = formatted.replace(placeholder, str(value))
+
+        return formatted

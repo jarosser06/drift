@@ -14,7 +14,7 @@ TDD Workflow for AI Agent Projects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. **Define standards** - Write validation rules in ``.drift.yaml`` for your expected project structure
-2. **Run validation** - Execute ``drift --no-llm`` to see what's missing or broken (red phase)
+2. **Run validation** - Execute ``drift`` to see what's missing or broken (red phase)
 3. **Fix issues** - Create files, fix links, update configurations manually or with AI assistance (green phase)
 4. **Iterate** - Re-run validation until all checks pass (refactor phase)
 
@@ -23,7 +23,7 @@ TDD Workflow for AI Agent Projects
 Project Structure Validation (Primary Use)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Run ``drift --no-llm`` for instant feedback without API calls. Define rules in ``.drift.yaml`` to check:
+Define rules in ``.drift.yaml`` to check:
 
 - **Dependency health**: Detect redundant transitive dependencies in commands, skills, and agents
 - **Link integrity**: Validate all file references and resource links in documentation
@@ -54,6 +54,8 @@ Getting Started
 
    installation
    quickstart
+   rules
+   validators
    configuration
 
 Indices and Tables

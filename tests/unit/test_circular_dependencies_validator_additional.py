@@ -319,4 +319,5 @@ class TestCircularDependenciesValidatorExceptionHandling:
         # Check skill-a which has a cycle
         result = validator.validate(rule, bundles[1], bundles)
         assert result is not None
-        assert "cycle" in result.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result.observed_issue.lower()

@@ -120,7 +120,8 @@ class TestCircularDependenciesValidator:
         assert "skill-a" in result.observed_issue
         assert "skill-b" in result.observed_issue
         assert "→" in result.observed_issue
-        assert "cycle" in result.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result.observed_issue.lower()
 
     def test_passes_with_no_circular_dependencies(self, project_root, all_bundles):
         """Test validation passes when no circular dependencies exist."""
@@ -188,7 +189,8 @@ class TestCircularDependenciesValidator:
 
         assert result is not None
         assert "self-skill" in result.observed_issue
-        assert "cycle" in result.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result.observed_issue.lower()
 
     def test_detects_multi_node_cycle(self, tmp_path):
         """Test detection of multi-node circular dependency."""
@@ -237,7 +239,8 @@ class TestCircularDependenciesValidator:
         result = validator.validate(rule, bundles[0], bundles)
 
         assert result is not None
-        assert "cycle" in result.observed_issue.lower()
+        # Changed: verify failure_message is present (not "cycle")
+        assert "circular dependency" in result.observed_issue.lower()
         # Should contain the cycle path
         assert "skill-a" in result.observed_issue
         assert "→" in result.observed_issue
