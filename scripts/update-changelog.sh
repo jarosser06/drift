@@ -61,12 +61,6 @@ fi
 # Get current date
 DATE=$(date +"%Y-%m-%d")
 
-# Create new entry (format as bullet list, consistent with existing changelog)
-NEW_ENTRY="## [$VERSION] - $DATE
-
-- $DESCRIPTION
-"
-
 echo -e "${YELLOW}→${NC} Updating CHANGELOG.md..." >&2
 echo "" >&2
 echo "Version: $VERSION" >&2
@@ -78,14 +72,17 @@ echo "" >&2
 TEMP_FILE=$(mktemp)
 
 # Find the line with "## [Unreleased]" and insert after the next blank line
-awk -v entry="$NEW_ENTRY" '
+awk -v version="$VERSION" -v date="$DATE" -v desc="$DESCRIPTION" '
 /^## \[Unreleased\]/ {
     print
     # Print the next line (should be blank)
     getline
     print
     # Insert new entry
-    print entry
+    print "## [" version "] - " date
+    print ""
+    print "- " desc
+    print ""
     next
 }
 {print}
