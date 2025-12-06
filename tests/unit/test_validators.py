@@ -261,7 +261,12 @@ class TestFileExistsValidator:
         assert result is None  # Validation passed
 
     def test_glob_pattern_no_matches_fails(self, sample_bundle):
-        """Test that glob pattern validation fails when no files match."""
+        """Test that glob pattern validation passes when parent directory doesn't exist.
+
+        After bug #43 fix: When the parent directory (.claude/commands/) doesn't exist,
+        the validator passes because there's nothing to validate. This handles optional
+        directory structures gracefully.
+        """
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check missing pattern",
@@ -273,8 +278,8 @@ class TestFileExistsValidator:
         validator = FileExistsValidator()
         result = validator.validate(rule, sample_bundle)
 
-        assert result is not None  # Validation failed
-        assert result.observed_issue == "No command files found"
+        # After bug #43 fix: passes when parent directory doesn't exist
+        assert result is None  # Validation passes (nothing to validate)
 
     def test_missing_file_path_raises_error(self, sample_bundle):
         """Test that validator raises error when file_path is None."""

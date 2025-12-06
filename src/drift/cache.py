@@ -44,6 +44,7 @@ class ResponseCache:
 
         if self.enabled:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
+            self._create_gitignore()
 
     def get(
         self,
@@ -211,6 +212,28 @@ class ResponseCache:
         except (ValueError, TypeError) as e:
             logger.warning(f"Failed to parse cache timestamp: {e}")
             return True
+
+    def _create_gitignore(self) -> None:
+        """Create .gitignore in parent directory to exclude cache.
+
+        Only creates the file if it doesn't already exist (preserves user customizations).
+        Creates it in the .drift/ directory (parent of cache/), not in cache/ itself.
+        """
+        # Get parent directory (.drift/ if cache is .drift/cache/)
+        drift_dir = self.cache_dir.parent
+
+        # Only create .gitignore if this is a .drift directory structure
+        if drift_dir.name == ".drift":
+            gitignore_path = drift_dir / ".gitignore"
+
+            # Don't overwrite existing .gitignore (preserve user customizations)
+            if not gitignore_path.exists():
+                gitignore_content = "# Drift cache directory\ncache/\n"
+                try:
+                    gitignore_path.write_text(gitignore_content, encoding="utf-8")
+                    logger.debug(f"Created .gitignore in {drift_dir}")
+                except OSError as e:
+                    logger.warning(f"Failed to create .gitignore in {drift_dir}: {e}")
 
     @staticmethod
     def compute_content_hash(content: str) -> str:
