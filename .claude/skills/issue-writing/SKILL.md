@@ -234,8 +234,3 @@ is missing, use built-in defaults. Provide clear error for invalid config.
 Complete templates for feature requests, bug reports, documentation, and refactoring issues.
 
 **Use when:** Creating a new GitHub issue and need structure.
-
-### 📖 [Good vs Bad Examples](resources/good-bad-examples.md)
-Real examples comparing well-written and poorly-written issues.
-
-**Use when:** Learning what makes a good issue or validating your issue before creating it.

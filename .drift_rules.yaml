@@ -1,12 +1,18 @@
-# Drift Rules File
+# Drift Rules File - Consolidated by Resource Type
 # Validation rules for the Drift project
 # This file is automatically loaded by drift when .drift_rules.yaml exists in the project root
+#
+# ORGANIZATION: Rules are organized by resource type (skills, agents, commands, etc.)
+# Each rule contains multiple phases that validate different aspects of that resource type.
+# This structure makes it easier to understand what's validated for each resource at a glance.
 
-# All rules are project-level focused on documentation quality
-skill_completeness:
-  description: "Claude Code skills missing essential components or clarity"
+# ==============================================================================
+# SKILL VALIDATION
+# ==============================================================================
+skill_validation:
+  description: "Comprehensive validation for Claude Code skills"
   scope: project_level
-  context: "Incomplete skills create confusion and slow development. Skills must be self-contained with clear examples and dependencies."
+  context: "Skills must be well-structured, discoverable, and maintainable. This rule validates file format, frontmatter, content quality, and dependencies."
   requires_project_context: true
   supported_clients:
     - claude-code
@@ -21,69 +27,40 @@ skill_completeness:
       - "**/*.md"
       - "**/*.ts"
   phases:
-    - name: structural_quality
+    # Phase 1: File existence and naming
+    - name: check_file_exists
+      type: core:file_exists
+      file_path: .claude/skills/*/SKILL.md
+      failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
+      expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
+
+    # Phase 2: Frontmatter name consistency
+    - name: check_frontmatter_name_match
       type: prompt
       prompt: |
-        Evaluate the skill's structural quality per Anthropic's Agent Skills best practices.
+        Check if the skill's frontmatter `name` field matches its directory name.
+
+        Directory path will be in the format: `.claude/skills/{directory-name}/SKILL.md`
+        Extract the directory name from the path.
 
         CRITICAL ISSUES (report these):
-        1. Frontmatter description COMPLETELY MISSING "when to use" or "use when" phrase
-        2. Multi-page templates or large reference content dumped inline (>100 lines of template/boilerplate)
-        3. Entire skill is just vague responsibilities with NO actionable instructions anywhere
+        1. Frontmatter `name` field doesn't match directory name (case-sensitive)
+        2. Directory name uses hyphens but frontmatter name uses underscores (or vice versa)
+        3. Frontmatter name is completely different from directory name
 
         ACCEPTABLE (do NOT report):
-        - Any "Use when..." phrase in frontmatter, even if brief (e.g., "Use when writing tests" is FINE)
-        - Skills that start with brief intro then dive into instructions
-        - "Core Responsibilities" sections IF followed by actionable content
-        - References to project files/scripts (assume they exist)
-        - Missing examples IF the skill content is self-explanatory
+        - Name matches exactly (e.g., directory "testing", frontmatter name: "testing")
+        - Both use consistent naming convention (all lowercase, hyphens for multi-word)
 
-        EXAMPLES OF WHAT TO IGNORE:
-        - "Use when writing or structuring issues" ✓ ACCEPTABLE
-        - "Use when fixing linting errors" ✓ ACCEPTABLE
-        - "Expert in X" then actionable content ✓ ACCEPTABLE
-
-        ONLY REPORT if there's a REAL structural problem, not style nitpicks.
-      available_resources:
-        - skill
-    - name: verify_dependencies
-      type: prompt
-      prompt: |
-        If the skill references other skills, verify they exist by requesting them.
-        Only flag missing references to actual dependency skills.
-      available_resources:
-        - skill
-    - name: final_quality_check
-      type: prompt
-      prompt: |
-        Review all findings from previous phases.
-
-        ONLY report CRITICAL structural problems:
-        - Missing "use when" activation criteria entirely
-        - Massive content dumps (templates >100 lines inline)
-        - No actionable instructions anywhere
-
-        IGNORE minor style issues:
-        - Slight wording variations in "use when" phrases
-        - Brief introductory sections
-        - "Core Responsibilities" if actionable content follows
+        If there's a mismatch, report:
+        - Directory name: {extracted from path}
+        - Frontmatter name: {from YAML}
+        - Explain the inconsistency
       available_resources:
         - skill
 
-skill_description_quality:
-  description: "Skill descriptions must include specific trigger terms for discovery"
-  scope: project_level
-  context: "Skills are model-invoked (Claude autonomously decides when to use them). Descriptions must include specific trigger terms users would naturally mention to enable proper discovery. Vague descriptions prevent Claude from activating the skill when needed."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_trigger_terms
+    # Phase 3: Description quality
+    - name: check_description_quality
       type: prompt
       prompt: |
         Evaluate the skill frontmatter description for specific trigger terms and discovery enablement.
@@ -115,10 +92,117 @@ skill_description_quality:
       available_resources:
         - skill
 
-agent_completeness:
-  description: "Claude Code agents missing essential components or clarity"
+    # Phase 4: Structural quality
+    - name: check_structural_quality
+      type: prompt
+      prompt: |
+        Evaluate the skill's structural quality per Anthropic's Agent Skills best practices.
+
+        CRITICAL ISSUES (report these):
+        1. Frontmatter description COMPLETELY MISSING "when to use" or "use when" phrase
+        2. Multi-page templates or large reference content dumped inline (>100 lines of template/boilerplate)
+        3. Entire skill is just vague responsibilities with NO actionable instructions anywhere
+
+        ACCEPTABLE (do NOT report):
+        - Any "Use when..." phrase in frontmatter, even if brief (e.g., "Use when writing tests" is FINE)
+        - Skills that start with brief intro then dive into instructions
+        - "Core Responsibilities" sections IF followed by actionable content
+        - References to project files/scripts (assume they exist)
+        - Missing examples IF the skill content is self-explanatory
+
+        EXAMPLES OF WHAT TO IGNORE:
+        - "Use when writing or structuring issues" ✓ ACCEPTABLE
+        - "Use when fixing linting errors" ✓ ACCEPTABLE
+        - "Expert in X" then actionable content ✓ ACCEPTABLE
+
+        ONLY REPORT if there's a REAL structural problem, not style nitpicks.
+      available_resources:
+        - skill
+
+    # Phase 5: Verify dependencies
+    - name: verify_dependencies
+      type: prompt
+      prompt: |
+        If the skill references other skills, verify they exist by requesting them.
+        Only flag missing references to actual dependency skills.
+      available_resources:
+        - skill
+
+    # Phase 6: Check broken links
+    - name: check_broken_links
+      type: core:markdown_link
+      description: "Check for broken links in skill documentation"
+      failure_message: "Found broken links in skills"
+      expected_behavior: "All file references and links should be valid"
+      params:
+        check_local_files: true
+        check_external_urls: false
+        custom_skip_patterns:
+          - '\.py'
+          - '\.yaml'
+          - '\.yml'
+          - '\.cfg'
+          - 'CHANGELOG\.md'
+          - 'github/workflows/'
+
+    # Phase 7: Check duplicate dependencies
+    - name: check_duplicate_dependencies
+      type: core:dependency_duplicate
+      description: "Check for redundant transitive dependencies in skills"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
+      expected_behavior: "Skills should only declare direct dependencies, not transitive ones"
+      params:
+        resource_dirs:
+          - .claude/skills
+
+    # Phase 8: Check circular dependencies
+    - name: check_circular_dependencies
+      type: core:circular_dependencies
+      description: "Check for circular dependencies in skill dependency graphs"
+      failure_message: "Circular dependency detected: {circular_path}"
+      expected_behavior: "Skills should not have circular dependency cycles"
+      params:
+        resource_dirs:
+          - .claude/skills
+
+    # Phase 9: Check max dependency depth
+    - name: check_max_dependency_depth
+      type: core:claude_max_dependency_depth
+      description: "Ensure dependencies don't exceed maximum depth"
+      params:
+        max_depth: 3
+        resource_dirs:
+          - .claude/commands
+          - .claude/skills
+          - .claude/agents
+      failure_message: "Dependency depth {actual_depth} exceeds maximum {max_depth}"
+      expected_behavior: "Skill dependencies should not exceed depth of 3"
+
+    # Phase 10: Final quality check
+    - name: final_quality_check
+      type: prompt
+      prompt: |
+        Review all findings from previous phases.
+
+        ONLY report CRITICAL structural problems:
+        - Missing "use when" activation criteria entirely
+        - Massive content dumps (templates >100 lines inline)
+        - No actionable instructions anywhere
+
+        IGNORE minor style issues:
+        - Slight wording variations in "use when" phrases
+        - Brief introductory sections
+        - "Core Responsibilities" if actionable content follows
+      available_resources:
+        - skill
+
+# ==============================================================================
+# AGENT VALIDATION
+# ==============================================================================
+agent_validation:
+  description: "Comprehensive validation for Claude Code agents"
   scope: project_level
-  context: "Incomplete agents create confusion about delegation and task automation. Agents must clearly define their scope and dependencies."
+  context: "Agents must be well-structured, properly delegated, and maintainable. This rule validates frontmatter, content quality, and dependencies."
   requires_project_context: true
   supported_clients:
     - claude-code
@@ -129,61 +213,57 @@ agent_completeness:
     bundle_strategy: individual
     resource_patterns: []
   phases:
-    - name: workflow_quality
-      type: prompt
-      prompt: |
-        Evaluate the agent's workflow guidance and task delegation clarity.
+    # Phase 1: Frontmatter validation
+    - name: check_frontmatter
+      type: core:yaml_frontmatter
+      params:
+        required_fields:
+          - name
+          - description
+          - model
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              pattern: "^[a-z][a-z0-9-]*$"
+              description: "Agent name must be lowercase with hyphens"
+            description:
+              type: string
+              minLength: 10
+              description: "Agent description must be at least 10 characters"
+            model:
+              type: string
+              enum: ["sonnet", "opus", "haiku", "inherit"]
+              description: "Model must be one of: sonnet, opus, haiku, inherit"
+            skills:
+              type: array
+              items:
+                type: string
+              description: "Optional list of skill names"
+            tools:
+              type: array
+              items:
+                type: string
+              description: "Optional list of tool names"
+          required:
+            - name
+            - description
+            - model
+      failure_message: "Agent file has invalid or missing YAML frontmatter"
+      expected_behavior: "Agent files should have valid YAML frontmatter with name, description, and model fields (model must be: sonnet, opus, haiku, or inherit)"
 
-        CRITICAL ISSUES (report these):
-        - Agent has NO purpose or scope explanation anywhere
-        - Agent provides ZERO workflow guidance (doesn't explain how to approach tasks at all)
-        - Agent is completely missing examples
+    # Phase 2: Tools format validation
+    - name: check_tools_format
+      type: core:regex_match
+      description: "Validate tools field uses comma-separated format on single line"
+      params:
+        pattern: '^tools:\s+[A-Za-z][\w_]+(?:,\s*[A-Za-z][\w_]+)*\s*$'
+        flags: 8
+      failure_message: "Agent tools field uses YAML list format (- Read) instead of comma-separated format"
+      expected_behavior: "Tools should be comma-separated on one line: 'tools: Read, Write, Edit, Grep, Glob' not YAML list with dashes"
 
-        ACCEPTABLE (do NOT report):
-        - References to MCP tools without explaining setup
-        - Brief or general workflow descriptions (some guidance is better than none)
-        - Agent lists responsibilities without exhaustive decision criteria
-        - References to standard project scripts/tools
-
-        ONLY REPORT if there's a REAL problem, not style nitpicks.
-      available_resources:
-        - agent
-    - name: verify_references
-      type: prompt
-      prompt: |
-        If the agent references other agents or skills, verify they exist by requesting them.
-        Only flag missing references to actual dependency agents or skills.
-      available_resources:
-        - agent
-        - skill
-    - name: final_quality_check
-      type: prompt
-      prompt: |
-        Review all findings from previous phases.
-
-        ONLY report CRITICAL problems:
-        - Missing workflow guidance entirely
-        - No purpose/scope explanation at all
-        - Completely missing examples
-
-        IGNORE minor issues and style preferences.
-      available_resources:
-        - agent
-        - skill
-
-agent_description_quality:
-  description: "Agent descriptions must be action-oriented and specific for effective delegation"
-  scope: project_level
-  context: "Agent descriptions guide Claude's automatic delegation decisions. Vague descriptions like 'helps with documents' prevent proper agent discovery and use. Action-oriented descriptions with specific trigger terms enable effective autonomous delegation."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-    bundle_strategy: individual
-  phases:
+    # Phase 3: Description quality
     - name: check_description_quality
       type: prompt
       prompt: |
@@ -216,10 +296,88 @@ agent_description_quality:
       available_resources:
         - agent
 
-command_completeness:
-  description: "Claude Code commands missing essential components or clarity"
+    # Phase 4: Workflow quality
+    - name: check_workflow_quality
+      type: prompt
+      prompt: |
+        Evaluate the agent's workflow guidance and task delegation clarity.
+
+        CRITICAL ISSUES (report these):
+        - Agent has NO purpose or scope explanation anywhere
+        - Agent provides ZERO workflow guidance (doesn't explain how to approach tasks at all)
+        - Agent is completely missing examples
+
+        ACCEPTABLE (do NOT report):
+        - References to MCP tools without explaining setup
+        - Brief or general workflow descriptions (some guidance is better than none)
+        - Agent lists responsibilities without exhaustive decision criteria
+        - References to standard project scripts/tools
+
+        ONLY REPORT if there's a REAL problem, not style nitpicks.
+      available_resources:
+        - agent
+
+    # Phase 5: Check broken links
+    - name: check_broken_links
+      type: core:markdown_link
+      description: "Check for broken links in agent documentation"
+      failure_message: "Found broken links in agents"
+      expected_behavior: "All file references and links should be valid"
+      params:
+        check_local_files: true
+        check_external_urls: false
+        custom_skip_patterns:
+          - '\.py'
+          - '\.yaml'
+          - '\.yml'
+          - '\.cfg'
+          - 'CHANGELOG\.md'
+          - 'github/workflows/'
+
+    # Phase 6: Check duplicate dependencies
+    - name: check_duplicate_dependencies
+      type: core:dependency_duplicate
+      description: "Check for redundant transitive dependencies in agents"
+      failure_message: "Found redundant dependency: {duplicate_resource}"
+      expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
+      params:
+        resource_dirs:
+          - .claude/agents
+          - .claude/skills
+
+    # Phase 7: Verify references
+    - name: verify_references
+      type: prompt
+      prompt: |
+        If the agent references other agents or skills, verify they exist by requesting them.
+        Only flag missing references to actual dependency agents or skills.
+      available_resources:
+        - agent
+        - skill
+
+    # Phase 8: Final quality check
+    - name: final_quality_check
+      type: prompt
+      prompt: |
+        Review all findings from previous phases.
+
+        ONLY report CRITICAL problems:
+        - Missing workflow guidance entirely
+        - No purpose/scope explanation at all
+        - Completely missing examples
+
+        IGNORE minor issues and style preferences.
+      available_resources:
+        - agent
+        - skill
+
+# ==============================================================================
+# COMMAND VALIDATION
+# ==============================================================================
+command_validation:
+  description: "Comprehensive validation for Claude Code commands"
   scope: project_level
-  context: "Incomplete commands miss validation steps and create workflow inefficiency. Commands must declare dependencies and provide clear execution steps."
+  context: "Commands must be clear, consistent, and maintainable. This rule validates frontmatter, execution clarity, and dependencies."
   requires_project_context: true
   supported_clients:
     - claude-code
@@ -230,67 +388,77 @@ command_completeness:
     bundle_strategy: individual
     resource_patterns: []
   phases:
-    - name: execution_clarity
+    # Phase 1: Frontmatter validation
+    - name: check_frontmatter
+      type: core:yaml_frontmatter
+      params:
+        required_fields:
+          - description
+        schema:
+          type: object
+          properties:
+            description:
+              type: string
+              minLength: 10
+              description: "Command description must be at least 10 characters"
+            skills:
+              type: array
+              items:
+                type: string
+              description: "Optional list of skill names to activate"
+            argument-hint:
+              type: string
+              description: "Optional hint for command arguments during tab-completion"
+          required:
+            - description
+      failure_message: "Command file has invalid or missing YAML frontmatter"
+      expected_behavior: "Command files should have valid YAML frontmatter with a description field"
+
+    # Phase 2: Parameter hints check
+    - name: check_parameter_hints
       type: prompt
       prompt: |
-        Evaluate the command's execution clarity and usability.
+        Check if command uses parameters but is missing argument-hint.
 
         CRITICAL ISSUES (report these):
-        - Command has NO purpose explanation anywhere
-        - Command provides ZERO execution guidance (no steps at all)
-        - Invocation syntax completely missing or totally unclear
+        1. Command content includes $ARGUMENTS, $1, $2, $3, etc. but frontmatter has NO argument-hint field
+        2. Command clearly expects parameters (mentions "<parameter>" or "pass <value>") but no argument-hint
 
         ACCEPTABLE (do NOT report):
-        - References to project scripts (./test.sh, ./lint.sh)
-        - References to MCP tools by name
-        - Parameter placeholders like <issue_number>, $ARGUMENTS
-        - Brief execution steps (some guidance is better than none)
-        - Missing exhaustive success criteria (nice-to-have)
+        - Command has argument-hint field for parameters ✓
+        - Command doesn't use any parameters (no $ARGUMENTS, $1, etc.) ✓
+        - Command references files with @ syntax but doesn't take parameters ✓
 
-        ONLY REPORT if there's a REAL problem, not style nitpicks.
+        REASONING: argument-hint helps users during tab-completion. If a command takes parameters,
+        it should guide users on what to provide.
+
+        Focus: Does the command take parameters but lack user guidance?
       available_resources:
         - command
-        - skill
-        - agent
-    - name: verify_dependencies
+
+    # Phase 3: Skill references check
+    - name: check_skill_references
       type: prompt
       prompt: |
-        If the command references other commands, skills, or agents, verify they exist.
-        Only flag missing references to actual dependencies.
+        If the command frontmatter declares skills array, verify those skills exist.
+
+        You can request skill files to check if they exist.
+
+        CRITICAL ISSUES (report these):
+        - Command references a skill in frontmatter that doesn't exist in .claude/skills/
+
+        ACCEPTABLE (do NOT report):
+        - All referenced skills exist ✓
+        - Command doesn't declare skills array ✓
+        - Skills array is empty ✓
+
+        Focus: Are skill references valid?
       available_resources:
         - command
         - skill
-        - agent
-    - name: final_quality_check
-      type: prompt
-      prompt: |
-        Review all findings from previous phases.
 
-        ONLY report CRITICAL problems:
-        - Missing purpose entirely
-        - Zero execution guidance
-        - Completely unclear invocation
-
-        IGNORE minor issues and style preferences.
-      available_resources:
-        - command
-        - skill
-        - agent
-
-command_description_quality:
-  description: "Command descriptions must be meaningful and actionable in /help output"
-  scope: project_level
-  context: "Command frontmatter descriptions appear in /help output. Users browse /help to discover available commands. Descriptions that merely repeat the filename or are overly vague don't help users understand when to use each command."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: command
-    file_patterns:
-      - .claude/commands/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_description_helpfulness
+    # Phase 4: Description quality
+    - name: check_description_quality
       type: prompt
       prompt: |
         Evaluate the command frontmatter description for helpfulness in /help output.
@@ -323,22 +491,49 @@ command_description_quality:
       available_resources:
         - command
 
-command_consistency:
-  description: "Commands contradict project guidelines or each other"
-  scope: project_level
-  context: "Contradictory commands create confusion and workflow inefficiency. Commands must be consistent with project guidelines and declare their dependencies."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: mixed
-    file_patterns:
-      - .claude/commands/*.md
-      - CLAUDE.md
-    bundle_strategy: collection
-    resource_patterns: []
-  phases:
-    - name: consistency_check
+    # Phase 5: Execution clarity
+    - name: check_execution_clarity
+      type: prompt
+      prompt: |
+        Evaluate the command's execution clarity and usability.
+
+        CRITICAL ISSUES (report these):
+        - Command has NO purpose explanation anywhere
+        - Command provides ZERO execution guidance (no steps at all)
+        - Invocation syntax completely missing or totally unclear
+
+        ACCEPTABLE (do NOT report):
+        - References to project scripts (./test.sh, ./lint.sh)
+        - References to MCP tools by name
+        - Parameter placeholders like <issue_number>, $ARGUMENTS
+        - Brief execution steps (some guidance is better than none)
+        - Missing exhaustive success criteria (nice-to-have)
+
+        ONLY REPORT if there's a REAL problem, not style nitpicks.
+      available_resources:
+        - command
+        - skill
+        - agent
+
+    # Phase 6: Check broken links
+    - name: check_broken_links
+      type: core:markdown_link
+      description: "Check for broken links in command documentation"
+      failure_message: "Found broken links in commands"
+      expected_behavior: "All file references and links should be valid"
+      params:
+        check_local_files: true
+        check_external_urls: false
+        custom_skip_patterns:
+          - '\.py'
+          - '\.yaml'
+          - '\.yml'
+          - '\.cfg'
+          - 'CHANGELOG\.md'
+          - 'github/workflows/'
+
+    # Phase 7: Consistency check
+    - name: check_consistency
       type: prompt
       prompt: |
         Analyze commands for ACTUAL contradictions, not cosmetic differences.
@@ -369,7 +564,9 @@ command_consistency:
 
         If all commands follow the same activation pattern (step 1 = activate), do NOT report any issue.
       available_resources: []
-    - name: pattern_consistency_check
+
+    # Phase 8: Pattern consistency check
+    - name: check_pattern_consistency
       type: prompt
       prompt: |
         Check if similar commands follow similar patterns for skill usage.
@@ -401,35 +598,8 @@ command_consistency:
         Focus: Do similar commands follow similar patterns for skill activation?
       available_resources: []
 
-claude_md_missing:
-  description: "Project missing CLAUDE.md configuration file"
-  scope: project_level
-  context: "CLAUDE.md provides essential context for Claude Code about project structure and conventions. Missing this file reduces AI effectiveness."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  phases:
-    - name: check_file
-      type: core:file_exists
-      file_path: CLAUDE.md
-      failure_message: "CLAUDE.md file is missing from project root"
-      expected_behavior: "Project should have CLAUDE.md file documenting structure and conventions"
-
-command_duplicate_dependencies:
-  description: "Commands have redundant transitive skill dependencies"
-  scope: project_level
-  context: "Commands should only declare direct skill dependencies. Transitive dependencies are automatically included."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: mixed
-    file_patterns:
-      - .claude/commands/*.md
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_duplicates
+    # Phase 9: Check duplicate dependencies
+    - name: check_duplicate_dependencies
       type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in commands"
       failure_message: "Found redundant dependency: {duplicate_resource}"
@@ -439,249 +609,83 @@ command_duplicate_dependencies:
           - .claude/commands
           - .claude/skills
 
-skill_duplicate_dependencies:
-  description: "Skills have redundant transitive skill dependencies"
-  scope: project_level
-  context: "Skills should only declare direct dependencies on other skills. Transitive dependencies are automatically included."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_duplicates
-      type: core:dependency_duplicate
-      description: "Check for redundant transitive dependencies in skills"
-      failure_message: "Found redundant dependency: {duplicate_resource}"
-      expected_behavior: "Skills should only declare direct dependencies, not transitive ones"
+    # Phase 10: Check circular dependencies
+    - name: check_circular_dependencies
+      type: core:claude_circular_dependencies
+      description: "Detect circular dependency cycles"
       params:
         resource_dirs:
+          - .claude/commands
           - .claude/skills
+          - .claude/agents
+      failure_message: "Circular dependency detected: {circular_path}"
+      expected_behavior: "Commands should not have circular skill dependencies"
 
-skill_filename_consistency:
-  description: "Skill directories must contain SKILL.md (uppercase), not skill.md"
-  scope: project_level
-  context: "Consistent filename casing prevents confusion and ensures reliable skill loading across case-sensitive file systems."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  phases:
-    - name: check_skill_files
-      type: core:file_exists
-      file_path: .claude/skills/*/SKILL.md
-      failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
-      expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
-
-skill_frontmatter_name_match:
-  description: "Skill frontmatter name must match the skill directory name"
-  scope: project_level
-  context: "Mismatched skill names cause confusion and prevent proper skill activation in Claude Code."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_name_match
+    # Phase 11: Verify dependencies
+    - name: verify_dependencies
       type: prompt
       prompt: |
-        Check if the skill's frontmatter `name` field matches its directory name.
-
-        Directory path will be in the format: `.claude/skills/{directory-name}/SKILL.md`
-        Extract the directory name from the path.
-
-        CRITICAL ISSUES (report these):
-        1. Frontmatter `name` field doesn't match directory name (case-sensitive)
-        2. Directory name uses hyphens but frontmatter name uses underscores (or vice versa)
-        3. Frontmatter name is completely different from directory name
-
-        ACCEPTABLE (do NOT report):
-        - Name matches exactly (e.g., directory "testing", frontmatter name: "testing")
-        - Both use consistent naming convention (all lowercase, hyphens for multi-word)
-
-        If there's a mismatch, report:
-        - Directory name: {extracted from path}
-        - Frontmatter name: {from YAML}
-        - Explain the inconsistency
+        If the command references other commands, skills, or agents, verify they exist.
+        Only flag missing references to actual dependencies.
       available_resources:
+        - command
         - skill
+        - agent
 
-agent_duplicate_dependencies:
-  description: "Agents have redundant transitive skill dependencies"
+    # Phase 12: Final quality check
+    - name: final_quality_check
+      type: prompt
+      prompt: |
+        Review all findings from previous phases.
+
+        ONLY report CRITICAL problems:
+        - Missing purpose entirely
+        - Zero execution guidance
+        - Completely unclear invocation
+
+        IGNORE minor issues and style preferences.
+      available_resources:
+        - command
+        - skill
+        - agent
+
+# ==============================================================================
+# CLAUDE.MD VALIDATION
+# ==============================================================================
+claude_md_validation:
+  description: "Comprehensive validation for CLAUDE.md configuration file"
   scope: project_level
-  context: "Agents should only declare direct skill dependencies. Transitive dependencies are automatically included."
+  context: "CLAUDE.md provides essential context for Claude Code about project structure and conventions. It must exist, be concise, follow best practices, and document key components."
   requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_duplicates
-      type: core:dependency_duplicate
-      description: "Check for redundant transitive dependencies in agents"
-      failure_message: "Found redundant dependency: {duplicate_resource}"
-      expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
-      params:
-        resource_dirs:
-          - .claude/agents
-          - .claude/skills
-
-command_broken_links:
-  description: "Commands contain broken file references or links"
-  scope: project_level
-  context: "Commands must reference valid files and resources. Broken links cause confusion and errors."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: command
-    file_patterns:
-      - .claude/commands/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_links
-      type: core:markdown_link
-      description: "Check for broken links in command documentation"
-      failure_message: "Found broken links in commands"
-      expected_behavior: "All file references and links should be valid"
-      params:
-        check_local_files: true
-        check_external_urls: false
-        # Skip common example/placeholder file patterns in documentation
-        custom_skip_patterns:
-          - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
-          - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
-          - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
-          - '\.cfg'              # Config files (setup.cfg, etc.)
-          - 'CHANGELOG\.md'      # Changelog references in examples
-          - 'github/workflows/'  # GitHub workflow directory references
-
-skill_broken_links:
-  description: "Skills contain broken file references or links"
-  scope: project_level
-  context: "Skills must reference valid files and resources. Broken links cause confusion and errors."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_links
-      type: core:markdown_link
-      description: "Check for broken links in skill documentation"
-      failure_message: "Found broken links in skills"
-      expected_behavior: "All file references and links should be valid"
-      params:
-        check_local_files: true
-        check_external_urls: false
-        # Skip common example/placeholder file patterns in documentation
-        custom_skip_patterns:
-          - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
-          - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
-          - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
-          - '\.cfg'              # Config files (setup.cfg, etc.)
-          - 'CHANGELOG\.md'      # Changelog references in examples
-          - 'github/workflows/'  # GitHub workflow directory references
-
-agent_broken_links:
-  description: "Agents contain broken file references or links"
-  scope: project_level
-  context: "Agents must reference valid files and resources. Broken links cause confusion and errors."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_links
-      type: core:markdown_link
-      description: "Check for broken links in agent documentation"
-      failure_message: "Found broken links in agents"
-      expected_behavior: "All file references and links should be valid"
-      params:
-        check_local_files: true
-        check_external_urls: false
-        # Skip common example/placeholder file patterns in documentation
-        custom_skip_patterns:
-          - '\.py'               # Python files in examples (test_parser.py, cli.py, etc.)
-          - '\.yaml'             # YAML config files (config.yaml, drift.yaml, pre-commit-config.yaml, etc.)
-          - '\.yml'              # YAML workflow files (test.yml, release.yml, etc.)
-          - '\.cfg'              # Config files (setup.cfg, etc.)
-          - 'CHANGELOG\.md'      # Changelog references in examples
-          - 'github/workflows/'  # GitHub workflow directory references
-
-claude_skill_permissions:
-  description: "Project skills missing from Claude Code settings permissions"
-  scope: project_level
-  context: "All skills in .claude/skills/ must have corresponding Skill() permission entries in .claude/settings.json. Missing permissions prevent skills from being used."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  phases:
-    - name: check_skill_permissions
-      type: core:claude_skill_settings
-      failure_message: "Skills missing from .claude/settings.json permissions.allow array"
-      expected_behavior: "Every skill directory in .claude/skills/ should have a corresponding Skill(name) entry in .claude/settings.json"
-
-claude_settings_duplicates:
-  description: "Duplicate permission entries in Claude Code settings"
-  scope: project_level
-  context: "The .claude/settings.json permissions.allow array should not contain duplicate entries. Duplicates are unnecessary and can cause confusion."
-  requires_project_context: true
-  phases:
-    - name: check_duplicate_permissions
-      type: core:claude_settings_duplicates
-      failure_message: "Duplicate permission entries found in .claude/settings.json"
-      expected_behavior: "All permission entries in .claude/settings.json permissions.allow should be unique"
-
-claude_mcp_permissions:
-  description: "MCP servers missing from Claude Code settings permissions"
-  scope: project_level
-  context: "All MCP servers defined in .mcp.json must have corresponding MCP() permission entries in .claude/settings.json. Missing permissions prevent MCP servers from being used."
-  requires_project_context: true
-  phases:
-    - name: check_mcp_permissions
-      type: core:claude_mcp_permissions
-      failure_message: "MCP servers missing from .claude/settings.json permissions.allow array"
-      expected_behavior: "Every MCP server in .mcp.json should have a corresponding MCP(server-name) entry in .claude/settings.json"
-
-claude_md_quality:
-  description: "CLAUDE.md file violates quality best practices"
-  scope: project_level
-  context: "CLAUDE.md should be concise (<300 lines), use pointers instead of large code blocks (>20 lines), avoid linting rules (use automated tools), and provide essential project context."
-  requires_project_context: false
   supported_clients:
     - claude-code
   document_bundle:
     bundle_type: mixed
     file_patterns:
       - CLAUDE.md
-    bundle_strategy: individual
+      - .claude/agents/*.md
+      - .claude/skills/*/SKILL.md
+      - .claude/commands/*.md
+    bundle_strategy: collection
     resource_patterns: []
   phases:
+    # Phase 1: File existence
+    - name: check_file_exists
+      type: core:file_exists
+      file_path: CLAUDE.md
+      failure_message: "CLAUDE.md file is missing from project root"
+      expected_behavior: "Project should have CLAUDE.md file documenting structure and conventions"
+
+    # Phase 2: Line count check
     - name: check_line_count
       type: core:file_size
       file_path: CLAUDE.md
       max_count: 300
       failure_message: "CLAUDE.md exceeds 300 lines (best practice for concise context)"
       expected_behavior: "CLAUDE.md should be concise and under 300 lines"
-    - name: content_quality
+
+    # Phase 3: Content quality
+    - name: check_content_quality
       type: prompt
       prompt: |
         Evaluate CLAUDE.md for content quality, code block length, and anti-patterns per Anthropic best practices.
@@ -733,6 +737,8 @@ claude_md_quality:
 
         ONLY REPORT issues that significantly impact quality or violate best practices.
       available_resources: []
+
+    # Phase 4: Import syntax check
     - name: check_import_syntax
       type: prompt
       prompt: |
@@ -757,22 +763,7 @@ claude_md_quality:
         Focus: Are imports used correctly if present?
       available_resources: []
 
-claude_md_documentation_sync:
-  description: "CLAUDE.md should mention all agents, key skills, and slash commands"
-  scope: project_level
-  context: "CLAUDE.md provides essential context about the project's Claude Code setup. Missing major agents, skills, or commands from the documentation creates confusion and prevents users from discovering available automation."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: mixed
-    file_patterns:
-      - CLAUDE.md
-      - .claude/agents/*.md
-      - .claude/skills/*/SKILL.md
-      - .claude/commands/*.md
-    bundle_strategy: collection
-  phases:
+    # Phase 5: Component documentation check
     - name: check_component_documentation
       type: prompt
       prompt: |
@@ -811,249 +802,31 @@ claude_md_documentation_sync:
         Focus: Are major components discoverable through CLAUDE.md?
       available_resources: []
 
-agent_frontmatter:
-  description: "Agent files missing or have invalid YAML frontmatter"
+# ==============================================================================
+# CLAUDE SETTINGS VALIDATION
+# ==============================================================================
+claude_settings_validation:
+  description: "Validation for Claude Code settings.json configuration"
   scope: project_level
-  context: "Agent files must have valid YAML frontmatter with required fields (name, description, model) to work properly in Claude Code."
+  context: "The .claude/settings.json file must properly configure permissions for skills and MCP servers. Missing or duplicate entries prevent proper tool usage."
   requires_project_context: true
   supported_clients:
     - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-    bundle_strategy: individual
   phases:
-    - name: check_frontmatter
-      type: core:yaml_frontmatter
-      params:
-        required_fields:
-          - name
-          - description
-          - model
-        schema:
-          type: object
-          properties:
-            name:
-              type: string
-              pattern: "^[a-z][a-z0-9-]*$"
-              description: "Agent name must be lowercase with hyphens"
-            description:
-              type: string
-              minLength: 10
-              description: "Agent description must be at least 10 characters"
-            model:
-              type: string
-              enum: ["sonnet", "opus", "haiku", "inherit"]
-              description: "Model must be one of: sonnet, opus, haiku, inherit"
-            skills:
-              type: array
-              items:
-                type: string
-              description: "Optional list of skill names"
-            tools:
-              type: array
-              items:
-                type: string
-              description: "Optional list of tool names"
-          required:
-            - name
-            - description
-            - model
-      failure_message: "Agent file has invalid or missing YAML frontmatter"
-      expected_behavior: "Agent files should have valid YAML frontmatter with name, description, and model fields (model must be: sonnet, opus, haiku, or inherit)"
+    # Phase 1: Skill permissions check
+    - name: check_skill_permissions
+      type: core:claude_skill_settings
+      failure_message: "Skills missing from .claude/settings.json permissions.allow array"
+      expected_behavior: "Every skill directory in .claude/skills/ should have a corresponding Skill(name) entry in .claude/settings.json"
 
-command_frontmatter:
-  description: "Command files missing or have invalid YAML frontmatter"
-  scope: project_level
-  context: "Command files must have valid YAML frontmatter with required fields (description) to work properly in Claude Code."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: command
-    file_patterns:
-      - .claude/commands/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_frontmatter
-      type: core:yaml_frontmatter
-      params:
-        required_fields:
-          - description
-        schema:
-          type: object
-          properties:
-            description:
-              type: string
-              minLength: 10
-              description: "Command description must be at least 10 characters"
-            skills:
-              type: array
-              items:
-                type: string
-              description: "Optional list of skill names to activate"
-            argument-hint:
-              type: string
-              description: "Optional hint for command arguments during tab-completion"
-          required:
-            - description
-      failure_message: "Command file has invalid or missing YAML frontmatter"
-      expected_behavior: "Command files should have valid YAML frontmatter with a description field"
-    - name: check_parameter_hints
-      type: prompt
-      prompt: |
-        Check if command uses parameters but is missing argument-hint.
+    # Phase 2: MCP permissions check
+    - name: check_mcp_permissions
+      type: core:claude_mcp_permissions
+      failure_message: "MCP servers missing from .claude/settings.json permissions.allow array"
+      expected_behavior: "Every MCP server in .mcp.json should have a corresponding MCP(server-name) entry in .claude/settings.json"
 
-        CRITICAL ISSUES (report these):
-        1. Command content includes $ARGUMENTS, $1, $2, $3, etc. but frontmatter has NO argument-hint field
-        2. Command clearly expects parameters (mentions "<parameter>" or "pass <value>") but no argument-hint
-
-        ACCEPTABLE (do NOT report):
-        - Command has argument-hint field for parameters ✓
-        - Command doesn't use any parameters (no $ARGUMENTS, $1, etc.) ✓
-        - Command references files with @ syntax but doesn't take parameters ✓
-
-        REASONING: argument-hint helps users during tab-completion. If a command takes parameters,
-        it should guide users on what to provide.
-
-        Focus: Does the command take parameters but lack user guidance?
-      available_resources:
-        - command
-    - name: check_skill_references
-      type: prompt
-      prompt: |
-        If the command frontmatter declares skills array, verify those skills exist.
-
-        You can request skill files to check if they exist.
-
-        CRITICAL ISSUES (report these):
-        - Command references a skill in frontmatter that doesn't exist in .claude/skills/
-
-        ACCEPTABLE (do NOT report):
-        - All referenced skills exist ✓
-        - Command doesn't declare skills array ✓
-        - Skills array is empty ✓
-
-        Focus: Are skill references valid?
-      available_resources:
-        - command
-        - skill
-
-agent_tools_format:
-  description: "Agent tools must use comma-separated format, not YAML list"
-  scope: project_level
-  context: "Claude Code requires agent tools to be comma-separated on one line (e.g., 'tools: Read, Write, Edit') not YAML list format (tools:\\n  - Read). YAML list format causes tools to not work."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_tools_comma_separated
-      type: core:regex_match
-      description: "Validate tools field uses comma-separated format on single line"
-      params:
-        pattern: '^tools:\s+[A-Za-z][\w_]+(?:,\s*[A-Za-z][\w_]+)*\s*$'
-        flags: 8
-      failure_message: "Agent tools field uses YAML list format (- Read) instead of comma-separated format"
-      expected_behavior: "Tools should be comma-separated on one line: 'tools: Read, Write, Edit, Grep, Glob' not YAML list with dashes"
-
-skill_circular_dependencies:
-  description: "Skills have circular dependency cycles"
-  scope: project_level
-  context: "Circular dependencies in skills create infinite loops and prevent proper skill loading. Each skill's dependency graph must be acyclic."
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_cycles
-      type: core:circular_dependencies
-      description: "Check for circular dependencies in skill dependency graphs"
-      failure_message: "Circular dependency detected: {circular_path}"
-      expected_behavior: "Skills should not have circular dependency cycles"
-      params:
-        resource_dirs:
-          - .claude/skills
-
-# Claude Code Dependency Validation Examples
-command_circular_dependencies:
-  description: "Commands must not have circular skill dependencies"
-  scope: project_level
-  context: "Circular dependencies cause loading failures and maintenance issues"
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: command
-    file_patterns:
-      - .claude/commands/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_circular_deps
-      type: core:claude_circular_dependencies
-      description: "Detect circular dependency cycles"
-      params:
-        resource_dirs:
-          - .claude/commands
-          - .claude/skills
-          - .claude/agents
-      failure_message: "Circular dependency detected: {circular_path}"
-      expected_behavior: "Commands should not have circular skill dependencies"
-
-skill_max_depth:
-  description: "Skill dependency chains should not exceed maximum depth"
-  scope: project_level
-  context: "Deep dependency chains are hard to maintain and slow to load"
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: skill
-    file_patterns:
-      - .claude/skills/*/SKILL.md
-    bundle_strategy: individual
-  phases:
-    - name: check_depth
-      type: core:claude_max_dependency_depth
-      description: "Ensure dependencies don't exceed maximum depth"
-      params:
-        max_depth: 3
-        resource_dirs:
-          - .claude/commands
-          - .claude/skills
-          - .claude/agents
-      failure_message: "Dependency depth {actual_depth} exceeds maximum {max_depth}"
-      expected_behavior: "Skill dependencies should not exceed depth of 3"
-
-agent_duplicate_dependencies_claude:
-  description: "Agents should only declare direct skill dependencies (Claude validator)"
-  scope: project_level
-  context: "Transitive dependencies are automatically included by Claude Code"
-  requires_project_context: true
-  supported_clients:
-    - claude-code
-  document_bundle:
-    bundle_type: agent
-    file_patterns:
-      - .claude/agents/*.md
-    bundle_strategy: individual
-  phases:
-    - name: check_duplicates
-      type: core:claude_dependency_duplicate
-      description: "Check for redundant transitive dependencies"
-      params:
-        resource_dirs:
-          - .claude/commands
-          - .claude/skills
-          - .claude/agents
-      failure_message: "Found redundant dependency: {duplicate_resource}"
-      expected_behavior: "Agents should only declare direct dependencies, not transitive ones"
+    # Phase 3: Duplicate permissions check
+    - name: check_duplicate_permissions
+      type: core:claude_settings_duplicates
+      failure_message: "Duplicate permission entries found in .claude/settings.json"
+      expected_behavior: "All permission entries in .claude/settings.json permissions.allow should be unique"
