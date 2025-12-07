@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - '**'  # Run on all branches
-    tags:
-      - 'v*'  # Run on version tags
   pull_request:
 
 concurrency:
@@ -68,13 +66,3 @@ jobs:
 
       - name: Run tests with coverage
         run: ./test.sh --coverage
-
-  trigger-release:
-    name: Trigger Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [lint, test]
-    uses: ./.github/workflows/release.yml
-    permissions:
-      contents: write
-    with:
-      tag: ${{ github.ref }}
