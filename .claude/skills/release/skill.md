@@ -13,9 +13,10 @@ Guide the user through the process of releasing a new version of the ai-drift pa
    - `minor` - New features, backward compatible (e.g., 0.1.0 → 0.2.0)
    - `patch` - Bug fixes, backward compatible (e.g., 0.1.1 → 0.1.2)
 
-2. **Run bump-version script**: Execute `./scripts/bump-version.sh {bump_type} --no-changelog` to:
+2. **MANDATORY - Run bump-version script**: Execute `./scripts/bump-version.sh {bump_type} --no-changelog` to:
    - Update version in `pyproject.toml`
    - Capture the new version number from stdout
+   - **YOU MUST USE THIS SCRIPT - DO NOT MANUALLY EDIT pyproject.toml**
 
 3. **Show version change**: Display the version change to the user (old → new)
 
@@ -36,7 +37,8 @@ Guide the user through the process of releasing a new version of the ai-drift pa
 
    Format: Single line or bullet points
 
-5. **Update changelog**: Run `./scripts/update-changelog.sh {version} "{description}"` to add the entry to CHANGELOG.md
+5. **MANDATORY - Update changelog**: Run `./scripts/update-changelog.sh {version} "{description}"` to add the entry to CHANGELOG.md
+   - **YOU MUST USE THIS SCRIPT - DO NOT MANUALLY EDIT CHANGELOG.md**
 
 6. **Show git diff**: Display the changes made by running `git diff` so the user can review
 
