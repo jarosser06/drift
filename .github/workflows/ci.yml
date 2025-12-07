@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - '**'  # Run on all branches
+    tags:
+      - 'v*'  # Run on version tags
   pull_request:
 
 concurrency:
