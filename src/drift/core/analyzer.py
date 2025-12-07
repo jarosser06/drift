@@ -1091,10 +1091,29 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         by_type: Dict[str, int] = {}
         by_group: Dict[str, int] = {}
+
+        # Build by_type and by_group from execution_details (captures ALL checks)
+        # execution_details has rule_name which corresponds to the rule definition key
+        for ed in all_execution_details:
+            rule_name = ed.get("rule_name")
+            if rule_name and rule_name in self.config.rule_definitions:
+                # Count by type (rule_name is the rule type)
+                by_type[rule_name] = by_type.get(rule_name, 0) + 1
+
+                # Count by group
+                rule_def = self.config.rule_definitions[rule_name]
+                group_name = rule_def.group_name or "General"
+                by_group[group_name] = by_group.get(group_name, 0) + 1
+
+        # Also include document_learnings for rules that only produce failures
+        # (to ensure we don't miss any rule types)
         for doc_learning in all_document_learnings:
-            by_type[doc_learning.rule_type] = by_type.get(doc_learning.rule_type, 0) + 1
-            group_name = doc_learning.group_name or "General"
-            by_group[group_name] = by_group.get(group_name, 0) + 1
+            # Only add if not already counted from execution_details
+            if doc_learning.rule_type not in by_type:
+                by_type[doc_learning.rule_type] = by_type.get(doc_learning.rule_type, 0) + 1
+                group_name = doc_learning.group_name or "General"
+                by_group[group_name] = by_group.get(group_name, 0) + 1
+
         summary.by_type = by_type
         summary.by_group = by_group
 
@@ -1110,9 +1129,21 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         )
 
         # Separate warnings from failures based on severity
-        # First, build maps of rule_type -> severity
+        # Build set of rule_types that actually had failures
+        failed_rule_types = set()
+        for doc_learning in all_document_learnings:
+            failed_rule_types.add(doc_learning.rule_type)
+
+        # Also check execution_details for failed status
+        for ed in all_execution_details:
+            if ed.get("status") == "failed":
+                rule_name = ed.get("rule_name")
+                if rule_name:
+                    failed_rule_types.add(rule_name)
+
+        # Build severity map only for rules that actually failed
         rule_severity_map = {}
-        for rule_type in by_type.keys():
+        for rule_type in failed_rule_types:
             severity = SeverityLevel.WARNING  # Default
             if rule_type in self.config.rule_definitions:
                 type_config = self.config.rule_definitions[rule_type]
@@ -1124,7 +1155,7 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                     severity = SeverityLevel.WARNING
             rule_severity_map[rule_type] = severity
 
-        # Categorize rules by severity
+        # Categorize rules by severity (only for failed rules)
         rules_warned = [rt for rt, sev in rule_severity_map.items() if sev == SeverityLevel.WARNING]
         rules_failed = [rt for rt, sev in rule_severity_map.items() if sev == SeverityLevel.FAIL]
 
@@ -1289,8 +1320,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
 
         rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
-        # No programmatic execution details for LLM-based analysis
-        return rules, []
+        # Track execution details for LLM-based analysis
+        exec_info = {
+            "rule_name": rule_type,
+            "rule_description": type_config.description,
+            "rule_context": type_config.context,
+            "status": "passed" if not rules else "failed",
+            "execution_context": {
+                "bundle_id": bundle.bundle_id,
+                "bundle_type": bundle.bundle_type,
+                "files": [f.relative_path for f in bundle.files],
+            },
+            "validation_results": {
+                "rule_type": "llm_analysis",
+                "params": {},
+            },
+        }
+
+        return rules, [exec_info]
 
     def _run_multi_phase_document_analysis(
         self,
@@ -1335,8 +1382,24 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         logger.debug(f"Raw response from {model_name}:\n{response}")
         rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
-        # No programmatic execution details for LLM-based document analysis
-        return rules, []
+        # Track execution details for multi-phase LLM-based document analysis
+        exec_info = {
+            "rule_name": rule_type,
+            "rule_description": type_config.description,
+            "rule_context": type_config.context,
+            "status": "passed" if not rules else "failed",
+            "execution_context": {
+                "bundle_id": bundle.bundle_id,
+                "bundle_type": bundle.bundle_type,
+                "files": [f.relative_path for f in bundle.files],
+            },
+            "validation_results": {
+                "rule_type": "llm_analysis_multi_phase",
+                "params": {},
+            },
+        }
+
+        return rules, [exec_info]
 
     def _execute_validation_rules(
         self,
