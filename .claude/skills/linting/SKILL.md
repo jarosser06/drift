@@ -5,7 +5,7 @@ description: Expert in maintaining code quality standards using flake8, black, i
 
 # Linting Skill
 
-Expert in maintaining code quality standards for Drift.
+Expert in maintaining code quality standards using flake8, black, isort, and mypy for the Drift project.
 
 ## Core Responsibilities
 

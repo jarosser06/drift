@@ -1,5 +1,6 @@
 ---
 description: Create PR with quality validation
+argument-hint: "[issue-number]"
 skills:
   - pr-writing
   - testing
@@ -55,10 +56,6 @@ body:
 
 ## Related Issues
 Closes #<number>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Usage:**

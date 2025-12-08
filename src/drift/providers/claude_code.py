@@ -176,9 +176,20 @@ class ClaudeCodeProvider(Provider):
                 response_data = json.loads(result.stdout)
 
                 # Extract text from response
-                # The JSON structure may vary, try common patterns
+                # Claude Code JSON output structure uses "result" field
                 if isinstance(response_data, dict):
-                    # Try to get text from common fields
+                    # Primary field for Claude Code CLI JSON output
+                    if "result" in response_data:
+                        result_value = response_data["result"]
+                        if isinstance(result_value, str):
+                            return result_value
+                        else:
+                            raise ValueError(
+                                f"Expected 'result' field to be string, "
+                                f"got {type(result_value)}"
+                            )
+
+                    # Fallback: try other common field names
                     text = (
                         response_data.get("response")
                         or response_data.get("content")
@@ -189,16 +200,13 @@ class ClaudeCodeProvider(Provider):
                     if text:
                         return str(text)
 
-                    # If no known field, try to get the first string value
-                    for value in response_data.values():
-                        if isinstance(value, str) and value.strip():
-                            return value
-
-                    # Last resort: return the whole JSON as string
-                    logger.warning(
-                        "Could not extract text from Claude Code response, " "returning full JSON"
+                    # If no known field found, raise an error
+                    available_fields = list(response_data.keys())
+                    raise ValueError(
+                        f"Could not extract response text from Claude "
+                        f"Code output. Expected 'result' field but got: "
+                        f"{available_fields}"
                     )
-                    return json.dumps(response_data)
 
                 elif isinstance(response_data, str):
                     return response_data

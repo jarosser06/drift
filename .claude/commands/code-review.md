@@ -1,5 +1,6 @@
 ---
 description: Comprehensive code review
+argument-hint: "[files...]"
 skills:
   - python-basics
   - code-review

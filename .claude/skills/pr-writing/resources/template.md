@@ -30,8 +30,6 @@ Use this as a reference when creating PRs. Adapt based on the type of change.
 Closes #[number]
 
 ---
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ## Key Patterns by PR Type

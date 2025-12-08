@@ -139,8 +139,6 @@ mcp__github__create_pull_request(
 
 Closes #42
 
-🤖 Generated with Claude Code
-Co-Authored-By: Claude <noreply@anthropic.com>
 """,
     draft=False
 )

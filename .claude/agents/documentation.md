@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Documentation agent for maintaining accurate, objective documentation for Drift project. Use for docstring validation, documentation updates, and documentation audits.
+description: Specialized documentation agent for Drift project. Validates PEP 257 docstrings, audits Sphinx/RST documentation for code example accuracy, and removes subjective language. Use when updating or validating documentation before release.
 model: sonnet
 skills:
   - python-docs

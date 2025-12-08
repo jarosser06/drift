@@ -166,11 +166,28 @@ class DocumentLoader:
         unique_files = []
         for file_path in found_files:
             # Normalize by converting to lowercase for comparison on case-insensitive systems
-            # but keep original path for use
             key = str(file_path).lower()
             if key not in seen:
                 seen.add(key)
-                unique_files.append(file_path)
+                # On case-insensitive filesystems, glob returns the pattern's casing, not the file's
+                # Get the actual filesystem casing by listing the parent directory
+                try:
+                    parent = file_path.parent
+                    actual_name = None
+                    for item in parent.iterdir():
+                        if item.name.lower() == file_path.name.lower():
+                            actual_name = item.name
+                            break
+
+                    if actual_name and actual_name != file_path.name:
+                        # Use the actual filesystem casing
+                        actual_path = parent / actual_name
+                        unique_files.append(actual_path)
+                    else:
+                        unique_files.append(file_path)
+                except (OSError, RuntimeError):
+                    # If reading directory fails, fall back to original path
+                    unique_files.append(file_path)
 
         return sorted(unique_files)
 
