@@ -1,4 +1,5 @@
 ---
+name: release
 description: Use when releasing a new version of ai-drift to PyPI. Guide the user through version bumping, changelog updates, and publishing.
 ---
 

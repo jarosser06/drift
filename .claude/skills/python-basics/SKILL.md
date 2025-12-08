@@ -1,6 +1,6 @@
 ---
 name: python-basics
-description: Expert in Python fundamentals and best practices including import ordering, code organization, and PEP 8 conventions. Use when writing or reviewing Python code.
+description: Expert in Python 3.10+ fundamentals and best practices for the Drift project including import ordering (isort), code organization, and PEP 8 conventions. Use when writing or reviewing Python code.
 ---
 
 # Python Basics Skill

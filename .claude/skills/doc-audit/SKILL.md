@@ -1,6 +1,9 @@
-# Documentation Audit
+---
+name: doc-audit
+description: Expert in auditing Sphinx/RST documentation for code example accuracy, API correctness, and objective language. Validates import paths, method signatures, and removes subjective/marketing language. Use when reviewing documentation before release.
+---
 
-**Description**: Audit documentation for code example accuracy and objective language. Use when reviewing or validating Sphinx documentation.
+# Documentation Audit
 
 ## When to Use This Skill
 

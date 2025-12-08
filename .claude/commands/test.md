@@ -1,5 +1,6 @@
 ---
 description: Run pytest tests
+argument-hint: [--coverage]
 ---
 
 Run the test suite using the test.sh script.

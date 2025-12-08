@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Expert in conducting thorough code reviews for quality, security, and best practices. Use when reviewing code or PRs.
+description: Expert in conducting thorough code reviews for Python projects using GitHub MCP, covering test coverage, security practices, PEP 8 compliance, and code organization. Use when reviewing code or PRs.
 skills:
   - python-basics
 ---

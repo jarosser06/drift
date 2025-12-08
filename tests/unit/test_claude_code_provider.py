@@ -128,6 +128,7 @@ class TestClaudeCodeProviderGenerate:
 
         # Test different field names
         test_cases = [
+            {"result": "Response via result"},
             {"content": "Response via content"},
             {"text": "Response via text"},
             {"message": "Response via message"},
@@ -509,17 +510,20 @@ class TestClaudeCodeProviderEdgeCases:
         mock_which.return_value = "/usr/local/bin/claude"
         version_result = Mock(returncode=0, stdout="claude version 1.0.0\n", stderr="")
 
-        # Response with unknown field names and empty strings
+        # Response with unknown field names
         response_data = {"unknown_field": "", "another_field": "Some text"}
         generate_result = Mock(returncode=0, stdout=json.dumps(response_data), stderr="")
 
         mock_run.side_effect = [version_result, generate_result]
 
         provider = ClaudeCodeProvider(provider_config, model_config)
-        result = provider.generate("Test prompt")
 
-        # Should return first non-empty string value
-        assert result == "Some text"
+        # Should raise Exception when no known fields found
+        with pytest.raises(Exception) as exc_info:
+            provider.generate("Test prompt")
+
+        assert "Could not extract response text from Claude Code output" in str(exc_info.value)
+        assert "unknown_field" in str(exc_info.value)
 
     @patch("drift.providers.claude_code.shutil.which")
     @patch("drift.providers.claude_code.subprocess.run")
@@ -537,10 +541,12 @@ class TestClaudeCodeProviderEdgeCases:
         mock_run.side_effect = [version_result, generate_result]
 
         provider = ClaudeCodeProvider(provider_config, model_config)
-        result = provider.generate("Test prompt")
 
-        # Should return full JSON as last resort
-        assert json.loads(result) == response_data
+        # Should raise Exception when no known fields found
+        with pytest.raises(Exception) as exc_info:
+            provider.generate("Test prompt")
+
+        assert "Could not extract response text from Claude Code output" in str(exc_info.value)
 
     @patch("drift.providers.claude_code.shutil.which")
     @patch("drift.providers.claude_code.subprocess.run")

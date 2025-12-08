@@ -1,5 +1,6 @@
 ---
 description: Complete workflow for implementing a GitHub issue
+argument-hint: <issue_number>
 skills:
   - github-operations
   - python-docs

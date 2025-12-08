@@ -24,7 +24,6 @@ skill_validation:
     resource_patterns:
       - "**/*.py"
       - "**/*.js"
-      - "**/*.md"
       - "**/*.ts"
   phases:
     # Phase 1: File existence and naming
@@ -34,97 +33,104 @@ skill_validation:
       failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
       expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
 
-    # Phase 2: Frontmatter name consistency
-    - name: check_frontmatter_name_match
-      type: prompt
-      prompt: |
-        Check if the skill's frontmatter `name` field matches its directory name.
-
-        Directory path will be in the format: `.claude/skills/{directory-name}/SKILL.md`
-        Extract the directory name from the path.
-
-        CRITICAL ISSUES (report these):
-        1. Frontmatter `name` field doesn't match directory name (case-sensitive)
-        2. Directory name uses hyphens but frontmatter name uses underscores (or vice versa)
-        3. Frontmatter name is completely different from directory name
-
-        ACCEPTABLE (do NOT report):
-        - Name matches exactly (e.g., directory "testing", frontmatter name: "testing")
-        - Both use consistent naming convention (all lowercase, hyphens for multi-word)
-
-        If there's a mismatch, report:
-        - Directory name: {extracted from path}
-        - Frontmatter name: {from YAML}
-        - Explain the inconsistency
-      available_resources:
-        - skill
+    # Phase 2: Frontmatter validation
+    - name: check_frontmatter_required_fields
+      type: core:yaml_frontmatter
+      required_fields:
+        - name
+        - description
+      failure_message: "Skill frontmatter must include 'name' and 'description' fields"
+      expected_behavior: "All skills must have valid YAML frontmatter with 'name' and 'description' fields"
 
     # Phase 3: Description quality
     - name: check_description_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate the skill frontmatter description for specific trigger terms and discovery enablement.
+        Evaluate the skill description for quality and clarity.
 
-        CRITICAL ISSUES (report these):
-        1. Description is overly vague without specific trigger terms (e.g., "Helps with coding" - what kind of coding?)
-        2. Description lacks BOTH what the skill does AND when to use it (needs both capability + activation scenario)
-        3. Description could match too many unrelated scenarios (overly broad causing false activations)
-        4. Description uses only generic nouns without domain-specific terms (e.g., "Expert in documents" vs "Expert in PDF reports with tabular data")
+        CRITICAL ISSUES to report:
+        - Vague or generic descriptions lacking specificity
+        - Missing activation context (when/why to use this skill)
+        - No domain-specific terminology or trigger terms
 
-        ACCEPTABLE (do NOT report):
-        - Description includes "use when" or "use for" phrasing (already validated by structural check)
-        - Description mentions specific technologies, frameworks, or domains (pytest, GitHub, AWS, etc.)
-        - Description contains trigger terms users would naturally mention (e.g., "test coverage", "PR review", "release management")
-        - Description is concise but domain-specific (brevity with specificity is ideal)
+        ACCEPTABLE patterns:
+        - Action-oriented language describing what it does
+        - Specific mentions of domains, tools, or technologies
+        - Clear usage context for skills ("Use when...")
 
-        GOOD EXAMPLES (do NOT report):
-        - "Expert in writing PEP 257 compliant docstrings using Google-style format. Use when documenting Python code."
-        - "Use when creating comprehensive pytest test suites with 90%+ coverage requirements"
-        - "Expert in GitHub workflows including issue management and PR operations. Use when working with GitHub via MCP."
+        Examples of GOOD descriptions:
+        - Skills: "Expert in pytest test suite creation with 90%+ coverage requirements"
+        - "Expert in writing PEP 257 compliant docstrings using Google-style format"
+        - "Expert in GitHub workflows including issue management and PR operations"
 
-        BAD EXAMPLES (report these):
-        - "Helps with code" (no specific domain or trigger terms)
-        - "Use when writing" (too generic - writing what?)
-        - "Expert in quality" (vague - what kind of quality?)
-        - "Documentation helper" (no specificity about documentation type or use case)
+        Examples of BAD descriptions:
+        - "Helps with testing" (too vague)
+        - "Does stuff" (no specificity)
+        - "A useful tool" (generic, no activation context)
 
-        Focus: Does the description enable Claude to recognize when this skill should be activated?
+        Only report CRITICAL issues. Ignore minor style preferences.
       available_resources:
         - skill
 
     # Phase 4: Structural quality
     - name: check_structural_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate the skill's structural quality per Anthropic's Agent Skills best practices.
+        Evaluate if skill provides adequate structure per Anthropic best practices.
+
+        A GOOD skill includes:
+        - Clear instructions or workflows (what to do)
+        - Concrete examples or code snippets (how to do it)
+        - References to additional resources when needed
+        - Step-by-step processes for complex tasks
 
         CRITICAL ISSUES (report these):
-        1. Frontmatter description COMPLETELY MISSING "when to use" or "use when" phrase
-        2. Multi-page templates or large reference content dumped inline (>100 lines of template/boilerplate)
-        3. Entire skill is just vague responsibilities with NO actionable instructions anywhere
+        - Skill has NO actionable instructions (only vague statements)
+        - Skill is missing any examples, code, or concrete guidance
+        - SKILL.md body exceeds 500 lines without splitting into separate files
 
-        ACCEPTABLE (do NOT report):
-        - Any "Use when..." phrase in frontmatter, even if brief (e.g., "Use when writing tests" is FINE)
-        - Skills that start with brief intro then dive into instructions
-        - "Core Responsibilities" sections IF followed by actionable content
-        - References to project files/scripts (assume they exist)
-        - Missing examples IF the skill content is self-explanatory
+        Examples of GOOD structure:
+        - "Use pdfplumber: [code example]"
+        - "Workflow: 1. Read files 2. Validate 3. Generate output"
+        - "Call mcp__github__get_issue(owner, repo, number)"
+        - "See [REFERENCE.md] for complete API docs"
 
-        EXAMPLES OF WHAT TO IGNORE:
-        - "Use when writing or structuring issues" ✓ ACCEPTABLE
-        - "Use when fixing linting errors" ✓ ACCEPTABLE
-        - "Expert in X" then actionable content ✓ ACCEPTABLE
+        Examples of BAD (report these):
+        - Only abstract descriptions with no concrete guidance
+        - No code examples or workflows anywhere
+        - Massive content dumps without file organization
 
-        ONLY REPORT if there's a REAL structural problem, not style nitpicks.
+        Note: MCP tool examples (mcp__server__function syntax) are valid code examples.
+
+        Focus: Does the skill provide ACTIONABLE guidance?
       available_resources:
         - skill
 
     # Phase 5: Verify dependencies
     - name: verify_dependencies
       type: prompt
+      model: haiku
       prompt: |
-        If the skill references other skills, verify they exist by requesting them.
-        Only flag missing references to actual dependency skills.
+        Check if the skill frontmatter declares dependencies on other skills that don't exist.
+
+        Project context includes MCP servers that are configured. If an MCP server is listed in project context, assume its tools exist.
+
+        ONLY report:
+        - Frontmatter declares "dependencies: [skill-name]" but skill-name doesn't exist in .claude/skills/
+        - References to MCP servers that are NOT in the project context
+
+        DO NOT check or report:
+        - Markdown links (documentation, not dependencies)
+        - Relative file paths (resources/file.md is correct)
+        - References to project files or scripts
+        - MCP tool function names or syntax (e.g., mcp__github__get_issue is valid)
+        - Specific MCP tool commands if the server is configured
+
+        Example: If project context shows "MCP Servers: github, serena", then mcp__github__ and mcp__serena__ tool references are valid.
+
+        Focus: Do frontmatter skill dependencies exist? Are MCP servers configured?
       available_resources:
         - skill
 
@@ -181,18 +187,23 @@ skill_validation:
     # Phase 10: Final quality check
     - name: final_quality_check
       type: prompt
+      model: haiku
       prompt: |
-        Review all findings from previous phases.
+        Review all findings from previous validation phases for this skill.
 
-        ONLY report CRITICAL structural problems:
-        - Missing "use when" activation criteria entirely
-        - Massive content dumps (templates >100 lines inline)
-        - No actionable instructions anywhere
+        ONLY report if there are CRITICAL structural problems that would prevent the skill from functioning:
+        - Missing required frontmatter fields
+        - Broken references to non-existent dependencies
+        - Contradictory instructions
+        - Completely missing or empty required sections
 
-        IGNORE minor style issues:
-        - Slight wording variations in "use when" phrases
-        - Brief introductory sections
-        - "Core Responsibilities" if actionable content follows
+        IGNORE and do NOT report:
+        - Minor formatting preferences
+        - Style suggestions
+        - Optional improvements
+        - Subjective quality opinions
+
+        If all critical issues were already caught by earlier phases, report: "No additional critical issues found."
       available_resources:
         - skill
 
@@ -266,54 +277,78 @@ agent_validation:
     # Phase 3: Description quality
     - name: check_description_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate the agent frontmatter description for action-oriented language and specificity.
+        TASK: Evaluate ONLY the agent description for quality and clarity.
 
-        CRITICAL ISSUES (report these):
-        1. Description is overly vague or generic (e.g., "Helps with tasks", "General purpose agent", "Assists with work")
-        2. Description lacks WHEN/WHAT context - doesn't indicate when agent should be used
-        3. Description is just a noun phrase without action orientation (e.g., "Documentation helper" vs "Use for writing API documentation")
-        4. Description could apply to multiple unrelated agents (too broad)
+        CRITICAL ISSUES to report:
+        - Vague or generic descriptions lacking specificity
+        - Missing activation context (when/why to use this agent)
+        - No domain-specific terminology or trigger terms
 
-        ACCEPTABLE (do NOT report):
-        - Description includes specific action verbs or "Use when/for" phrasing
-        - Description mentions specific domains/technologies (e.g., "Python testing", "GitHub operations", "CI/CD automation")
-        - Description is concise but clear about purpose (brevity is fine if specific)
-        - Description uses imperative or action-oriented language
+        ACCEPTABLE patterns:
+        - Action-oriented language describing what it does
+        - Specific mentions of domains, tools, or technologies
+        - Clear usage context ("Use when..." or "Specialized for...")
 
-        GOOD EXAMPLES (do NOT report):
+        Examples of GOOD descriptions:
+        - Agents: "Specialized developer agent for implementing features in Drift project"
         - "Use when writing comprehensive pytest test suites with 90%+ coverage"
         - "Specialized CI/CD agent for automation and GitHub Actions workflows"
-        - "Expert in maintaining code quality using flake8, black, isort"
 
-        BAD EXAMPLES (report these):
-        - "Helps with documents" (vague, no specificity)
-        - "General development tasks" (too broad)
-        - "Code assistant" (generic, no differentiation)
-        - "Helper agent" (no actionable information)
+        Examples of BAD descriptions:
+        - "Helps with testing" (too vague)
+        - "Does stuff" (no specificity)
+        - "A useful tool" (generic, no activation context)
 
-        ONLY flag descriptions that genuinely hinder agent discovery and delegation.
+        IMPORTANT - OUT OF SCOPE (do NOT analyze or report these):
+        - File existence or missing files - NOT YOUR JOB
+        - Resource file links - NOT YOUR JOB
+        - Duplicate files - NOT YOUR JOB
+        - MCP tool references - NOT YOUR JOB
+        - Project-specific context - NOT YOUR JOB
+        - Documentation completeness - NOT YOUR JOB
+        - YAML code examples - NOT YOUR JOB
+        - Template content - NOT YOUR JOB
+        - Skills/tools relationship - Skills are auto-loaded, they don't need the Skill tool - NOT YOUR JOB
+        - Whether tools list includes Skill tool - NOT YOUR JOB
+        - Frontmatter fields relationships - NOT YOUR JOB
+
+        Your ONLY task: Is the description clear and specific?
+
+        Only report CRITICAL issues. Ignore minor style preferences.
       available_resources:
         - agent
 
     # Phase 4: Workflow quality
     - name: check_workflow_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate the agent's workflow guidance and task delegation clarity.
+        Evaluate if agent provides adequate workflow guidance per Anthropic best practices.
+
+        A GOOD agent definition includes:
+        - Clear role and expertise statement
+        - Step-by-step process (numbered workflow)
+        - Specific actions to take when invoked
+        - What to check, verify, or deliver
 
         CRITICAL ISSUES (report these):
-        - Agent has NO purpose or scope explanation anywhere
-        - Agent provides ZERO workflow guidance (doesn't explain how to approach tasks at all)
-        - Agent is completely missing examples
+        - Agent has NO role/expertise explanation
+        - Agent provides NO process or workflow steps
+        - Agent is completely missing actionable guidance
 
-        ACCEPTABLE (do NOT report):
-        - References to MCP tools without explaining setup
-        - Brief or general workflow descriptions (some guidance is better than none)
-        - Agent lists responsibilities without exhaustive decision criteria
-        - References to standard project scripts/tools
+        Examples of GOOD workflow guidance:
+        - "When invoked: 1. Run git diff 2. Focus on modified files 3. Begin review"
+        - "Process: 1. Read requirements 2. Design test cases 3. Implement with pytest"
+        - "Steps: 1. Analyze logs 2. Identify root cause 3. Propose fixes"
 
-        ONLY REPORT if there's a REAL problem, not style nitpicks.
+        Examples of BAD (report these):
+        - No workflow section at all
+        - Only vague statements like "Help with tasks"
+        - No clear process or steps
+
+        Focus: Does the agent tell Claude HOW to do the work?
       available_resources:
         - agent
 
@@ -348,9 +383,23 @@ agent_validation:
     # Phase 7: Verify references
     - name: verify_references
       type: prompt
+      model: haiku
       prompt: |
-        If the agent references other agents or skills, verify they exist by requesting them.
-        Only flag missing references to actual dependency agents or skills.
+        Check if agent frontmatter declares skills or agents that don't exist.
+
+        Project context shows available skills. Check frontmatter "skills: [...]" array.
+
+        ONLY report:
+        - Frontmatter declares skill that doesn't exist in .claude/skills/
+        - Frontmatter references agent that doesn't exist in .claude/agents/
+
+        DO NOT check or report:
+        - References to project scripts or tools (./test.sh, ./lint.sh)
+        - MCP server references (if server is in project context)
+        - Documentation links or examples
+        - Tool names in the tools field
+
+        Focus: Do frontmatter skill/agent declarations exist?
       available_resources:
         - agent
         - skill
@@ -358,15 +407,23 @@ agent_validation:
     # Phase 8: Final quality check
     - name: final_quality_check
       type: prompt
+      model: haiku
       prompt: |
-        Review all findings from previous phases.
+        Review all findings from previous validation phases for this agent.
 
-        ONLY report CRITICAL problems:
-        - Missing workflow guidance entirely
-        - No purpose/scope explanation at all
-        - Completely missing examples
+        ONLY report if there are CRITICAL structural problems that would prevent the agent from functioning:
+        - Missing required frontmatter fields
+        - Broken references to non-existent dependencies
+        - Contradictory instructions
+        - Completely missing or empty required sections
 
-        IGNORE minor issues and style preferences.
+        IGNORE and do NOT report:
+        - Minor formatting preferences
+        - Style suggestions
+        - Optional improvements
+        - Subjective quality opinions
+
+        If all critical issues were already caught by earlier phases, report: "No additional critical issues found."
       available_resources:
         - agent
         - skill
@@ -417,8 +474,9 @@ command_validation:
     # Phase 2: Parameter hints check
     - name: check_parameter_hints
       type: prompt
+      model: haiku
       prompt: |
-        Check if command uses parameters but is missing argument-hint.
+        TASK: Check ONLY if command uses parameters but is missing argument-hint.
 
         CRITICAL ISSUES (report these):
         1. Command content includes $ARGUMENTS, $1, $2, $3, etc. but frontmatter has NO argument-hint field
@@ -429,71 +487,87 @@ command_validation:
         - Command doesn't use any parameters (no $ARGUMENTS, $1, etc.) ✓
         - Command references files with @ syntax but doesn't take parameters ✓
 
+        IMPORTANT - OUT OF SCOPE (do NOT analyze or report these):
+        - File existence or missing files - NOT YOUR JOB
+        - Resource file links - NOT YOUR JOB
+        - Duplicate files - NOT YOUR JOB
+        - MCP tool references - NOT YOUR JOB
+        - MCP tool availability - NOT YOUR JOB
+        - Project-specific context - NOT YOUR JOB
+        - Documentation completeness - NOT YOUR JOB
+        - Execution instructions - NOT YOUR JOB
+        - Command clarity - NOT YOUR JOB
+
+        Your ONLY task: Does the command use parameters but lack argument-hint?
+
         REASONING: argument-hint helps users during tab-completion. If a command takes parameters,
         it should guide users on what to provide.
-
-        Focus: Does the command take parameters but lack user guidance?
       available_resources:
         - command
 
-    # Phase 3: Skill references check
-    - name: check_skill_references
+    # Phase 3: Verify all references
+    - name: verify_all_references
       type: prompt
+      model: haiku
       prompt: |
-        If the command frontmatter declares skills array, verify those skills exist.
+        Verify all references in the command file comprehensively.
 
-        You can request skill files to check if they exist.
+        Project context shows available skills and commands.
 
-        CRITICAL ISSUES (report these):
-        - Command references a skill in frontmatter that doesn't exist in .claude/skills/
+        ONLY report:
+        - Frontmatter declares skill that doesn't exist in .claude/skills/
+        - Documentation references command that doesn't exist in .claude/commands/
+        - Documentation references agent that doesn't exist in .claude/agents/
+        - Direct contradictions between commands (one says "always X", another says "never X")
 
-        ACCEPTABLE (do NOT report):
-        - All referenced skills exist ✓
-        - Command doesn't declare skills array ✓
-        - Skills array is empty ✓
+        DO NOT check or report:
+        - Project scripts (./test.sh, ./lint.sh are valid)
+        - MCP tool names or syntax (if MCP server is configured)
+        - Style differences between commands
+        - Different approaches that aren't contradictory
+        - Tool invocation syntax (Skill(), SlashCommand(), etc.)
 
-        Focus: Are skill references valid?
+        Focus: Do frontmatter declarations and documentation references exist?
       available_resources:
         - command
         - skill
+        - agent
 
     # Phase 4: Description quality
     - name: check_description_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate the command frontmatter description for helpfulness in /help output.
+        Evaluate the command description for quality and clarity.
 
-        Extract the command filename (without .md extension) from the file path.
+        CRITICAL ISSUES to report:
+        - Vague or generic descriptions lacking specificity
+        - Missing activation context (when/why to use this command)
+        - No domain-specific terminology or trigger terms
 
-        CRITICAL ISSUES (report these):
-        1. Description is just the command name repeated (e.g., file: "test.md", description: "test")
-        2. Description is a single word that doesn't explain purpose (e.g., "Linting", "Testing" without context)
-        3. Description is overly vague and could apply to any command (e.g., "Run checks", "Do work")
-        4. Description doesn't indicate WHAT the command does or WHEN to use it
+        ACCEPTABLE patterns:
+        - Action-oriented language describing what it does
+        - Specific mentions of domains, tools, or technologies
+        - Clear usage context for commands
 
-        ACCEPTABLE (do NOT report):
-        - Description clearly explains what command does (e.g., "Run pytest tests with coverage reporting")
-        - Description indicates when/why to use command (e.g., "Create PR with quality validation")
-        - Description mentions specific tools/workflows (e.g., "Run linters and formatters (flake8, black, isort)")
-        - Description is concise but informative (brevity is fine if clear)
+        Examples of GOOD descriptions:
+        - Commands: "Run comprehensive validation including tests and linting"
+        - "Run pytest tests with coverage reporting"
+        - "Create PR with quality validation"
 
-        GOOD EXAMPLES (do NOT report):
-        - For test.md: "Run pytest tests" ✓ (clear purpose)
-        - For lint.md: "Run linters and formatters" ✓ (explains what)
-        - For create-pr.md: "Create PR with quality validation" ✓ (action + context)
+        Examples of BAD descriptions:
+        - "Helps with testing" (too vague)
+        - "Does stuff" (no specificity)
+        - "A useful tool" (generic, no activation context)
 
-        BAD EXAMPLES (report these):
-        - For test.md: "test" ✗ (just filename repetition)
-        - For lint.md: "Linting" ✗ (single word, no context)
-        - For work.md: "Do work" ✗ (vague, no specificity)
-
-        Focus: Would a user browsing /help understand what this command does and when to use it?
+        Only report CRITICAL issues. Ignore minor style preferences.
       available_resources:
         - command
 
     # Phase 5: Execution clarity
     - name: check_execution_clarity
       type: prompt
+      model: haiku
       prompt: |
         Evaluate the command's execution clarity and usability.
 
@@ -532,42 +606,10 @@ command_validation:
           - 'CHANGELOG\.md'
           - 'github/workflows/'
 
-    # Phase 7: Consistency check
-    - name: check_consistency
-      type: prompt
-      prompt: |
-        Analyze commands for ACTUAL contradictions, not cosmetic differences.
-
-        Project root: {project_root}
-        Files: {files_with_paths}
-
-        ONLY report if you find CONTRADICTIONS:
-        1. Command A says "do X before Y", Command B says "do Y before X" (for the same task)
-        2. Commands require mutually exclusive tools or conflicting workflows
-        3. Commands explicitly contradict CLAUDE.md guidelines
-
-        DO NOT REPORT (these are NOT issues):
-        - All commands say "activate skills at step 1" - this is PERFECT consistency
-        - All commands say "activate before proceeding" + show activation at step 1 - this is CLEAR and CONSISTENT
-        - Wording variations like "MUST activate" vs "must activate" vs "Activate" - meaningless difference
-        - Commands for different tasks have different workflow steps - this is EXPECTED and CORRECT
-        - "before proceeding" appearing in multiple commands - this is CONSISTENCY, not inconsistency
-
-        EXAMPLE OF REAL CONTRADICTION (report this):
-        - Command A: "Activate skills before gathering info"
-        - Command B: "Gather info before activating skills"
-
-        EXAMPLE OF NON-ISSUE (DO NOT report this):
-        - Command A: "MUST activate skills before proceeding. Steps: 1. Activate skills 2. Do work"
-        - Command B: "MUST activate skills before proceeding. Steps: 1. Activate skills 2. Do work"
-        - These are IDENTICAL behaviors with the same wording - perfectly consistent!
-
-        If all commands follow the same activation pattern (step 1 = activate), do NOT report any issue.
-      available_resources: []
-
-    # Phase 8: Pattern consistency check
+    # Phase 7: Pattern consistency check
     - name: check_pattern_consistency
       type: prompt
+      model: haiku
       prompt: |
         Check if similar commands follow similar patterns for skill usage.
 
@@ -584,21 +626,10 @@ command_validation:
         - Commands for different domains use different skills ✓ (expected)
         - One-off commands don't follow a pattern ✓ (no similar commands to compare)
 
-        EXAMPLES:
-
-        BAD (report these):
-        - Command "test" uses testing skill, but "full-check" (which runs tests) doesn't ✗
-        - Command "create-pr" uses github-operations, but "work-on-issue" (also GitHub) doesn't ✗
-
-        GOOD (do NOT report):
-        - All test commands declare testing skill ✓
-        - All GitHub commands declare github-operations skill ✓
-        - Developer command uses different skills than QA command ✓ (different domains)
-
         Focus: Do similar commands follow similar patterns for skill activation?
       available_resources: []
 
-    # Phase 9: Check duplicate dependencies
+    # Phase 8: Check duplicate dependencies
     - name: check_duplicate_dependencies
       type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in commands"
@@ -609,7 +640,7 @@ command_validation:
           - .claude/commands
           - .claude/skills
 
-    # Phase 10: Check circular dependencies
+    # Phase 9: Check circular dependencies
     - name: check_circular_dependencies
       type: core:claude_circular_dependencies
       description: "Detect circular dependency cycles"
@@ -621,29 +652,26 @@ command_validation:
       failure_message: "Circular dependency detected: {circular_path}"
       expected_behavior: "Commands should not have circular skill dependencies"
 
-    # Phase 11: Verify dependencies
-    - name: verify_dependencies
-      type: prompt
-      prompt: |
-        If the command references other commands, skills, or agents, verify they exist.
-        Only flag missing references to actual dependencies.
-      available_resources:
-        - command
-        - skill
-        - agent
-
-    # Phase 12: Final quality check
+    # Phase 10: Final quality check
     - name: final_quality_check
       type: prompt
+      model: haiku
       prompt: |
-        Review all findings from previous phases.
+        Review all findings from previous validation phases for this command.
 
-        ONLY report CRITICAL problems:
-        - Missing purpose entirely
-        - Zero execution guidance
-        - Completely unclear invocation
+        ONLY report if there are CRITICAL structural problems that would prevent the command from functioning:
+        - Missing required frontmatter fields
+        - Broken references to non-existent dependencies
+        - Contradictory instructions
+        - Completely missing or empty required sections
 
-        IGNORE minor issues and style preferences.
+        IGNORE and do NOT report:
+        - Minor formatting preferences
+        - Style suggestions
+        - Optional improvements
+        - Subjective quality opinions
+
+        If all critical issues were already caught by earlier phases, report: "No additional critical issues found."
       available_resources:
         - command
         - skill
@@ -687,31 +715,33 @@ claude_md_validation:
     # Phase 3: Content quality
     - name: check_content_quality
       type: prompt
+      model: haiku
       prompt: |
-        Evaluate CLAUDE.md for content quality, code block length, and anti-patterns per Anthropic best practices.
+        Evaluate CLAUDE.md for content quality and anti-patterns per Anthropic best practices.
 
         CRITICAL ISSUES (report these):
 
         **Conciseness**:
-        1. Contains code blocks longer than 20 lines (count lines between ``` fences for each block)
-        2. Large narrative paragraphs (>8 consecutive non-bullet lines) instead of bullet points
+        1. Large narrative paragraphs (>8 consecutive non-bullet/non-list lines of plain text) instead of bullet points
+           → Note: Bullet list items CAN have 1-2 sentence descriptions - that's acceptable
+           → Only flag if there are 8+ lines of continuous paragraph text with NO bullets/numbers
 
         **Completeness & Structure**:
-        3. Missing ALL essential sections: tech stack, architecture, key commands/workflows, and coding standards
-        4. No clear Markdown structure (no headers at all, completely unorganized)
-        5. File is empty or only contains generic template boilerplate with no project-specific info
+        2. Missing ALL essential sections: tech stack, architecture, key commands/workflows, and coding standards
+        3. No clear Markdown structure (no headers at all, completely unorganized)
+        4. File is empty or only contains generic template boilerplate with no project-specific info
 
         **Anti-Patterns**:
-        6. Contains detailed linting/formatting rules (e.g., "max line length 88", "import order: stdlib, third-party, local")
+        5. Contains detailed linting/formatting rules (e.g., "max line length 88", "import order: stdlib, third-party, local")
            → Should use automated tools (pyproject.toml, .flake8) NOT CLAUDE.md
-        7. Embeds full API documentation (>30 lines of endpoint specs, schemas, or API reference)
+        6. Embeds full API documentation (>30 lines of endpoint specs, schemas, or API reference)
            → Should link to API docs instead
-        8. Session-specific instructions (e.g., "In this conversation..." or "For today's task...")
+        7. Session-specific instructions (e.g., "In this conversation..." or "For today's task...")
            → CLAUDE.md must be universal across all sessions
 
         ACCEPTABLE (do NOT report):
-        - Code blocks under 20 lines
         - Brief narrative intros (2-3 sentences) before bullet lists
+        - Bullet/numbered list items with 1-2 sentence descriptions (this is NOT a narrative paragraph)
         - Variations in section naming ("Tech Stack" vs "Stack")
         - Brief sections (concise is good)
         - Missing optional sections like "Contributing"
@@ -722,13 +752,13 @@ claude_md_validation:
         - Brief code examples (2-3 lines) ✓
 
         EXAMPLES OF ACCEPTABLE:
-        - 15-line code block ✓ (under 20)
         - "Stack: Python 3.11, FastAPI" ✓ (brief)
         - "Use black/flake8. Config in pyproject.toml" ✓ (pointer)
         - "API docs: https://example.com/api" ✓ (link)
+        - "1. **Project Validation**: Fast checks for docs. Zero API calls." ✓ (list item with description)
+        - "- **Anthropic API**: Set ANTHROPIC_API_KEY" ✓ (bullet with description)
 
         EXAMPLES TO FLAG:
-        - 30-line code block ✗ (over 20)
         - "Linting: max-line-length=88, import order: stdlib, third-party..." ✗ (detailed rules)
         - 50-line API endpoint specification section ✗ (embedded docs)
         - "In this conversation, focus on auth module" ✗ (session-specific)
@@ -741,6 +771,7 @@ claude_md_validation:
     # Phase 4: Import syntax check
     - name: check_import_syntax
       type: prompt
+      model: haiku
       prompt: |
         Check CLAUDE.md for proper import syntax usage per Claude Code documentation.
 
@@ -766,6 +797,7 @@ claude_md_validation:
     # Phase 5: Component documentation check
     - name: check_component_documentation
       type: prompt
+      model: haiku
       prompt: |
         Check if CLAUDE.md documents the key Claude Code components in this project.
 

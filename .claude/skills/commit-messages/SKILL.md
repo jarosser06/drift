@@ -23,10 +23,6 @@ You are an expert at writing **concise, factual commit messages** that describe 
 <action> <what changed>
 
 [Optional: Why, if explicitly known from issue/user/context]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
 ## Good Examples
@@ -36,10 +32,6 @@ Add default failure messages to all validators
 
 Validators now provide default_failure_message and default_expected_behavior
 properties. Makes failure_message and expected_behavior optional in ValidationRule.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
 ```
@@ -47,18 +39,10 @@ Fix mypy type errors from optional failure_message
 
 Changed validators to use _get_failure_message() helper instead of accessing
 rule.failure_message directly to handle Optional[str] correctly.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
 ```
 Add support for custom validator plugins
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
 
 ## Bad Examples (DON'T DO THIS)

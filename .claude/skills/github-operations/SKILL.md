@@ -266,8 +266,6 @@ mcp__github__search_issues(
    - Add tests with 90% coverage
    - Update documentation
 
-   🤖 Generated with Claude Code
-   Co-Authored-By: Claude <noreply@anthropic.com>"
    ```
 
 4. **Push branch**
@@ -295,9 +293,6 @@ mcp__github__search_issues(
 - Bullet points for main changes
 - Reference issue numbers
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ## Common Workflows

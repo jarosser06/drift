@@ -700,7 +700,9 @@ Return your analysis as a JSON array of objects with this structure:
 
 If no unresolved instances of this drift pattern are found, return an empty array: []
 
-IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
+IMPORTANT: Return ONLY the raw JSON array. Do NOT wrap it in markdown code blocks (```json).
+Do NOT add any explanatory text before or after the JSON. Your entire response should be parseable
+as JSON."""
 
         return prompt
 
@@ -909,11 +911,10 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 and hasattr(config.validation_rules, "document_bundle")
             ):
                 document_types[name] = config
-            # Also include project-level rules with programmatic phases (no document bundle needed)
+            # Also include project-level rules with phases (programmatic or prompt)
             elif config.scope in ("project_level", "document_level"):
                 phases = getattr(config, "phases", [])
-                registry = ValidatorRegistry()
-                if _has_programmatic_phases(phases, registry):
+                if phases:  # Include if there are ANY phases (programmatic or prompt)
                     document_types[name] = config
 
         if not document_types:
@@ -968,18 +969,19 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                 registry = ValidatorRegistry()
                 has_programmatic_phases = _has_programmatic_phases(phases, registry)
                 has_validation_rules = getattr(type_config, "validation_rules", None) is not None
+                has_any_phases = len(phases) > 0
 
-                if bundle_config is None and not has_programmatic_phases:
+                if bundle_config is None and not has_programmatic_phases and not has_any_phases:
                     logger.debug(
                         f"analyze_documents: {type_name} has no bundle_config and "
-                        "no programmatic phases, skipping"
+                        "no phases, skipping"
                     )
                     continue
 
                 bundles = doc_loader.load_bundles(bundle_config) if bundle_config else []
 
                 if not bundles:
-                    if has_validation_rules or has_programmatic_phases:
+                    if has_validation_rules or has_programmatic_phases or has_any_phases:
                         # For old phases format without bundle_config, use default values
                         bundle_type = (
                             bundle_config.bundle_type if bundle_config else "project_files"
@@ -1230,32 +1232,29 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         phases = getattr(type_config, "phases", [])
 
         if phases:
+            # Execute phases sequentially: programmatic first, then prompt-based
+            # Stop on first failure
             registry = ValidatorRegistry(loader)
+            all_rules = []
+            all_execution_details = []
 
-            # Filter programmatic phases using registry
-            programmatic_phases = []
-            for phase in phases:
+            for phase_idx, phase in enumerate(phases):
                 phase_type = getattr(phase, "type", "prompt")
-                if phase_type == "prompt":
-                    continue
 
-                try:
-                    if registry.is_programmatic(phase_type):
-                        programmatic_phases.append(phase)
-                except (ValueError, KeyError):
-                    # Unknown type - skip
-                    continue
+                # Execute programmatic phase
+                if phase_type != "prompt":
+                    try:
+                        if not registry.is_programmatic(phase_type):
+                            # Unknown type - skip
+                            continue
+                    except (ValueError, KeyError):
+                        # Unknown type - skip
+                        continue
 
-            if programmatic_phases:
-                rules = []
-                execution_details = []
-
-                for phase in programmatic_phases:
                     rule = ValidationRule(
                         rule_type=phase.type,
                         description=type_config.description,
                         file_path=phase.file_path,
-                        # Validator provides defaults if None
                         failure_message=phase.failure_message,
                         expected_behavior=phase.expected_behavior,
                         **phase.params,
@@ -1281,63 +1280,72 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
                             "params": getattr(rule, "params", {}),
                         },
                     }
-                    execution_details.append(exec_info)
+                    all_execution_details.append(exec_info)
 
                     if result is not None:
                         result.rule_type = rule_type
-                        rules.append(result)
+                        all_rules.append(result)
+                        # Stop on failure
+                        return all_rules, all_execution_details
 
-                return rules, execution_details
+                # Execute prompt-based phase
+                else:
+                    prompt = self._build_document_analysis_prompt(bundle, rule_type, type_config)
 
-        if len(phases) > 1:
-            return self._run_multi_phase_document_analysis(
-                bundle, rule_type, type_config, model_override, loader
-            )
+                    phase_model = phase.model if hasattr(phase, "model") else None
+                    model_name = (
+                        model_override or phase_model or self.config.get_model_for_rule(rule_type)
+                    )
 
-        prompt = self._build_document_analysis_prompt(bundle, rule_type, type_config)
+                    provider = self.providers.get(model_name)
+                    if not provider:
+                        raise ValueError(f"Model '{model_name}' not found in configured providers")
 
-        phase_model = phases[0].model if phases else None
-        model_name = model_override or phase_model or self.config.get_model_for_rule(rule_type)
+                    # Prepare cache parameters
+                    doc_loader = DocumentLoader(bundle.project_path)
+                    bundle_content = doc_loader.format_bundle_for_llm(bundle)
+                    content_hash = ResponseCache.compute_content_hash(bundle_content)
+                    cache_key = f"{bundle.bundle_id}_{rule_type}_phase{phase_idx}"
 
-        provider = self.providers.get(model_name)
-        if not provider:
-            raise ValueError(f"Model '{model_name}' not found in configured providers")
+                    logger.debug(f"Sending prompt (phase {phase_idx+1}) to {model_name}:\n{prompt}")
+                    response = provider.generate(
+                        prompt,
+                        cache_key=cache_key,
+                        content_hash=content_hash,
+                        drift_type=rule_type,
+                    )
+                    logger.debug(f"Raw response from {model_name}:\n{response}")
 
-        # Prepare cache parameters for document analysis
-        doc_loader = DocumentLoader(bundle.project_path)
-        bundle_content = doc_loader.format_bundle_for_llm(bundle)
-        content_hash = ResponseCache.compute_content_hash(bundle_content)
-        cache_key = f"{bundle.bundle_id}_{rule_type}"
+                    rules = self._parse_document_analysis_response(response, bundle, rule_type)
 
-        logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
-        response = provider.generate(
-            prompt,
-            cache_key=cache_key,
-            content_hash=content_hash,
-            drift_type=rule_type,
-        )
-        logger.debug(f"Raw response from {model_name}:\n{response}")
+                    # Track execution
+                    exec_info = {
+                        "rule_name": rule_type,
+                        "rule_description": type_config.description,
+                        "rule_context": type_config.context,
+                        "status": "passed" if not rules else "failed",
+                        "execution_context": {
+                            "bundle_id": bundle.bundle_id,
+                            "bundle_type": bundle.bundle_type,
+                            "files": [f.relative_path for f in bundle.files],
+                        },
+                        "validation_results": {
+                            "rule_type": "llm_analysis",
+                            "params": {},
+                        },
+                    }
+                    all_execution_details.append(exec_info)
 
-        rules = self._parse_document_analysis_response(response, bundle, rule_type)
+                    if rules:
+                        all_rules.extend(rules)
+                        # Stop on failure
+                        return all_rules, all_execution_details
 
-        # Track execution details for LLM-based analysis
-        exec_info = {
-            "rule_name": rule_type,
-            "rule_description": type_config.description,
-            "rule_context": type_config.context,
-            "status": "passed" if not rules else "failed",
-            "execution_context": {
-                "bundle_id": bundle.bundle_id,
-                "bundle_type": bundle.bundle_type,
-                "files": [f.relative_path for f in bundle.files],
-            },
-            "validation_results": {
-                "rule_type": "llm_analysis",
-                "params": {},
-            },
-        }
+            # All phases passed
+            return all_rules, all_execution_details
 
-        return rules, [exec_info]
+        # No phases configured - shouldn't happen but handle gracefully
+        return [], []
 
     def _run_multi_phase_document_analysis(
         self,
@@ -1654,50 +1662,55 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         """
         description = getattr(type_config, "description", "")
         phases = getattr(type_config, "phases", [])
-        detection_prompt = phases[0].prompt if phases else ""
+
+        # Find first phase with a prompt (skip core phases that have no prompt)
+        detection_prompt = ""
+        for phase in phases:
+            if hasattr(phase, "prompt") and phase.prompt:
+                detection_prompt = phase.prompt
+                break
 
         # Format bundle content
         doc_loader = DocumentLoader(bundle.project_path)
         formatted_files = doc_loader.format_bundle_for_llm(bundle)
 
         # Build prompt with template variable substitution
-        prompt = f"""You are analyzing project documentation to identify quality issues.
-
-**Analysis Type:** {rule_type}
-**Description:** {description}
-
-**Project Root:** {bundle.project_path}
-
+        prompt = f"""**Analysis Type:** {rule_type}
 **Bundle Type:** {bundle.bundle_type}
+**Description:** {description}
 
 **Files Being Analyzed:**
 {formatted_files}
 
-**Detection Instructions:**
+**Your Task:**
 {detection_prompt}
 
-**Task:**
-Analyze the above documentation and identify any instances of the "{rule_type}" pattern.
+**CRITICAL:**
+- Follow the task instructions EXACTLY.
+- If the task says "Check ONLY X", check ONLY X.
+- If the task lists things as "OUT OF SCOPE" or "NOT YOUR JOB", completely ignore those things.
+- Do NOT mention or report anything marked as out of scope, even if you notice issues.
 
-For each issue found, extract:
-1. Which file(s) are involved (use relative paths from the Files Being Analyzed section)
-2. What issue was observed
-3. What the expected quality/behavior should be
-4. Brief explanation
+**Important Examples:**
+- If task says "NOT YOUR JOB: Resource file links", and you see broken resource links, return []
+- If task says "NOT YOUR JOB: Duplicate files", and you see duplicates, return []
+- If task says "NOT YOUR JOB: MCP tool references", and you see MCP issues, return []
 
-Return your analysis as a JSON array:
-[
-  {{
-    "file_paths": ["path/to/file1.md", "path/to/file2.md"],
-    "observed_issue": "<description of the problem>",
-    "expected_quality": "<what should be present/correct>",
-    "context": "<brief explanation>"
-  }}
-]
+**Output Format:**
+Return a JSON array with ONLY issues that match your specific task scope:
 
-If no issues are found, return an empty array: []
+[{{
+    "file_paths": ["file.md"],
+    "observed_issue": "issue",
+    "expected_quality": "expected",
+    "context": "explanation"
+}}]
 
-IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
+If NO issues match your task scope (or if you only find out-of-scope issues), return: []
+
+IMPORTANT: Return ONLY the raw JSON array. Do NOT wrap it in markdown code blocks (```json).
+Do NOT add any explanatory text before or after the JSON. Your entire response should be parseable
+as JSON."""
 
         return prompt
 
@@ -1733,10 +1746,65 @@ IMPORTANT: Return ONLY valid JSON, no additional text or explanation."""
         if not isinstance(items, list):
             return []
 
+        # Filter out common false positives that should be handled by other phases
+        false_positive_patterns = [
+            # Resource file checks (handled by core:file_exists phases)
+            r"resource file.*not.*exist",
+            r"resource file.*reference",
+            r"resource link",
+            r"resources?/.*\.md",
+            # Duplicate file checks (handled by core:file_exists phases)
+            r"duplicate.*file",
+            r"SKILL\.md and skill\.md",
+            r"identical content",
+            # MCP tool checks (validated by other phases)
+            r"mcp__\w+__",
+            r"mcp tool",
+            # Out of scope items
+            r"project-specific context",
+            r"documentation completeness",
+            # Technical accuracy (not structural quality)
+            r"deprecated.*parameter",
+            r"model.*version",
+            r"outdated.*model",
+            r"current model",
+            r"undefined.*script",
+            r"references.*script",
+            r"\.sh\b",  # Script references
+            r"model_id.*format",
+            r"anthropic\.claude",
+            # Skills/tools relationship (skills don't need Skill tool)
+            r"skills.*tools list",
+            r"skill tool.*invoking",
+            r"tools list.*doesn't include.*skill",
+            r"access to the skill tool",
+            # Attribution/footer complaints
+            r"co-authored-by",
+            r"noreply@anthropic",
+            r"footer attribution",
+            r"attribution.*format",
+            r"generated with.*claude code",
+        ]
+
         # Convert to DocumentRule objects
         rules = []
         for item in items:
             if not isinstance(item, dict):
+                continue
+
+            observed = item.get("observed_issue", "")
+            expected = item.get("expected_quality", "")
+            context = item.get("context", "")
+
+            # Check all text fields for false positive patterns
+            all_text = f"{observed} {expected} {context}".lower()
+
+            # Skip if matches any false positive pattern
+            is_false_positive = any(
+                re.search(pattern, all_text, re.IGNORECASE) for pattern in false_positive_patterns
+            )
+
+            if is_false_positive:
                 continue
 
             learning = DocumentRule(

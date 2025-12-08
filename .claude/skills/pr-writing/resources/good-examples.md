@@ -55,9 +55,6 @@ Relates to #15 - Configuration improvements (enables per-type config)
 
 ---
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Why this is excellent:**
@@ -103,9 +100,6 @@ Fixes #56 - Config parser crashes on missing drift_types section
 
 ---
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Why this is excellent:**
@@ -165,9 +159,6 @@ Improves #23 - Better testability
 
 ---
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Why this is excellent:**
@@ -206,9 +197,6 @@ N/A
 
 ---
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Why this is good:**
@@ -251,9 +239,6 @@ Addresses questions in #34, #56, #78
 
 ---
 
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 ---

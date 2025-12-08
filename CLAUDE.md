@@ -13,18 +13,9 @@ TDD framework for AI workflows - define agent/skill/command standards in `.drift
 ## Project Structure
 
 ```
-src/drift/          # Main application code
-  cli/              # CLI commands and entrypoint
-  agent_tools/      # Agent-specific tools (Claude Code, etc.)
-  validation/       # Validation rules and engines
-  models/           # Pydantic data models
-tests/              # Test suite (unit, integration)
-  unit/             # Unit tests
-  integration/      # Integration tests
-.claude/            # Claude Code configuration
-  agents/           # Specialized agents (cicd, developer, qa)
-  skills/           # Reusable skills (testing, linting, etc.)
-  commands/         # Slash commands (/test, /lint, etc.)
+src/drift/    # Main application code (cli, validation, models)
+tests/        # Test suite (unit, integration)
+.claude/      # Claude Code configuration (agents, skills, commands)
 ```
 
 ## Claude Code Setup
@@ -81,10 +72,7 @@ uv pip install -e ".[dev]"
 - Mock external API calls (Anthropic, AWS Bedrock, Claude Code CLI)
 
 ### Code Quality
-- All code must pass linters before commit
-- Use type hints (mypy enforces strict typing)
-- Follow PEP 8 conventions
-- Configuration in `pyproject.toml` - DO NOT duplicate rules here
+All code quality standards (linting, formatting, type checking) are defined in `pyproject.toml`. Run `./lint.sh` before committing.
 
 ### Documentation
 - PEP 257 compliant docstrings
