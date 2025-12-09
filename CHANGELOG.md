@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-08
+
+- Add block line count validator for monitoring code block size; Fix LLM-based prompt execution in project-level rules
+
 ## [0.4.2] - 2025-12-06
 
 - Fix: populate execution_details for LLM-based validations
