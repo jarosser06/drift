@@ -151,3 +151,79 @@ class TestParamResolver:
         resolver = ParamResolver(bundle)
         with pytest.raises(ValueError, match="Unsupported param type"):
             resolver.resolve({"type": "unknown_type", "value": "test"})
+
+    def test_resolve_resource_list_non_string_value(self, bundle):
+        """Test RESOURCE_LIST param with non-string value."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="RESOURCE_LIST param requires string resource type"):
+            resolver.resolve({"type": "resource_list", "value": 123})
+
+    def test_resolve_resource_content_non_string_value(self, bundle):
+        """Test RESOURCE_CONTENT param with non-string value."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(
+            ValueError, match="RESOURCE_CONTENT param requires string resource spec"
+        ):
+            resolver.resolve({"type": "resource_content", "value": 123})
+
+    def test_resolve_file_content_non_string_value(self, bundle):
+        """Test FILE_CONTENT param with non-string value."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="FILE_CONTENT param requires string file path"):
+            resolver.resolve({"type": "file_content", "value": 123})
+
+    def test_resolve_regex_pattern_non_string_value(self, bundle):
+        """Test REGEX_PATTERN param with non-string value."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="REGEX_PATTERN param requires string pattern"):
+            resolver.resolve({"type": "regex_pattern", "value": 123})
+
+    def test_resolve_string_non_string_type(self, bundle):
+        """Test _resolve_string with non-string type."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="STRING param requires string value, got"):
+            resolver._resolve_string(123)
+
+    def test_resolve_string_list_invalid_type(self, bundle):
+        """Test _resolve_string_list with invalid type."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="STRING_LIST param requires list or string, got"):
+            resolver._resolve_string_list(123)
+
+    def test_resolve_resource_content_read_error(self, bundle, project_root):
+        """Test RESOURCE_CONTENT with file read error."""
+        resolver = ParamResolver(bundle)
+
+        # Create a skill file with permission issues
+        skill_dir = project_root / ".claude" / "skills" / "bad-skill"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text("content")
+        skill_file.chmod(0o000)
+
+        try:
+            with pytest.raises(ValueError, match="Error reading resource"):
+                resolver.resolve({"type": "resource_content", "value": "skill:bad-skill"})
+        finally:
+            skill_file.chmod(0o644)
+
+    def test_resolve_file_content_read_error(self, bundle, project_root):
+        """Test FILE_CONTENT with file read error."""
+        resolver = ParamResolver(bundle)
+
+        # Create a file with permission issues
+        bad_file = project_root / "bad.txt"
+        bad_file.write_text("content")
+        bad_file.chmod(0o000)
+
+        try:
+            with pytest.raises(ValueError, match="Error reading file"):
+                resolver.resolve({"type": "file_content", "value": "bad.txt"})
+        finally:
+            bad_file.chmod(0o644)
+
+    def test_resolve_regex_pattern_non_string_direct(self, bundle):
+        """Test _resolve_regex_pattern with non-string type."""
+        resolver = ParamResolver(bundle)
+        with pytest.raises(ValueError, match="REGEX_PATTERN param requires string, got"):
+            resolver._resolve_regex_pattern(123)

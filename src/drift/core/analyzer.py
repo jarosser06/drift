@@ -1251,13 +1251,18 @@ as JSON."""
                         # Unknown type - skip
                         continue
 
-                    rule = ValidationRule(
+                    # Merge legacy phase fields into params for backward compatibility
+                    phase_params = dict(phase.params) if phase.params else {}
+                    if phase.file_path and "file_path" not in phase_params:
+                        phase_params["file_path"] = phase.file_path
+
+                    rule = ValidationRule(  # type: ignore[call-arg]
                         rule_type=phase.type,
                         description=type_config.description,
+                        params=phase_params,
                         file_path=phase.file_path,
                         failure_message=phase.failure_message,
                         expected_behavior=phase.expected_behavior,
-                        **phase.params,
                     )
 
                     result = registry.execute_rule(rule, bundle)

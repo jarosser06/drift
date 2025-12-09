@@ -55,8 +55,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate config.yaml",
-            file_path="config.yaml",
-            params={"schema": schema},
+            params={"file_path": "config.yaml", "schema": schema},
             failure_message="Invalid YAML structure",
             expected_behavior="Should match schema",
         )
@@ -82,8 +81,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate config.yaml",
-            file_path="config.yaml",
-            params={"schema": schema},
+            params={"file_path": "config.yaml", "schema": schema},
             failure_message="Invalid YAML structure",
             expected_behavior="Should match schema",
         )
@@ -109,8 +107,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate config.yaml",
-            file_path="config.yaml",
-            params={"schema": schema},
+            params={"file_path": "config.yaml", "schema": schema},
             failure_message="Invalid YAML structure",
             expected_behavior="Should match schema",
         )
@@ -141,8 +138,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate data.yaml",
-            file_path="data.yaml",
-            params={"schema_file": "schema.json"},
+            params={"file_path": "data.yaml", "schema_file": "schema.json"},
             failure_message="YAML doesn't match schema",
             expected_behavior="Should conform to schema",
         )
@@ -158,8 +154,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate data.yaml",
-            file_path="data.yaml",
-            params={"schema_file": "nonexistent.json"},
+            params={"file_path": "data.yaml", "schema_file": "nonexistent.json"},
             failure_message="YAML doesn't match schema",
             expected_behavior="Should conform to schema",
         )
@@ -178,24 +173,25 @@ class TestYamlSchemaValidator:
             expected_behavior="Expected",
         )
 
-        with pytest.raises(ValueError, match="requires rule.file_path"):
+        with pytest.raises(ValueError, match="requires params.file_path"):
             validator.validate(rule, bundle)
 
     def test_missing_params(self, validator, bundle, tmp_path):
-        """Test that validation fails when params is missing."""
+        """Test that validation fails when schema/schema_file is missing."""
         test_file = tmp_path / "data.yaml"
         test_file.write_text("key: value\n")
 
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
+            params={"file_path": "data.yaml"},
             failure_message="Failure",
             expected_behavior="Expected",
         )
 
-        with pytest.raises(ValueError, match="requires params"):
-            validator.validate(rule, bundle)
+        result = validator.validate(rule, bundle)
+        assert result is not None
+        assert "requires 'schema' or 'schema_file'" in result.observed_issue
 
     def test_missing_schema_and_schema_file_in_params(self, validator, bundle, tmp_path):
         """Test error when params has neither schema nor schema_file."""
@@ -205,8 +201,10 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"other_key": "value"},  # Has params but no schema/schema_file
+            params={
+                "file_path": "data.yaml",
+                "other_key": "value",
+            },  # Has params but no schema/schema_file
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -220,8 +218,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="nonexistent.yaml",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "nonexistent.yaml", "schema": {"type": "object"}},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -238,8 +235,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="invalid.yaml",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "invalid.yaml", "schema": {"type": "object"}},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -261,8 +257,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "data.yaml", "schema": {"type": "object"}},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -309,8 +304,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate nested config",
-            file_path="config.yaml",
-            params={"schema": schema},
+            params={"file_path": "config.yaml", "schema": schema},
             failure_message="Invalid structure",
             expected_behavior="Should match nested schema",
         )
@@ -345,8 +339,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate array",
-            file_path="list.yaml",
-            params={"schema": schema},
+            params={"file_path": "list.yaml", "schema": schema},
             failure_message="Invalid array",
             expected_behavior="Should match array schema",
         )
@@ -388,8 +381,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema": schema},
+            params={"file_path": "data.yaml", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -428,8 +420,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema": schema},
+            params={"file_path": "data.yaml", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -469,8 +460,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema_file": "schema.json"},
+            params={"file_path": "data.yaml", "schema_file": "schema.json"},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -506,8 +496,7 @@ class TestYamlSchemaValidator:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema_file": "schema.json"},
+            params={"file_path": "data.yaml", "schema_file": "schema.json"},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -547,8 +536,7 @@ required:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema_file": "schema.yaml"},
+            params={"file_path": "data.yaml", "schema_file": "schema.yaml"},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -582,8 +570,7 @@ required:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema": schema},
+            params={"file_path": "data.yaml", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -613,8 +600,7 @@ required:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            file_path="data.yaml",
-            params={"schema": schema},
+            params={"file_path": "data.yaml", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )

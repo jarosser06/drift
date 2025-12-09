@@ -65,8 +65,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check CLAUDE.md line count",
-            file_path="CLAUDE.md",
-            max_count=300,
+            params={"file_path": "CLAUDE.md", "max_count": 300},
             failure_message="CLAUDE.md exceeds 300 lines",
             expected_behavior="CLAUDE.md should be under 300 lines",
         )
@@ -98,8 +97,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check CLAUDE.md line count",
-            file_path="CLAUDE.md",
-            max_count=300,
+            params={"file_path": "CLAUDE.md", "max_count": 300},
             failure_message="CLAUDE.md exceeds 300 lines",
             expected_behavior="CLAUDE.md should be under 300 lines",
         )
@@ -134,8 +132,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check line count",
-            file_path="test.md",
-            max_count=300,
+            params={"file_path": "test.md", "max_count": 300},
             failure_message="File too large",
             expected_behavior="File should be under 300 lines",
         )
@@ -167,8 +164,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check minimum line count",
-            file_path="test.md",
-            min_count=10,
+            params={"file_path": "test.md", "min_count": 10},
             failure_message="File too small",
             expected_behavior="File should have at least 10 lines",
         )
@@ -202,8 +198,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check byte size",
-            file_path="test.txt",
-            max_size=1000,
+            params={"file_path": "test.txt", "max_size": 1000},
             failure_message="File too large",
             expected_behavior="File should be under 1000 bytes",
         )
@@ -237,8 +232,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check byte size",
-            file_path="test.txt",
-            max_size=1000,
+            params={"file_path": "test.txt", "max_size": 1000},
             failure_message="File too large",
             expected_behavior="File should be under 1000 bytes",
         )
@@ -251,8 +245,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check nonexistent file",
-            file_path="nonexistent.md",
-            max_count=100,
+            params={"file_path": "nonexistent.md", "max_count": 100},
             failure_message="File not found",
             expected_behavior="File should exist",
         )
@@ -272,7 +265,7 @@ class TestFileSizeValidator:
             expected_behavior="Should error",
         )
 
-        with pytest.raises(ValueError, match="requires rule.file_path"):
+        with pytest.raises(ValueError, match="requires params"):
             validator.validate(rule, bundle_with_file)
 
     def test_no_constraints(self, validator, bundle_with_file):
@@ -280,7 +273,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="No constraints",
-            file_path="test.md",
+            params={"file_path": "test.md"},
             failure_message="Error",
             expected_behavior="Should pass",
         )
@@ -312,8 +305,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check both constraints",
-            file_path="test.md",
-            max_count=100,
+            params={"file_path": "test.md", "max_count": 100},
             max_size=1000,
             failure_message="File violates constraints",
             expected_behavior="File should meet all constraints",
@@ -349,8 +341,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check empty file",
-            file_path="empty.md",
-            max_count=100,
+            params={"file_path": "empty.md", "max_count": 100},
             max_size=1000,
             failure_message="File too large",
             expected_behavior="File should be small",
@@ -381,8 +372,7 @@ class TestFileSizeValidator:
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check single line",
-            file_path="single.md",
-            max_count=10,
+            params={"file_path": "single.md", "max_count": 10},
             failure_message="File too large",
             expected_behavior="File should be under 10 lines",
         )

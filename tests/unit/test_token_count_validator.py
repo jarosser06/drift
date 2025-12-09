@@ -69,9 +69,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check CLAUDE.md token count",
-            file_path="CLAUDE.md",
-            max_count=1500,
-            params={"provider": "anthropic"},
+            params={"file_path": "CLAUDE.md", "max_count": 1500, "provider": "anthropic"},
             failure_message="CLAUDE.md exceeds 1500 tokens",
             expected_behavior="CLAUDE.md should be under 1500 tokens",
         )
@@ -120,9 +118,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check CLAUDE.md token count",
-            file_path="CLAUDE.md",
-            max_count=1500,
-            params={"provider": "anthropic"},
+            params={"file_path": "CLAUDE.md", "max_count": 1500, "provider": "anthropic"},
             failure_message="CLAUDE.md exceeds 1500 tokens",
             expected_behavior="CLAUDE.md should be under 1500 tokens",
         )
@@ -174,9 +170,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "anthropic"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "anthropic"},
             failure_message="Too many tokens",
             expected_behavior="Should be under limit",
         )
@@ -224,9 +218,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=100,
-            params={"provider": "openai"},
+            params={"file_path": "test.md", "max_count": 100, "provider": "openai"},
             failure_message="Too many tokens",
             expected_behavior="Should be under 100 tokens",
         )
@@ -265,9 +257,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=100,
-            params={"provider": "openai"},
+            params={"file_path": "test.md", "max_count": 100, "provider": "openai"},
             failure_message="Too many tokens",
             expected_behavior="Should be under 100 tokens",
         )
@@ -309,9 +299,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "openai"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "openai"},
             failure_message="Too many tokens",
             expected_behavior="Should be under limit",
         )
@@ -359,9 +347,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=100,
-            params={"provider": "llama"},
+            params={"file_path": "test.md", "max_count": 100, "provider": "llama"},
             failure_message="Too many tokens",
             expected_behavior="Should be under 100 tokens",
         )
@@ -400,9 +386,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "llama"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "llama"},
             failure_message="Too many tokens",
             expected_behavior="Should be under limit",
         )
@@ -422,9 +406,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "unsupported"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "unsupported"},
             failure_message="Too many tokens",
             expected_behavior="Should be under limit",
         )
@@ -456,17 +438,18 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check token count",
-            file_path="test.md",
-            max_count=1000,
+            params={"file_path": "test.md", "max_count": 1000},
             failure_message="Too many tokens",
             expected_behavior="Should be under limit",
         )
 
         # Mock ImportError for anthropic package
+        original_import = __import__
+
         def mock_import(name, *args, **kwargs):
             if name == "anthropic":
                 raise ImportError("No module named 'anthropic'")
-            return __import__(name, *args, **kwargs)
+            return original_import(name, *args, **kwargs)
 
         monkeypatch.setattr("builtins.__import__", mock_import)
 
@@ -479,9 +462,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check nonexistent file",
-            file_path="nonexistent.md",
-            max_count=1000,
-            params={"provider": "anthropic"},
+            params={"file_path": "nonexistent.md", "max_count": 1000, "provider": "anthropic"},
             failure_message="File not found",
             expected_behavior="File should exist",
         )
@@ -502,7 +483,7 @@ class TestTokenCountValidator:
             expected_behavior="Should error",
         )
 
-        with pytest.raises(ValueError, match="requires rule.file_path"):
+        with pytest.raises(ValueError, match="requires params.file_path"):
             validator.validate(rule, bundle_with_file)
 
     def test_file_read_error(self, validator, tmp_path):
@@ -528,9 +509,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Read protected file",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "anthropic"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "anthropic"},
             failure_message="Cannot read",
             expected_behavior="Should be readable",
         )
@@ -566,9 +545,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check minimum tokens",
-            file_path="test.md",
-            min_count=100,
-            params={"provider": "anthropic"},
+            params={"file_path": "test.md", "min_count": 100, "provider": "anthropic"},
             failure_message="Too few tokens",
             expected_behavior="Should have at least 100 tokens",
         )
@@ -605,8 +582,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="No constraints",
-            file_path="test.md",
-            params={"provider": "anthropic"},
+            params={"file_path": "test.md", "provider": "anthropic"},
             failure_message="Error",
             expected_behavior="Should pass",
         )
@@ -645,9 +621,7 @@ class TestTokenCountValidator:
         rule = ValidationRule(
             rule_type="core:token_count",
             description="Check tokens",
-            file_path="test.md",
-            max_count=1000,
-            params={"provider": "anthropic"},
+            params={"file_path": "test.md", "max_count": 1000, "provider": "anthropic"},
             failure_message="Error",
             expected_behavior="Should work",
         )

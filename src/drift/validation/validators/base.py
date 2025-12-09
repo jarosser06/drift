@@ -1,4 +1,49 @@
-"""Base validator class for rule-based document validation."""
+"""Base validator class for rule-based document validation.
+
+VALIDATOR PARAMETER ARCHITECTURE
+================================
+
+Validators use a strict parameter architecture to ensure consistency:
+
+**Core Rule Fields** (defined in ValidationRule model):
+    - type: Validation type (required, e.g., "core:file_exists")
+    - description: Human-readable description (required)
+    - failure_message: Custom failure message (optional)
+    - expected_behavior: Expected behavior description (optional)
+
+**Validator-Specific Parameters** (under params dict):
+    ALL validator-specific parameters MUST go under the `params` dictionary.
+    This includes file paths, patterns, counts, sizes, flags, etc.
+
+    Examples:
+        params:
+            file_path: "CLAUDE.md"
+            pattern: "^```"
+            flags: 8
+            max_count: 300
+            required_fields: ["name", "description"]
+
+**Configuration Example**:
+    # .drift_rules.yaml
+    phases:
+        - name: check_file_exists
+          type: core:file_exists
+          params:
+              file_path: CLAUDE.md
+          failure_message: "CLAUDE.md missing"
+          expected_behavior: "Should have CLAUDE.md"
+
+**Implementation Pattern**:
+    All validators MUST read parameters from rule.params:
+
+        def validate(self, rule, bundle, all_bundles=None):
+            if not rule.params:
+                raise ValueError("Validator requires params")
+
+            param_value = rule.params.get("param_name")
+            if not param_value:
+                raise ValueError("Validator requires params.param_name")
+"""
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Literal, Optional
@@ -8,7 +53,11 @@ from drift.core.types import DocumentBundle, DocumentRule
 
 
 class BaseValidator(ABC):
-    """Abstract base class for all validators."""
+    """Abstract base class for all validators.
+
+    Validators implement specific validation logic and should follow the
+    parameter architecture documented in this module's docstring.
+    """
 
     def __init__(self, loader: Any = None):
         """Initialize validator.

@@ -1,5 +1,6 @@
 """Core validators for generic validation tasks."""
 
+from drift.validation.validators.core.block_validators import BlockLineCountValidator
 from drift.validation.validators.core.circular_dependencies_validator import (
     CircularDependenciesValidator,
 )
@@ -25,6 +26,7 @@ from drift.validation.validators.core.max_dependency_depth_validator import (
 from drift.validation.validators.core.regex_validators import RegexMatchValidator
 
 __all__ = [
+    "BlockLineCountValidator",
     "CircularDependenciesValidator",
     "DependencyDuplicateValidator",
     "FileExistsValidator",

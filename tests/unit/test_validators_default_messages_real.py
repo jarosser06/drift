@@ -41,7 +41,7 @@ class TestFileExistsValidatorDefaults:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check file exists",
-            file_path="missing.txt",
+            params={"file_path": "missing.txt"},
             # No failure_message or expected_behavior - should use defaults
         )
 
@@ -65,7 +65,7 @@ class TestFileExistsValidatorDefaults:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check file exists",
-            file_path="missing.txt",
+            params={"file_path": "missing.txt"},
             failure_message="CUSTOM: File {file_path} is missing!",
             expected_behavior="CUSTOM: File must be present",
         )
@@ -125,7 +125,7 @@ class TestRegexMatchValidatorDefaults:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check pattern",
-            pattern=r"MISSING_PATTERN",
+            params={"pattern": r"MISSING_PATTERN"},
             # No custom messages
         )
 
@@ -229,13 +229,13 @@ class TestJsonSchemaValidatorDefaults:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate JSON schema",
-            file_path="test.json",  # JsonSchemaValidator requires this
             params={
+                "file_path": "test.json",
                 "schema": {
                     "type": "object",
                     "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
                     "required": ["name", "age"],  # Missing 'age'
-                }
+                },
             },
             # No custom messages
         )
@@ -275,13 +275,13 @@ class TestYamlSchemaValidatorDefaults:
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Validate YAML schema",
-            file_path="test.yaml",  # YamlSchemaValidator requires this
             params={
+                "file_path": "test.yaml",
                 "schema": {
                     "type": "object",
                     "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
                     "required": ["name", "age"],  # Missing 'age'
-                }
+                },
             },
             # No custom messages
         )

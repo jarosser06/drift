@@ -21,6 +21,7 @@ from drift.validation.validators.client import (
     ClaudeSkillSettingsValidator,
 )
 from drift.validation.validators.core import (
+    BlockLineCountValidator,
     CircularDependenciesValidator,
     DependencyDuplicateValidator,
     FileExistsValidator,
@@ -109,6 +110,8 @@ class ValidatorRegistry:
             ListMatchValidator(self.loader),
             ListRegexMatchValidator(self.loader),
             MarkdownLinkValidator(self.loader),
+            # Block validators
+            BlockLineCountValidator(self.loader),
             # Dependency validators
             DependencyDuplicateValidator(self.loader),
             CircularDependenciesValidator(self.loader),

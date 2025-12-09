@@ -51,7 +51,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check skill filename consistency",
-            file_path=".claude/skills/*/SKILL.md",
+            params={"file_path": ".claude/skills/*/SKILL.md"},
             failure_message="Skill files should be named SKILL.md (uppercase), not skill.md",
             expected_behavior="All skill files should use SKILL.md naming convention",
         )
@@ -83,7 +83,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check skill filename consistency",
-            file_path=".claude/skills/*/SKILL.md",
+            params={"file_path": ".claude/skills/*/SKILL.md"},
             failure_message="Skill files should be named SKILL.md (uppercase), not skill.md",
             expected_behavior="All skill files should use SKILL.md naming convention",
         )
@@ -118,7 +118,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check skill filename consistency",
-            file_path=".claude/skills/*/SKILL.md",
+            params={"file_path": ".claude/skills/*/SKILL.md"},
             failure_message="Skill files should be named SKILL.md (uppercase), not skill.md",
             expected_behavior="All skill files should use SKILL.md naming convention",
         )
@@ -151,7 +151,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check skill filename consistency",
-            file_path=".claude/skills/*/SKILL.md",
+            params={"file_path": ".claude/skills/*/SKILL.md"},
             failure_message="Skill files should be named SKILL.md",
             expected_behavior="All skill files should use SKILL.md naming convention",
         )
@@ -187,7 +187,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check skill filename consistency",
-            file_path=".claude/skills/*/SKILL.md",
+            params={"file_path": ".claude/skills/*/SKILL.md"},
             failure_message="Skill files should be named SKILL.md (uppercase), not skill.md",
             expected_behavior="All skill files should use SKILL.md naming convention",
         )
@@ -213,7 +213,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check files with single char wildcard",
-            file_path="test?.md",
+            params={"file_path": "test?.md"},
             failure_message="No test files found",
             expected_behavior="Test files should exist",
         )
@@ -240,7 +240,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check for markdown files",
-            file_path="docs/*.md",
+            params={"file_path": "docs/*.md"},
             failure_message="No markdown files found in docs/",
             expected_behavior="Markdown files should exist in docs/",
         )
@@ -261,7 +261,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check nested pattern",
-            file_path="a/b/c/*.md",
+            params={"file_path": "a/b/c/*.md"},
             failure_message="No nested files found",
             expected_behavior="Nested files should exist",
         )
@@ -283,7 +283,7 @@ class TestFileExistsValidatorGlobPatterns:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check multiple wildcards",
-            file_path=".claude/*/*.md",
+            params={"file_path": ".claude/*/*.md"},
             failure_message="No claude config files found",
             expected_behavior="Claude config files should exist",
         )
@@ -332,7 +332,7 @@ class TestFileExistsValidatorEdgeCases:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check for skill dirs",
-            file_path=".claude/skills/*",
+            params={"file_path": ".claude/skills/*"},
             failure_message="No skills found",
             expected_behavior="Skills should exist",
         )
@@ -362,7 +362,7 @@ class TestFileExistsValidatorEdgeCases:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check symlink file",
-            file_path="link.md",
+            params={"file_path": "link.md"},
             failure_message="Symlink not found",
             expected_behavior="Symlink should exist",
         )
@@ -383,7 +383,7 @@ class TestFileExistsValidatorEdgeCases:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check README",
-            file_path="README.md",
+            params={"file_path": "README.md"},
             failure_message="README not found",
             expected_behavior="README should exist",
         )
