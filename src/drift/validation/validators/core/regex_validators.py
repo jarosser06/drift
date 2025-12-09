@@ -39,32 +39,45 @@ class RegexMatchValidator(BaseValidator):
     ) -> Optional[DocumentRule]:
         """Check if file content matches the specified regex pattern.
 
-        -- rule: ValidationRule with optional file_path and required pattern
+        Expected params:
+            - pattern: Regex pattern to match (required)
+            - flags: Regex flags (optional, default: 0)
+            - file_path: Specific file to validate (optional)
+
+        -- rule: ValidationRule with params containing pattern and optional flags/file_path
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if pattern doesn't match, None if it does.
 
-        If file_path is provided, validates that specific file.
-        If file_path is not provided, validates all files in the bundle.
+        If params.file_path is provided, validates that specific file.
+        If params.file_path is not provided, validates all files in the bundle.
         """
-        if not rule.pattern:
-            raise ValueError("RegexMatchValidator requires rule.pattern")
+        if not rule.params:
+            raise ValueError("RegexMatchValidator requires params")
+
+        pattern_str = rule.params.get("pattern")
+        if not pattern_str:
+            raise ValueError("RegexMatchValidator requires params.pattern")
+
+        flags = rule.params.get("flags", 0)
 
         # Compile pattern once
         try:
-            flags = rule.flags or 0
-            pattern = re.compile(rule.pattern, flags)
+            pattern = re.compile(pattern_str, flags)
         except re.error as e:
             raise ValueError(f"Invalid regex pattern: {e}")
 
+        file_path = rule.params.get("file_path")
+
         # If file_path is specified, validate that specific file
-        if rule.file_path:
+        if file_path:
             return self._validate_file(
                 rule=rule,
                 bundle=bundle,
-                file_path=rule.file_path,
+                file_path=file_path,
                 pattern=pattern,
+                pattern_str=pattern_str,
             )
 
         # Otherwise, validate all files in bundle
@@ -76,6 +89,7 @@ class RegexMatchValidator(BaseValidator):
                 file_path=doc_file.relative_path,
                 content=doc_file.content,
                 pattern=pattern,
+                pattern_str=pattern_str,
             )
             if result:
                 failed_files.append(doc_file.relative_path)
@@ -85,7 +99,7 @@ class RegexMatchValidator(BaseValidator):
                 rule=rule,
                 bundle=bundle,
                 file_paths=failed_files,
-                context=f"Pattern '{rule.pattern}' not found in {len(failed_files)} file(s)",
+                context=f"Pattern '{pattern_str}' not found in {len(failed_files)} file(s)",
             )
 
         return None
@@ -96,6 +110,7 @@ class RegexMatchValidator(BaseValidator):
         bundle: DocumentBundle,
         file_path: str,
         pattern: re.Pattern,
+        pattern_str: str,
     ) -> Optional[DocumentRule]:
         """Validate a specific file by path.
 
@@ -103,6 +118,7 @@ class RegexMatchValidator(BaseValidator):
         -- bundle: Document bundle
         -- file_path: Relative path to file
         -- pattern: Compiled regex pattern
+        -- pattern_str: Original pattern string for error messages
 
         Returns DocumentRule if validation fails, None if passes.
         """
@@ -129,7 +145,7 @@ class RegexMatchValidator(BaseValidator):
                 context=f"Failed to read file: {e}",
             )
 
-        return self._validate_content(rule, bundle, file_path, content, pattern)
+        return self._validate_content(rule, bundle, file_path, content, pattern, pattern_str)
 
     def _validate_content(
         self,
@@ -138,6 +154,7 @@ class RegexMatchValidator(BaseValidator):
         file_path: str,
         content: str,
         pattern: re.Pattern,
+        pattern_str: str,
     ) -> Optional[DocumentRule]:
         """Validate content against pattern.
 
@@ -146,6 +163,7 @@ class RegexMatchValidator(BaseValidator):
         -- file_path: Relative path for error reporting
         -- content: File content to validate
         -- pattern: Compiled regex pattern
+        -- pattern_str: Original pattern string for error messages
 
         Returns DocumentRule if validation fails, None if passes.
         """
@@ -158,7 +176,7 @@ class RegexMatchValidator(BaseValidator):
                 rule=rule,
                 bundle=bundle,
                 file_paths=[file_path],
-                context=f"Pattern '{rule.pattern}' not found in file",
+                context=f"Pattern '{pattern_str}' not found in file",
             )
 
     def _create_failure_learning(

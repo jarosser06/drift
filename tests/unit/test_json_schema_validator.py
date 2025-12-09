@@ -68,8 +68,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate data.json",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -99,8 +98,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate data.json",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -131,8 +129,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate data.json",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -169,8 +166,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate data.json",
-            file_path="data.json",
-            params={"schema_file": "schema.json"},
+            params={"file_path": "data.json", "schema_file": "schema.json"},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -183,8 +179,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate config.json",
-            file_path="config.json",
-            params={"schema_file": "nonexistent_schema.json"},
+            params={"file_path": "config.json", "schema_file": "nonexistent_schema.json"},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -212,8 +207,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate data.json",
-            file_path="data.json",
-            params={"schema_file": "bad_schema.json"},
+            params={"file_path": "data.json", "schema_file": "bad_schema.json"},
             failure_message="Invalid JSON structure",
             expected_behavior="Should match schema",
         )
@@ -234,29 +228,29 @@ class TestJsonSchemaValidator:
             expected_behavior="Should error",
         )
 
-        with pytest.raises(ValueError, match="requires rule.file_path"):
+        with pytest.raises(ValueError, match="requires params.file_path"):
             validator.validate(rule, bundle_with_json)
 
     def test_missing_params(self, validator, bundle_with_json):
-        """Test that validator raises error when params is missing."""
+        """Test that validation fails when schema/schema_file is missing."""
         rule = ValidationRule(
             rule_type="core:json_schema",
-            description="No params",
-            file_path="config.json",
+            description="No schema",
+            params={"file_path": "config.json"},
             failure_message="Error",
             expected_behavior="Should error",
         )
 
-        with pytest.raises(ValueError, match="requires params"):
-            validator.validate(rule, bundle_with_json)
+        result = validator.validate(rule, bundle_with_json)
+        assert result is not None
+        assert "requires 'schema' or 'schema_file'" in result.observed_issue
 
     def test_missing_schema_and_schema_file(self, validator, bundle_with_json):
         """Test that validation fails when neither schema nor schema_file provided."""
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="No schema",
-            file_path="config.json",
-            params={"other_param": "value"},
+            params={"file_path": "config.json", "other_param": "value"},
             failure_message="Error",
             expected_behavior="Should error",
         )
@@ -270,8 +264,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Check nonexistent file",
-            file_path="nonexistent.json",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "nonexistent.json", "schema": {"type": "object"}},
             failure_message="File not found",
             expected_behavior="File should exist",
         )
@@ -296,8 +289,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate bad JSON",
-            file_path="bad.json",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "bad.json", "schema": {"type": "object"}},
             failure_message="Invalid JSON",
             expected_behavior="Should be valid JSON",
         )
@@ -322,8 +314,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate JSON",
-            file_path="data.json",
-            params={"schema": {"type": "object"}},
+            params={"file_path": "data.json", "schema": {"type": "object"}},
             failure_message="Error",
             expected_behavior="Should validate",
         )
@@ -377,8 +368,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate nested structure",
-            file_path="nested.json",
-            params={"schema": schema},
+            params={"file_path": "nested.json", "schema": schema},
             failure_message="Invalid structure",
             expected_behavior="Should match nested schema",
         )
@@ -417,8 +407,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate array",
-            file_path="array.json",
-            params={"schema": schema},
+            params={"file_path": "array.json", "schema": schema},
             failure_message="Invalid array structure",
             expected_behavior="Should match array schema",
         )
@@ -447,8 +436,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate enum",
-            file_path="enum.json",
-            params={"schema": schema},
+            params={"file_path": "enum.json", "schema": schema},
             failure_message="Invalid status",
             expected_behavior="Status should be valid enum value",
         )
@@ -477,8 +465,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate enum",
-            file_path="enum.json",
-            params={"schema": schema},
+            params={"file_path": "enum.json", "schema": schema},
             failure_message="Invalid status",
             expected_behavior="Status should be valid enum value",
         )
@@ -508,8 +495,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate empty object",
-            file_path="empty.json",
-            params={"schema": schema},
+            params={"file_path": "empty.json", "schema": schema},
             failure_message="Invalid JSON",
             expected_behavior="Should be valid empty object",
         )
@@ -538,8 +524,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate with extra properties",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Invalid JSON",
             expected_behavior="Should allow additional properties",
         )
@@ -569,8 +554,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Validate strict schema",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Invalid JSON",
             expected_behavior="Should not allow additional properties",
         )
@@ -608,8 +592,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Test rule",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -640,8 +623,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Test rule",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -680,8 +662,7 @@ class TestJsonSchemaValidator:
         _ = ValidationRule(
             rule_type="core:json_schema",
             description="Test rule",
-            file_path="data.json",
-            params={"schema_file": "schema.json"},
+            params={"file_path": "data.json", "schema_file": "schema.json"},
             failure_message="Failure",
             expected_behavior="Expected",
         )
@@ -708,8 +689,7 @@ class TestJsonSchemaValidator:
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="Test rule",
-            file_path="data.json",
-            params={"schema": schema},
+            params={"file_path": "data.json", "schema": schema},
             failure_message="Failure",
             expected_behavior="Expected",
         )

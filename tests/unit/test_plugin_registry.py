@@ -453,7 +453,7 @@ class TestBuiltinValidatorMigration:
     """Tests that all built-in validators use core: prefix."""
 
     def test_all_builtin_validators_registered(self):
-        """Test that all 19 core validators are registered with core: prefix."""
+        """Test that all 20 core validators are registered with core: prefix."""
         registry = ValidatorRegistry()
 
         expected_core_validators = [
@@ -467,6 +467,7 @@ class TestBuiltinValidatorMigration:
             "core:list_match",
             "core:list_regex_match",
             "core:markdown_link",
+            "core:block_line_count",
             "core:dependency_duplicate",
             "core:circular_dependencies",
             "core:max_dependency_depth",

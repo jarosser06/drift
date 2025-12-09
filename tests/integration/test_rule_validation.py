@@ -78,7 +78,7 @@ class TestRuleBasedValidation:
                 PhaseDefinition(
                     name="check_file",
                     type="core:file_exists",
-                    file_path="CLAUDE.md",
+                    params={"file_path": "CLAUDE.md"},
                     failure_message="CLAUDE.md not found",
                     expected_behavior="CLAUDE.md should exist",
                 )
@@ -113,7 +113,7 @@ class TestRuleBasedValidation:
                 PhaseDefinition(
                     name="check_file",
                     type="core:file_exists",
-                    file_path="MISSING.md",
+                    params={"file_path": "MISSING.md"},
                     failure_message="MISSING.md not found",
                     expected_behavior="MISSING.md should exist",
                 )
@@ -156,7 +156,7 @@ class TestRuleBasedValidation:
                     ValidationRule(
                         rule_type="core:file_not_exists",
                         description="CLAUDE.md must not exist",
-                        file_path="CLAUDE.md",
+                        params={"file_path": "CLAUDE.md"},
                         failure_message="CLAUDE.md exists but should not",
                         expected_behavior="CLAUDE.md should be absent",
                     )
@@ -198,7 +198,7 @@ class TestRuleBasedValidation:
                     ValidationRule(
                         rule_type="core:file_exists",
                         description="At least one skill must exist",
-                        file_path=".claude/skills/*/SKILL.md",
+                        params={"file_path": ".claude/skills/*/SKILL.md"},
                         failure_message="No skill files found",
                         expected_behavior="At least one SKILL.md should exist",
                     )
@@ -236,21 +236,21 @@ class TestRuleBasedValidation:
                     ValidationRule(
                         rule_type="core:file_exists",
                         description="README must exist",
-                        file_path="README.md",
+                        params={"file_path": "README.md"},
                         failure_message="README.md not found",
                         expected_behavior="README.md should exist",
                     ),
                     ValidationRule(
                         rule_type="core:file_exists",
                         description="CLAUDE must exist",
-                        file_path="CLAUDE.md",
+                        params={"file_path": "CLAUDE.md"},
                         failure_message="CLAUDE.md not found",
                         expected_behavior="CLAUDE.md should exist",
                     ),
                     ValidationRule(
                         rule_type="core:file_exists",
                         description="MISSING check (will fail)",
-                        file_path="MISSING.md",
+                        params={"file_path": "MISSING.md"},
                         failure_message="MISSING.md not found",
                         expected_behavior="MISSING.md should exist",
                     ),

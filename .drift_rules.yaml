@@ -1,6 +1,5 @@
 # Drift Rules File - Consolidated by Resource Type
 # Validation rules for the Drift project
-# This file is automatically loaded by drift when .drift_rules.yaml exists in the project root
 #
 # ORGANIZATION: Rules are organized by resource type (skills, agents, commands, etc.)
 # Each rule contains multiple phases that validate different aspects of that resource type.
@@ -29,16 +28,18 @@ skill_validation:
     # Phase 1: File existence and naming
     - name: check_file_exists
       type: core:file_exists
-      file_path: .claude/skills/*/SKILL.md
+      params:
+        file_path: .claude/skills/*/SKILL.md
       failure_message: "Found skill directory with skill.md (lowercase) instead of SKILL.md (uppercase)"
       expected_behavior: "All skill directories should contain SKILL.md (uppercase) as the main skill file"
 
     # Phase 2: Frontmatter validation
     - name: check_frontmatter_required_fields
       type: core:yaml_frontmatter
-      required_fields:
-        - name
-        - description
+      params:
+        required_fields:
+          - name
+          - description
       failure_message: "Skill frontmatter must include 'name' and 'description' fields"
       expected_behavior: "All skills must have valid YAML frontmatter with 'name' and 'description' fields"
 
@@ -253,10 +254,8 @@ agent_validation:
                 type: string
               description: "Optional list of skill names"
             tools:
-              type: array
-              items:
-                type: string
-              description: "Optional list of tool names"
+              type: string
+              description: "Optional comma-separated list of tool names"
           required:
             - name
             - description
@@ -464,8 +463,12 @@ command_validation:
                 type: string
               description: "Optional list of skill names to activate"
             argument-hint:
-              type: string
-              description: "Optional hint for command arguments during tab-completion"
+              oneOf:
+                - type: string
+                - type: array
+                  items:
+                    type: string
+              description: "Optional hint(s) for command arguments during tab-completion"
           required:
             - description
       failure_message: "Command file has invalid or missing YAML frontmatter"
@@ -700,19 +703,34 @@ claude_md_validation:
     # Phase 1: File existence
     - name: check_file_exists
       type: core:file_exists
-      file_path: CLAUDE.md
+      params:
+        file_path: CLAUDE.md
       failure_message: "CLAUDE.md file is missing from project root"
       expected_behavior: "Project should have CLAUDE.md file documenting structure and conventions"
 
     # Phase 2: Line count check
     - name: check_line_count
       type: core:file_size
-      file_path: CLAUDE.md
-      max_count: 300
+      params:
+        file_path: CLAUDE.md
+        max_count: 300
       failure_message: "CLAUDE.md exceeds 300 lines (best practice for concise context)"
       expected_behavior: "CLAUDE.md should be concise and under 300 lines"
 
-    # Phase 3: Content quality
+    # Phase 3: Check code blocks aren't too long
+    - name: check_code_blocks_concise
+      type: core:block_line_count
+      description: "Ensure code examples in CLAUDE.md are concise"
+      params:
+        pattern_start: "^```"
+        pattern_end: "^```"
+        max_lines: 20
+        files:
+          - "CLAUDE.md"
+      failure_message: "Code block at CLAUDE.md:{line_start}-{line_end} has {actual_count} lines (expected at most {threshold})"
+      expected_behavior: "Code examples in CLAUDE.md should be brief (max 20 lines) to keep context concise"
+
+    # Phase 4: Content quality
     - name: check_content_quality
       type: prompt
       model: haiku
@@ -768,7 +786,7 @@ claude_md_validation:
         ONLY REPORT issues that significantly impact quality or violate best practices.
       available_resources: []
 
-    # Phase 4: Import syntax check
+    # Phase 5: Import syntax check
     - name: check_import_syntax
       type: prompt
       model: haiku
@@ -794,7 +812,7 @@ claude_md_validation:
         Focus: Are imports used correctly if present?
       available_resources: []
 
-    # Phase 5: Component documentation check
+    # Phase 6: Component documentation check
     - name: check_component_documentation
       type: prompt
       model: haiku

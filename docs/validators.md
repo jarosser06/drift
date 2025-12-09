@@ -84,6 +84,7 @@ All validators provide contextual default messages. Here are some examples:
 - `core:file_exists` → "File {file_path} does not exist"
 - `core:file_size` → "File size constraint violated"
 - `core:token_count` → "File token count constraint violated"
+- `core:block_line_count` → "Block line count validation failed"
 
 **Dependency Validators:**
 - `core:circular_dependencies` → "Circular dependency detected: {circular_path}"
@@ -521,6 +522,130 @@ When file is below minimum byte size:
 ```
 File is 512 bytes (below min 1024)
 ```
+
+---
+
+### block_line_count
+
+Validate line counts within paired delimiters (code blocks, YAML sections, etc.).
+
+**Computation Type:** Programmatic (no LLM required)
+
+**Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `pattern_start` | string | Yes | - | Regex pattern for opening delimiter |
+| `pattern_end` | string | Yes | - | Regex pattern for closing delimiter |
+| `min_lines` | integer | No | - | Minimum lines required (inclusive) |
+| `max_lines` | integer | No | - | Maximum lines allowed (inclusive) |
+| `exact_lines` | integer | No | - | Exact line count required |
+| `files` | list[string] | No | `[]` | File patterns to validate (glob patterns) |
+
+**Note:** At least one threshold (`min_lines`, `max_lines`, or `exact_lines`) must be specified. Line counts exclude the delimiter lines themselves.
+
+**Example (minimum lines):**
+
+```yaml
+phases:
+  - name: check_code_examples
+    type: block_line_count
+    params:
+      pattern_start: "^```"
+      pattern_end: "^```"
+      min_lines: 3
+      files: ["README.md", "docs/**/*.md"]
+    failure_message: "Code blocks should be substantial"
+    expected_behavior: "Code examples should have at least 3 lines"
+```
+
+**Example (maximum lines):**
+
+```yaml
+phases:
+  - name: check_yaml_sections
+    type: block_line_count
+    params:
+      pattern_start: "^---$"
+      pattern_end: "^---$"
+      max_lines: 20
+      files: [".claude/agents/*.md"]
+    failure_message: "YAML frontmatter exceeds maximum size"
+    expected_behavior: "Frontmatter should be concise (under 20 lines)"
+```
+
+**Example (exact lines):**
+
+```yaml
+phases:
+  - name: check_header_blocks
+    type: block_line_count
+    params:
+      pattern_start: "^<!--\\s*HEADER\\s*START\\s*-->"
+      pattern_end: "^<!--\\s*HEADER\\s*END\\s*-->"
+      exact_lines: 5
+      files: ["docs/**/*.html"]
+    failure_message: "Header blocks must be exactly 5 lines"
+    expected_behavior: "Standard header format requires 5 lines"
+```
+
+**Failure Messages:**
+
+- Missing parameters: `BlockLineCountValidator requires params.pattern_start` (or `params.pattern_end`)
+- No threshold: `BlockLineCountValidator requires at least one of: params.min_lines, params.max_lines, or params.exact_lines`
+- Invalid pattern: `Invalid regex pattern: {error}`
+- Unpaired delimiters: `Unpaired delimiters in {file_path}: opening and closing delimiter counts don't match`
+- File read error: `Failed to read file {file_path}: {error}`
+- Threshold violation: `Block line count validation failed` (with detailed per-block violations)
+
+**Failure Details:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_blocks` | integer | Total number of blocks found |
+| `violations` | list[object] | Detailed info for each violation |
+| `threshold` | string | Threshold description |
+
+Each violation object contains:
+- `file`: File path
+- `start_line`: Block start line number (1-indexed)
+- `end_line`: Block end line number (1-indexed)
+- `line_count`: Actual line count
+- `violation`: Violation description
+
+**Example Output:**
+
+When code blocks are too short:
+```
+Code blocks should be substantial
+   Found 5 total blocks, 2 in violation
+   Threshold: min 3
+
+   README.md:10-12: 1 lines (expected at least 3)
+   README.md:45-47: 2 lines (expected at least 3)
+```
+
+When blocks exceed maximum:
+```
+YAML frontmatter exceeds maximum size
+   Found 3 total blocks, 1 in violation
+   Threshold: max 20
+
+   .claude/agents/developer.md:1-25: 23 lines (expected at most 20)
+```
+
+When unpaired delimiters are found:
+```
+Unpaired delimiters in README.md: opening and closing delimiter counts don't match
+```
+
+**Edge Cases:**
+
+- **Empty blocks** (0 lines between delimiters): Counted as 0 lines
+- **Same delimiter pattern**: For patterns like `^````, delimiters are paired sequentially (1st-2nd, 3rd-4th, etc.)
+- **Different delimiter patterns**: Each start delimiter is paired with the next end delimiter
+- **No matching files**: Validation passes if no files match the `files` patterns
+- **Missing files parameter**: Validates all files in the bundle if `files` is not specified
 
 ---
 

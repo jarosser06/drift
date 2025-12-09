@@ -47,8 +47,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check for Prerequisites section",
-            file_path="test.md",
-            pattern=r"## Prerequisites",
+            params={"file_path": "test.md", "pattern": r"## Prerequisites"},
             failure_message="Missing Prerequisites section",
             expected_behavior="Should have Prerequisites section",
         )
@@ -61,8 +60,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check for Installation section",
-            file_path="test.md",
-            pattern=r"## Installation",
+            params={"file_path": "test.md", "pattern": r"## Installation"},
             failure_message="Missing Installation section",
             expected_behavior="Should have Installation section",
         )
@@ -94,9 +92,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Match line start",
-            file_path="test.txt",
-            pattern=r"^Second",
-            flags=re.MULTILINE,
+            params={"file_path": "test.txt", "pattern": r"^Second", "flags": re.MULTILINE},
             failure_message="Pattern not found",
             expected_behavior="Should match",
         )
@@ -109,8 +105,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check nonexistent file",
-            file_path="nonexistent.md",
-            pattern=r"test",
+            params={"file_path": "nonexistent.md", "pattern": r"test"},
             failure_message="File not found",
             expected_behavior="File should exist",
         )
@@ -125,7 +120,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check all files in bundle",
-            pattern=r"## Prerequisites",
+            params={"pattern": r"## Prerequisites"},
             failure_message="Missing Prerequisites section",
             expected_behavior="Should have Prerequisites section",
         )
@@ -147,7 +142,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check empty bundle",
-            pattern=r"test",
+            params={"pattern": r"test"},
             failure_message="Pattern not found",
             expected_behavior="Should match",
         )
@@ -185,7 +180,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Check for Prerequisites in all files",
-            pattern=r"## Prerequisites",
+            params={"pattern": r"## Prerequisites"},
             failure_message="Missing Prerequisites section",
             expected_behavior="All files should have Prerequisites section",
         )
@@ -201,28 +196,26 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="No pattern",
-            file_path="test.md",
+            params={"file_path": "test.md"},
             failure_message="Error",
             expected_behavior="Should error",
         )
 
-        with pytest.raises(ValueError, match="requires rule.pattern"):
+        with pytest.raises(ValueError, match="requires params.pattern"):
             validator.validate(rule, bundle_with_file)
 
     def test_regex_match_invalid_pattern(self, validator, bundle_with_file):
-        """Test that ValidationRule catches invalid regex pattern."""
-        # The ValidationRule model should catch this during creation
-        from pydantic import ValidationError
+        """Test that validator catches invalid regex pattern."""
+        rule = ValidationRule(
+            rule_type="core:regex_match",
+            description="Invalid regex",
+            params={"file_path": "test.md", "pattern": r"[invalid(regex"},  # Unclosed bracket
+            failure_message="Invalid pattern",
+            expected_behavior="Should have valid pattern",
+        )
 
-        with pytest.raises(ValidationError, match="Invalid regex pattern"):
-            ValidationRule(
-                rule_type="core:regex_match",
-                description="Invalid regex",
-                file_path="test.md",
-                pattern=r"[invalid(regex",  # Unclosed bracket
-                failure_message="Invalid pattern",
-                expected_behavior="Should have valid pattern",
-            )
+        with pytest.raises(ValueError, match="Invalid regex pattern"):
+            validator.validate(rule, bundle_with_file)
 
     def test_regex_match_read_error(self, validator, tmp_path):
         """Test validation when file cannot be read."""
@@ -248,8 +241,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Read protected file",
-            file_path="test.md",
-            pattern=r"test",
+            params={"file_path": "test.md", "pattern": r"test"},
             failure_message="Cannot read",
             expected_behavior="Should be readable",
         )
@@ -290,8 +282,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Case-sensitive match",
-            file_path="test.md",
-            pattern=r"hello",
+            params={"file_path": "test.md", "pattern": r"hello"},
             failure_message="Pattern not found",
             expected_behavior="Should match",
         )
@@ -322,9 +313,7 @@ class TestRegexMatchValidator:
         rule = ValidationRule(
             rule_type="core:regex_match",
             description="Case-insensitive match",
-            file_path="test.md",
-            pattern=r"hello",
-            flags=re.IGNORECASE,
+            params={"file_path": "test.md", "pattern": r"hello", "flags": re.IGNORECASE},
             failure_message="Pattern not found",
             expected_behavior="Should match",
         )

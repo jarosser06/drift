@@ -4,6 +4,7 @@ argument-hint: "[files...]"
 skills:
   - python-basics
   - code-review
+  - test-strategy
 ---
 
 Perform a thorough code review of current changes or specified files.

@@ -88,11 +88,3 @@ Drift supports multiple LLM providers:
 - **Claude Code**: Use existing Claude Code CLI (no API key needed)
 
 Configuration in `.drift.yaml` (see README.md for details).
-
-## Validation Rules
-
-Two categories of validation:
-1. **Project Validation** (Programmatic): Primary use case - fast checks for documentation, dependencies, links, configuration. Define your standards in `.drift.yaml` and validate against them. Zero API calls needed.
-2. **Conversation Analysis** (LLM-based): Optional - analyzes AI agent conversations for quality issues. Requires LLM provider configuration.
-
-See `.drift.yaml` for full rule definitions and README.md for descriptions.

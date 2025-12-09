@@ -158,7 +158,7 @@ class TestFileExistsValidatorDefaultMessages:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check file",
-            file_path="missing.txt",
+            params={"file_path": "missing.txt"},
             failure_message=None,  # No custom message
             expected_behavior=None,  # No custom behavior
         )
@@ -178,7 +178,7 @@ class TestFileExistsValidatorDefaultMessages:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Check file",
-            file_path="missing.txt",
+            params={"file_path": "missing.txt"},
             failure_message="Custom: File {file_path} is missing!",
             expected_behavior="Custom: File should exist",
         )
@@ -233,7 +233,7 @@ class TestValidationRuleOptionalMessages:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Test rule",
-            file_path="test.txt",
+            params={"file_path": "test.txt"},
             failure_message="Custom failure",
         )
 
@@ -245,7 +245,7 @@ class TestValidationRuleOptionalMessages:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Test rule",
-            file_path="test.txt",
+            params={"file_path": "test.txt"},
             expected_behavior="Custom expected",
         )
 
@@ -257,7 +257,7 @@ class TestValidationRuleOptionalMessages:
         rule = ValidationRule(
             rule_type="core:file_exists",
             description="Test rule",
-            file_path="test.txt",
+            params={"file_path": "test.txt"},
             failure_message="Custom failure",
             expected_behavior="Custom expected",
         )

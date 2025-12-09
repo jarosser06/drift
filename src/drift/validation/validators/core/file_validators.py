@@ -38,27 +38,34 @@ class FileExistsValidator(BaseValidator):
     ) -> Optional[DocumentRule]:
         """Check if specified file(s) exist.
 
-        -- rule: ValidationRule with file_path (supports glob patterns)
+        Expected params:
+            - file_path: File path or glob pattern (required)
+
+        -- rule: ValidationRule with params.file_path (supports glob patterns)
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if file doesn't exist, None if it does.
         """
-        if not rule.file_path:
-            raise ValueError("FileExistsValidator requires rule.file_path")
+        if not rule.params:
+            raise ValueError("FileExistsValidator requires params")
+
+        file_path = rule.params.get("file_path")
+        if not file_path:
+            raise ValueError("FileExistsValidator requires params.file_path")
 
         project_path = bundle.project_path
 
         # Check if file_path contains glob patterns
-        if "*" in rule.file_path or "?" in rule.file_path:
+        if "*" in file_path or "?" in file_path:
             # Glob pattern - check if any files match
-            matches = list(project_path.glob(rule.file_path))
+            matches = list(project_path.glob(file_path))
             matching_files = [m for m in matches if m.is_file()]
 
             # Check if parent directory structure exists for the glob pattern
             # E.g., for .claude/skills/*/SKILL.md, check if .claude/skills/ exists
             # Extract the parent path before the first wildcard
-            parts = rule.file_path.split("/")
+            parts = file_path.split("/")
             parent_parts = []
             for part in parts:
                 if "*" in part or "?" in part:
@@ -102,13 +109,13 @@ class FileExistsValidator(BaseValidator):
                 return self._create_failure_learning(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
+                    file_paths=[file_path],
                 )
         else:
             # Specific file path
-            file_path = project_path / rule.file_path
+            file_path_obj = project_path / file_path
 
-            if file_path.exists() and file_path.is_file():
+            if file_path_obj.exists() and file_path_obj.is_file():
                 # File exists - validation passes
                 return None
             else:
@@ -116,7 +123,7 @@ class FileExistsValidator(BaseValidator):
                 return self._create_failure_learning(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
+                    file_paths=[file_path],
                 )
 
     def _create_failure_learning(
@@ -179,71 +186,81 @@ class FileSizeValidator(BaseValidator):
     ) -> Optional[DocumentRule]:
         """Check if file meets size constraints.
 
-        Supports both line count and byte size validation:
-        - max_count: Maximum number of lines
-        - min_count: Minimum number of lines
-        - max_size: Maximum file size in bytes
-        - min_size: Minimum file size in bytes
+        Expected params:
+            - file_path: File path to validate (required)
+            - max_count: Maximum number of lines (optional)
+            - min_count: Minimum number of lines (optional)
+            - max_size: Maximum file size in bytes (optional)
+            - min_size: Minimum file size in bytes (optional)
 
-        -- rule: ValidationRule with file_path and size constraints
+        -- rule: ValidationRule with params containing file_path and size constraints
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if constraints violated, None if satisfied.
         """
-        if not rule.file_path:
-            raise ValueError("FileSizeValidator requires rule.file_path")
+        if not rule.params:
+            raise ValueError("FileSizeValidator requires params")
+
+        file_path_str = rule.params.get("file_path")
+        if not file_path_str:
+            raise ValueError("FileSizeValidator requires params.file_path")
+
+        max_count = rule.params.get("max_count")
+        min_count = rule.params.get("min_count")
+        max_size = rule.params.get("max_size")
+        min_size = rule.params.get("min_size")
 
         project_path = bundle.project_path
-        file_path = project_path / rule.file_path
+        file_path = project_path / file_path_str
 
         if not file_path.exists() or not file_path.is_file():
             return self._create_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
-                observed_issue=f"File {rule.file_path} does not exist",
+                file_paths=[file_path_str],
+                observed_issue=f"File {file_path_str} does not exist",
             )
 
         # Check line count constraints
-        if rule.max_count is not None or rule.min_count is not None:
+        if max_count is not None or min_count is not None:
             with open(file_path, "r", encoding="utf-8") as f:
                 line_count = sum(1 for _ in f)
 
-            if rule.max_count is not None and line_count > rule.max_count:
+            if max_count is not None and line_count > max_count:
                 return self._create_failure(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
-                    observed_issue=f"File has {line_count} lines (exceeds max {rule.max_count})",
+                    file_paths=[file_path_str],
+                    observed_issue=f"File has {line_count} lines (exceeds max {max_count})",
                 )
 
-            if rule.min_count is not None and line_count < rule.min_count:
+            if min_count is not None and line_count < min_count:
                 return self._create_failure(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
-                    observed_issue=f"File has {line_count} lines (below min {rule.min_count})",
+                    file_paths=[file_path_str],
+                    observed_issue=f"File has {line_count} lines (below min {min_count})",
                 )
 
         # Check byte size constraints
-        if rule.max_size is not None or rule.min_size is not None:
+        if max_size is not None or min_size is not None:
             byte_size = file_path.stat().st_size
 
-            if rule.max_size is not None and byte_size > rule.max_size:
+            if max_size is not None and byte_size > max_size:
                 return self._create_failure(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
-                    observed_issue=f"File is {byte_size} bytes (exceeds max {rule.max_size})",
+                    file_paths=[file_path_str],
+                    observed_issue=f"File is {byte_size} bytes (exceeds max {max_size})",
                 )
 
-            if rule.min_size is not None and byte_size < rule.min_size:
+            if min_size is not None and byte_size < min_size:
                 return self._create_failure(
                     rule=rule,
                     bundle=bundle,
-                    file_paths=[rule.file_path],
-                    observed_issue=f"File is {byte_size} bytes (below min {rule.min_size})",
+                    file_paths=[file_path_str],
+                    observed_issue=f"File is {byte_size} bytes (below min {min_size})",
                 )
 
         # All constraints satisfied
@@ -318,41 +335,43 @@ class TokenCountValidator(BaseValidator):
     ) -> Optional[DocumentRule]:
         """Check if file token count meets constraints.
 
-        Requires a 'provider' parameter in rule.params specifying the tokenizer:
-        - 'anthropic' (default for Claude)
-        - 'openai' (for GPT models)
-        - 'llama' (for Llama models)
+        Expected params:
+            - file_path: File path to validate (required)
+            - provider: Tokenizer provider ('anthropic', 'openai', 'llama', default: 'anthropic')
+            - max_count: Maximum number of tokens (optional)
+            - min_count: Minimum number of tokens (optional)
 
-        Supports:
-        - max_count: Maximum number of tokens
-        - min_count: Minimum number of tokens
-
-        -- rule: ValidationRule with file_path, provider, and token constraints
+        -- rule: ValidationRule with params containing file_path, provider, and token constraints
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if constraints violated, None if satisfied.
         """
-        if not rule.file_path:
-            raise ValueError("TokenCountValidator requires rule.file_path")
+        if not rule.params:
+            raise ValueError("TokenCountValidator requires params")
 
-        # Get provider from params (default to anthropic for Claude)
-        provider = rule.params.get("provider", "anthropic") if rule.params else "anthropic"
+        file_path_str = rule.params.get("file_path")
+        if not file_path_str:
+            raise ValueError("TokenCountValidator requires params.file_path")
 
+        provider = rule.params.get("provider", "anthropic")
         if provider not in ["anthropic", "openai", "llama"]:
             raise ValueError(
                 f"Unsupported token counter provider: {provider}. "
                 "Must be 'anthropic', 'openai', or 'llama'"
             )
 
+        max_count = rule.params.get("max_count")
+        min_count = rule.params.get("min_count")
+
         project_path = bundle.project_path
-        file_path = project_path / rule.file_path
+        file_path = project_path / file_path_str
 
         if not file_path.exists() or not file_path.is_file():
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=f"File {rule.file_path} does not exist",
             )
 
@@ -364,7 +383,7 @@ class TokenCountValidator(BaseValidator):
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=f"Failed to read file: {e}",
             )
 
@@ -375,7 +394,7 @@ class TokenCountValidator(BaseValidator):
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=(
                     f"Token counting failed: {e}. "
                     f"Install required package for '{provider}' provider."
@@ -385,30 +404,30 @@ class TokenCountValidator(BaseValidator):
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=f"Token counting failed: {e}",
             )
 
         # Check constraints
-        if rule.max_count is not None and token_count > rule.max_count:
+        if max_count is not None and token_count > max_count:
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=(
                     f"File has {token_count} tokens "
-                    f"(exceeds max {rule.max_count}) using {provider} tokenizer"
+                    f"(exceeds max {max_count}) using {provider} tokenizer"
                 ),
             )
 
-        if rule.min_count is not None and token_count < rule.min_count:
+        if min_count is not None and token_count < min_count:
             return self._create_token_failure(
                 rule=rule,
                 bundle=bundle,
-                file_paths=[rule.file_path],
+                file_paths=[file_path_str],
                 observed_issue=(
                     f"File has {token_count} tokens "
-                    f"(below min {rule.min_count}) using {provider} tokenizer"
+                    f"(below min {min_count}) using {provider} tokenizer"
                 ),
             )
 

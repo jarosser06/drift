@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ProviderType(str, Enum):
@@ -159,6 +159,35 @@ class ValidationRule(BaseModel):
             except re.error as e:
                 raise ValueError(f"Invalid reference regex pattern: {e}")
         return v
+
+    @model_validator(mode="after")
+    def migrate_legacy_fields_to_params(self) -> "ValidationRule":
+        """Migrate legacy field values into params for backward compatibility.
+
+        This allows YAML configs to use either the old field-based format or
+        the new params-based format. Validators expect all parameters in params dict.
+        """
+        # Map of legacy field names to params keys
+        legacy_field_mappings = {
+            "file_path": "file_path",
+            "pattern": "pattern",
+            "flags": "flags",
+            "min_count": "min_count",
+            "max_count": "max_count",
+            "min_size": "min_size",
+            "max_size": "max_size",
+            "source_pattern": "source_pattern",
+            "reference_pattern": "reference_pattern",
+            "target_pattern": "target_pattern",
+        }
+
+        # Migrate legacy fields to params if they're set and not already in params
+        for field_name, param_key in legacy_field_mappings.items():
+            field_value = getattr(self, field_name, None)
+            if field_value is not None and param_key not in self.params:
+                self.params[param_key] = field_value
+
+        return self
 
 
 class ValidationRulesConfig(BaseModel):
