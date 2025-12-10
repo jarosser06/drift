@@ -240,6 +240,44 @@ Expected output::
 
 Success! All checks pass. This is the TDD workflow - define standards, run validation (red), fix issues (green), iterate until passing.
 
+Alternative: Using Bootstrap for AI-Assisted Creation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of manually creating files, you can use ``drift bootstrap`` to generate AI prompts that help scaffold files matching your validation requirements:
+
+**Step 1: Generate AI prompt from rule**
+
+.. code-block:: bash
+
+    drift bootstrap --target-rule skill_validation
+
+This generates a structured prompt containing:
+
+- Target file paths to create
+- Validation requirements extracted from rule phases
+- Examples and instructions
+
+**Step 2: Copy prompt to AI tool**
+
+Copy the generated prompt and paste it into Claude, ChatGPT, or your preferred AI tool.
+
+**Step 3: AI creates files**
+
+The AI generates files that satisfy all validation requirements from the prompt.
+
+**Step 4: Validate**
+
+.. code-block:: bash
+
+    drift --rules skill_validation --no-llm
+
+This workflow is especially useful when:
+
+- Bootstrapping new projects with many files to create
+- Working with complex validation rules
+- Scaffolding repetitive structures (skills, commands, agents)
+- Ensuring generated files meet all requirements from the start
+
 How Drift Works
 ---------------
 

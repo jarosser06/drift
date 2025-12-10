@@ -3,7 +3,7 @@
 import argparse
 from importlib.metadata import version
 
-from drift.cli.commands import analyze
+from drift.cli.commands import analyze, draft
 
 __version__ = version("ai-drift")
 
@@ -46,7 +46,58 @@ Examples:
 
   # Use remote rules file
   drift --rules-file https://example.com/drift-rules.yaml
+
+  # Draft command - generate AI prompts from rules
+  drift draft --target-rule skill_validation
+  drift draft --target-rule skill_validation --output prompt.md
+  drift draft --target-rule skill_validation --target-file .claude/skills/testing/SKILL.md
         """,
+    )
+
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Draft subcommand
+    draft_parser = subparsers.add_parser(
+        "draft",
+        help="Generate AI prompt for drafting files from a rule",
+        description="Generate AI prompts from Drift rules to draft new files",
+    )
+    draft_parser.add_argument(
+        "--target-rule",
+        dest="draft_rule",
+        required=True,
+        help="Rule name to draft (e.g., skill_validation)",
+    )
+    draft_parser.add_argument(
+        "--target-file",
+        default=None,
+        help="Specific file path to draft (required if rule matches multiple files)",
+    )
+    draft_parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Output file path (default: stdout)",
+    )
+    draft_parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Generate prompt even if target file exists",
+    )
+    draft_parser.add_argument(
+        "--project",
+        "-p",
+        default=None,
+        help="Project path (defaults to current directory)",
+    )
+    draft_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG)",
     )
 
     parser.add_argument(
@@ -162,31 +213,43 @@ Examples:
 
 
 def main() -> None:
-    """Parse command-line arguments and run drift analysis.
+    """Parse command-line arguments and run drift command.
 
-    Entry point for the drift CLI that delegates to the analyze command.
+    Entry point for the drift CLI that delegates to subcommands.
     """
     parser = create_parser()
     args = parser.parse_args()
 
-    # Call analyze command with parsed arguments
-    analyze.analyze_command(
-        format=args.format,
-        scope=args.scope,
-        agent_tool=args.agent_tool,
-        rules=args.rules,
-        latest=args.latest,
-        days=args.days,
-        all_conversations=args.all_conversations,
-        model=args.model,
-        no_llm=args.no_llm,
-        no_cache=args.no_cache,
-        cache_dir=args.cache_dir,
-        no_parallel=args.no_parallel,
-        project=args.project,
-        rules_file=args.rules_file,
-        verbose=args.verbose,
-    )
+    # Handle subcommands
+    if args.command == "draft":
+        # Call draft command
+        draft.draft_command(
+            rule=args.draft_rule,
+            target_file=args.target_file,
+            output=args.output,
+            force=args.force,
+            project=args.project,
+            verbose=args.verbose,
+        )
+    else:
+        # Default to analyze command for backward compatibility
+        analyze.analyze_command(
+            format=args.format,
+            scope=args.scope,
+            agent_tool=args.agent_tool,
+            rules=args.rules,
+            latest=args.latest,
+            days=args.days,
+            all_conversations=args.all_conversations,
+            model=args.model,
+            no_llm=args.no_llm,
+            no_cache=args.no_cache,
+            cache_dir=args.cache_dir,
+            no_parallel=args.no_parallel,
+            project=args.project,
+            rules_file=args.rules_file,
+            verbose=args.verbose,
+        )
 
 
 if __name__ == "__main__":

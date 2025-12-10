@@ -36,17 +36,14 @@ Closes #[number]
 
 **Feature PR:**
 - Summary: Focus on what the feature does and why it's needed
-- Test Plan: Include both unit and integration tests
 - Changes: Highlight new files and integration points
 
 **Bug Fix PR:**
 - Summary: Explain root cause and solution approach
-- Test Plan: Include regression test
 - Changes: Focus on minimal, targeted changes
 
 **Refactoring PR:**
 - Summary: Emphasize no behavior changes, explain benefits
-- Test Plan: Verify all existing tests still pass
 - Changes: Show code extraction and cleanup
 
 ## Quality Tips
@@ -55,12 +52,6 @@ Closes #[number]
 - Focus on WHAT changed and WHY
 - Mention architectural decisions
 - Note any trade-offs
-
-**Test Plan (be specific):**
-- State exact test count and files
-- List manual testing scenarios
-- Include coverage percentage
-- Confirm linters pass
 
 **Changes (organized):**
 - Use file:line format (e.g., `cli.py:45-67`)

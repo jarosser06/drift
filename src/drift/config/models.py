@@ -331,6 +331,14 @@ class RuleDefinition(BaseModel):
     phases: Optional[List[PhaseDefinition]] = Field(
         None, description="Analysis phases (1 phase = single-shot, 2+ phases = multi-phase)"
     )
+    draft_instructions: Optional[str] = Field(
+        None,
+        description=(
+            "Optional custom prompt template for drafting files that satisfy this rule. "
+            "Supports placeholders: {file_path}, {bundle_type}, {description}, {context}. "
+            "If not provided, prompt is inferred from phases."
+        ),
+    )
 
 
 class AgentToolConfig(BaseModel):
