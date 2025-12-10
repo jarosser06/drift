@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-12-09
+
+- Fix documentation terminology and organization
+
 ## [0.6.0] - 2025-12-09
 
 - Add draft command to generate AI prompts from validation rules

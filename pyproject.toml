@@ -1,6 +1,6 @@
 [project]
 name = "ai-drift"
-version = "0.6.0"
+version = "0.6.1"
 description = "TDD framework for AI workflows - define agent/skill/command standards in .drift.yaml and validate project structure programmatically"
 authors = [{name = "Jim Rosser", email = "me@j4r.wtf"}]
 readme = "README.md"
