@@ -41,12 +41,6 @@ body:
 - <3-5 bullet points describing what changed>
 - <Focus on what was implemented, not how>
 
-## Test Plan
-- [ ] Unit tests added/updated
-- [ ] Coverage at X%
-- [ ] Manual testing completed
-- [ ] All linters passing
-
 ## Changes
 ### Added
 - <New files with brief description>

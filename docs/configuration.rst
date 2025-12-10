@@ -195,6 +195,64 @@ Quick reference for rule structure:
             type: file_exists
             file_path: CLAUDE.md
 
+Bootstrap Prompts
+~~~~~~~~~~~~~~~~~
+
+Rules can include custom ``bootstrap_prompt`` templates to generate AI prompts for scaffolding files. Use the ``drift bootstrap`` command to generate prompts from rules.
+
+Basic bootstrap prompt:
+
+.. code-block:: yaml
+
+    rule_definitions:
+      skill_validation:
+        description: "Validate skill documentation"
+        scope: project_level
+        bootstrap_prompt: |
+          # Create Skill File: {file_path}
+
+          Generate a skill file with:
+          - Clear title and description in YAML frontmatter
+          - Usage section with examples
+          - References to relevant tools
+
+          Files to create: {file_paths}
+        document_bundle:
+          bundle_type: skill
+          file_patterns:
+            - .claude/skills/*/SKILL.md
+          bundle_strategy: individual
+        phases:
+          - name: check_frontmatter
+            type: yaml_frontmatter
+            params:
+              required_fields: [title, description]
+
+Supported template placeholders:
+
+- ``{rule_name}`` - Name of the rule
+- ``{description}`` - Rule description
+- ``{context}`` - Rule context
+- ``{bundle_type}`` - Bundle type (skill, agent, command)
+- ``{file_path}`` - First target file path
+- ``{file_paths}`` - All target files (comma-separated)
+
+Generate the prompt:
+
+.. code-block:: bash
+
+    drift bootstrap --target-rule skill_validation
+
+If no custom ``bootstrap_prompt`` is defined, Drift auto-generates one by analyzing the rule's validation phases.
+
+Bootstrap requirements:
+
+- Rule must have ``document_bundle.file_patterns`` defined
+- Rule must use ``bundle_strategy: individual`` (not ``collection``)
+- Rule must have ``scope: project_level`` (not ``conversation_level``)
+
+See :doc:`quickstart` for bootstrap workflow examples.
+
 Validators Reference
 ~~~~~~~~~~~~~~~~~~~~
 

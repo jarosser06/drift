@@ -50,6 +50,11 @@ drift --no-llm           # Fast programmatic validation (define → validate →
 drift --format json      # JSON output for CI/CD
 drift --rules <names>    # Validate specific rules only
 
+# Draft: Generate AI prompts from rules
+drift draft --target-rule <rule_name>           # Generate prompt to stdout
+drift draft --target-rule <rule_name> --output prompt.md  # Save to file
+drift draft --target-rule <rule_name> --force   # Generate even if files exist
+
 # Optional: Conversation analysis
 drift                    # Analyze latest conversation (requires LLM)
 drift --days 7           # Analyze last 7 days
