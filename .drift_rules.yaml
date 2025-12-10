@@ -46,7 +46,7 @@ skill_validation:
     # Phase 3: Description quality
     - name: check_description_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate the skill description for quality and clarity.
 
@@ -77,7 +77,7 @@ skill_validation:
     # Phase 4: Structural quality
     - name: check_structural_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate if skill provides adequate structure per Anthropic best practices.
 
@@ -112,7 +112,7 @@ skill_validation:
     # Phase 5: Verify dependencies
     - name: verify_dependencies
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Check if the skill frontmatter declares dependencies on other skills that don't exist.
 
@@ -188,7 +188,7 @@ skill_validation:
     # Phase 10: Final quality check
     - name: final_quality_check
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Review all findings from previous validation phases for this skill.
 
@@ -276,7 +276,7 @@ agent_validation:
     # Phase 3: Description quality
     - name: check_description_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         TASK: Evaluate ONLY the agent description for quality and clarity.
 
@@ -322,7 +322,7 @@ agent_validation:
     # Phase 4: Workflow quality
     - name: check_workflow_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate if agent provides adequate workflow guidance per Anthropic best practices.
 
@@ -382,7 +382,7 @@ agent_validation:
     # Phase 7: Verify references
     - name: verify_references
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Check if agent frontmatter declares skills or agents that don't exist.
 
@@ -406,7 +406,7 @@ agent_validation:
     # Phase 8: Final quality check
     - name: final_quality_check
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Review all findings from previous validation phases for this agent.
 
@@ -477,7 +477,7 @@ command_validation:
     # Phase 2: Parameter hints check
     - name: check_parameter_hints
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         TASK: Check ONLY if command uses parameters but is missing argument-hint.
 
@@ -511,7 +511,7 @@ command_validation:
     # Phase 3: Verify all references
     - name: verify_all_references
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Verify all references in the command file comprehensively.
 
@@ -539,7 +539,7 @@ command_validation:
     # Phase 4: Description quality
     - name: check_description_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate the command description for quality and clarity.
 
@@ -570,7 +570,7 @@ command_validation:
     # Phase 5: Execution clarity
     - name: check_execution_clarity
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate the command's execution clarity and usability.
 
@@ -612,7 +612,7 @@ command_validation:
     # Phase 7: Pattern consistency check
     - name: check_pattern_consistency
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Check if similar commands follow similar patterns for skill usage.
 
@@ -658,7 +658,7 @@ command_validation:
     # Phase 10: Final quality check
     - name: final_quality_check
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Review all findings from previous validation phases for this command.
 
@@ -694,9 +694,6 @@ claude_md_validation:
     bundle_type: mixed
     file_patterns:
       - CLAUDE.md
-      - .claude/agents/*.md
-      - .claude/skills/*/SKILL.md
-      - .claude/commands/*.md
     bundle_strategy: collection
     resource_patterns: []
   phases:
@@ -733,7 +730,7 @@ claude_md_validation:
     # Phase 4: Content quality
     - name: check_content_quality
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Evaluate CLAUDE.md for content quality and anti-patterns per Anthropic best practices.
 
@@ -789,7 +786,7 @@ claude_md_validation:
     # Phase 5: Import syntax check
     - name: check_import_syntax
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Check CLAUDE.md for proper import syntax usage per Claude Code documentation.
 
@@ -815,7 +812,7 @@ claude_md_validation:
     # Phase 6: Component documentation check
     - name: check_component_documentation
       type: prompt
-      model: haiku
+      model: sonnet
       prompt: |
         Check if CLAUDE.md documents the key Claude Code components in this project.
 

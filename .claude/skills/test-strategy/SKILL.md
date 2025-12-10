@@ -1,6 +1,6 @@
 ---
 name: test-strategy
-description: Expert in strategic test planning, coverage analysis, and edge case identification. Use when determining what tests to write, analyzing coverage gaps, or planning comprehensive test suites.
+description: Expert in strategic pytest test planning for Drift's 90%+ coverage requirement, including coverage analysis with pytest-cov, edge case identification, and comprehensive test suite design. Use when determining what tests to write, analyzing coverage gaps, or planning test strategies.
 skills:
   - testing
   - python-basics

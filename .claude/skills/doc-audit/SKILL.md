@@ -1,6 +1,6 @@
 ---
 name: doc-audit
-description: Expert in auditing Sphinx/RST documentation for code example accuracy, API correctness, and objective language. Validates import paths, method signatures, and removes subjective/marketing language. Use when reviewing documentation before release.
+description: Expert in auditing Sphinx/RST documentation for Drift project. Use when validating code examples and removing subjective language before release.
 ---
 
 # Documentation Audit

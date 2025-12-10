@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when releasing a new version of ai-drift to PyPI. Guide the user through version bumping, changelog updates, and publishing.
+description: Expert in PyPI package releases for ai-drift including SemVer version bumping, CHANGELOG.md maintenance, git tagging, and automated GitHub Actions publishing. Use when releasing a new version to PyPI or managing package distribution.
 ---
 
 # Release Skill

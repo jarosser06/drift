@@ -1,5 +1,6 @@
 ---
 description: Run linters and formatters
+argument-hint: "[--fix]"
 ---
 
 Run code quality checks using the lint.sh script.
