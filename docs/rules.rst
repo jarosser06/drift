@@ -654,6 +654,89 @@ Comprehensive rule combining multiple validation types:
             failure_message: "Agent needs improvement"
             expected_behavior: "Agent should be self-documenting"
 
+Generating Prompts from Rules
+------------------------------
+
+Rules can include custom ``draft_instructions`` templates to generate AI prompts for scaffolding files. Use the ``drift draft`` command to generate prompts from rules.
+
+The ``draft_instructions`` Field
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The ``draft_instructions`` field is an optional attribute you can add to any rule definition. It contains a template that Drift uses to generate AI prompts for creating files that satisfy your validation requirements.
+
+Basic example:
+
+.. code-block:: yaml
+
+    rule_definitions:
+      skill_validation:
+        description: "Validate skill documentation"
+        scope: project_level
+        draft_instructions: |
+          # Create Skill File: {file_path}
+
+          Generate a skill file with:
+          - Clear title and description in YAML frontmatter
+          - Usage section with examples
+          - References to relevant tools
+
+          Files to create: {file_paths}
+        document_bundle:
+          bundle_type: skill
+          file_patterns:
+            - .claude/skills/*/SKILL.md
+          bundle_strategy: individual
+        phases:
+          - name: check_frontmatter
+            type: yaml_frontmatter
+            params:
+              required_fields: [title, description]
+
+Template Placeholders
+~~~~~~~~~~~~~~~~~~~~~
+
+Your ``draft_instructions`` templates can use these placeholders:
+
+- ``{rule_name}`` - Name of the rule
+- ``{description}`` - Rule description
+- ``{context}`` - Rule context
+- ``{bundle_type}`` - Bundle type (skill, agent, command)
+- ``{file_path}`` - First target file path
+- ``{file_paths}`` - All target files (comma-separated)
+
+Using the Draft Command
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Generate a prompt from a rule:
+
+.. code-block:: bash
+
+    drift draft --target-rule skill_validation
+
+This outputs a formatted prompt to stdout. You can save it to a file:
+
+.. code-block:: bash
+
+    drift draft --target-rule skill_validation --output prompt.md
+
+Auto-Generated Prompts
+~~~~~~~~~~~~~~~~~~~~~~~
+
+If no custom ``draft_instructions`` is defined, Drift auto-generates a prompt by analyzing the rule's validation phases. This infers requirements from validators and creates a structured prompt automatically.
+
+Draft Requirements
+~~~~~~~~~~~~~~~~~~
+
+For a rule to support the ``draft`` command, it must meet these criteria:
+
+- Rule must have ``document_bundle.file_patterns`` defined
+- Rule must use ``bundle_strategy: individual`` (not ``collection``)
+- Rule must have ``scope: project_level`` (not ``conversation_level``)
+
+The draft command works on ONE file at a time. If your rule pattern contains wildcards (e.g., ``.claude/skills/*/SKILL.md``), you must specify which file to draft using ``--target-file``.
+
+See :doc:`quickstart` for complete draft workflow examples.
+
 Next Steps
 ----------
 

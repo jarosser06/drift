@@ -240,16 +240,16 @@ Expected output::
 
 Success! All checks pass. This is the TDD workflow - define standards, run validation (red), fix issues (green), iterate until passing.
 
-Alternative: Using Bootstrap for AI-Assisted Creation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Alternative: Using Draft for AI-Assisted Creation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Instead of manually creating files, you can use ``drift bootstrap`` to generate AI prompts that help scaffold files matching your validation requirements:
+Instead of manually creating files, you can use ``drift draft`` to generate AI prompts that help scaffold files matching your validation requirements:
 
 **Step 1: Generate AI prompt from rule**
 
 .. code-block:: bash
 
-    drift bootstrap --target-rule skill_validation
+    drift draft --target-rule skill_validation
 
 This generates a structured prompt containing:
 

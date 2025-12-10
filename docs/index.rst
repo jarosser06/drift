@@ -18,7 +18,7 @@ TDD Workflow for AI Agent Projects
 3. **Fix issues** - Create files, fix links, update configurations manually or with AI assistance (green phase)
 4. **Iterate** - Re-run validation until all checks pass (refactor phase)
 
-**No built-in opinions** - You define your team's standards in ``.drift.yaml``, then validate against them. Perfect for bootstrapping new projects or enforcing consistency across teams.
+**No built-in opinions** - You define your team's standards in ``.drift.yaml``, then validate against them. Perfect for setting up new projects or enforcing consistency across teams.
 
 Project Structure Validation (Primary Use)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
