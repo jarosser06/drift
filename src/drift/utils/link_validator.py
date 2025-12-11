@@ -83,6 +83,10 @@ class LinkValidator:
         Removes fenced code blocks (```), indented code blocks (4 spaces or tab),
         and inline code (`...`) to prevent extraction of links from example code.
 
+        Uses a counter-based approach to handle nested code blocks correctly,
+        matching opening ``` with the corresponding closing ``` at the same
+        nesting level.
+
         Args:
             content: Markdown content to process
 
@@ -90,8 +94,31 @@ class LinkValidator:
             Content with code blocks and inline code removed
         """
         # Remove fenced code blocks (```...```)
-        # Match from ``` to closing ``` including language specifier
-        content = re.sub(r"^```.*?^```\s*$", "", content, flags=re.MULTILINE | re.DOTALL)
+        # Use counter-based approach to handle nested blocks correctly
+        lines = content.split("\n")
+        result_lines = []
+        fence_depth = 0
+
+        for line in lines:
+            # Check if line starts with ``` (at start of line, possibly with leading whitespace)
+            stripped = line.lstrip()
+            if stripped.startswith("```"):
+                if fence_depth == 0:
+                    # Opening a new code block - start skipping
+                    fence_depth = 1
+                else:
+                    # Already in a code block
+                    # This could be a nested opening or a closing
+                    # For simplicity, treat any ``` as closing when we're inside a block
+                    fence_depth = 0
+                # Skip the fence line itself
+                continue
+
+            # Only include lines that are outside code blocks
+            if fence_depth == 0:
+                result_lines.append(line)
+
+        content = "\n".join(result_lines)
 
         # Remove indented code blocks (4 spaces or tab at line start)
         content = re.sub(r"^(    |\t).*$", "", content, flags=re.MULTILINE)

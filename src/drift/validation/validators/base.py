@@ -46,7 +46,7 @@ Validators use a strict parameter architecture to ensure consistency:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple
 
 from drift.config.models import ClientType, ValidationRule
 from drift.core.types import DocumentBundle, DocumentRule
@@ -249,3 +249,25 @@ class BaseValidator(ABC):
                 formatted = formatted.replace(placeholder, str(value))
 
         return formatted
+
+    def _iter_bundle_files(
+        self, bundle: DocumentBundle
+    ) -> Generator[Tuple[str, str, str], None, None]:
+        """Iterate over files in the bundle.
+
+        Yields tuples of (relative_path, content, file_path) for each file
+        in the bundle. This is a helper method to standardize bundle file
+        iteration across validators.
+
+        -- bundle: Document bundle containing files to iterate
+
+        Yields tuples of (relative_path: str, content: str, file_path: str).
+
+        Example:
+            >>> for rel_path, content, file_path in self._iter_bundle_files(bundle):
+            ...     # Validate each file
+            ...     if not self._validate_content(content):
+            ...         failures.append(rel_path)
+        """
+        for file in bundle.files:
+            yield (file.relative_path, file.content, str(file.file_path))

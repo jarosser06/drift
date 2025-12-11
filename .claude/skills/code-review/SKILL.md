@@ -7,371 +7,425 @@ skills:
 
 # Code Review Skill
 
-Expert in conducting thorough, constructive code reviews using the GitHub MCP server.
+Learn how to conduct thorough, constructive code reviews using the GitHub MCP server.
 
-## Core Responsibilities
+## How to Review Code
 
-- Review code quality and design
-- Identify bugs and edge cases
-- Verify test coverage and quality
-- Check documentation completeness
-- Ensure security best practices
-- Provide actionable feedback
+### Overview of Review Process
 
-## Review Areas
+A complete code review follows these steps:
+1. **Get PR context** - Understand what's being changed
+2. **Review files** - Check code quality, tests, docs
+3. **Identify issues** - Flag problems by severity
+4. **Provide feedback** - Constructive, specific, research-backed
+5. **Submit review** - Approve, request changes, or comment
 
-### 1. Code Quality
+## How to Start a Code Review
 
-**Check for:**
+### Step 1: Get PR Details
+
+```python
+# Fetch PR information
+pr = mcp__github__get_pull_request(
+    owner="jarosser06",
+    repo="drift",
+    pull_number=42
+)
+
+# Review key information:
+print(f"Title: {pr['title']}")
+print(f"Description: {pr['body']}")
+print(f"Author: {pr['user']['login']}")
+print(f"Base branch: {pr['base']['ref']}")
+print(f"Head branch: {pr['head']['ref']}")
+```
+
+Key information to note:
+- What issue does this address?
+- What's the scope of changes?
+- Are there related PRs?
+
+### Step 2: Get Changed Files
+
+```python
+# Fetch list of changed files
+files = mcp__github__get_pull_request_files(
+    owner="jarosser06",
+    repo="drift",
+    pull_number=42
+)
+
+# Review files:
+for file in files:
+    print(f"{file['filename']}: +{file['additions']} -{file['deletions']}")
+    print(f"Status: {file['status']}")  # added, modified, removed
+```
+
+Categorize files:
+- **Core logic** - src/drift/
+- **Tests** - tests/
+- **Documentation** - README.md, docs/
+- **Configuration** - .drift.yaml, pyproject.toml
+
+### Step 3: Check CI Status
+
+```python
+# Get status checks
+status = mcp__github__get_pull_request_status(
+    owner="jarosser06",
+    repo="drift",
+    pull_number=42
+)
+
+print(f"Status: {status['state']}")  # success, pending, failure
+print("Check runs:")
+for check in status.get('statuses', []):
+    print(f"  {check['context']}: {check['state']}")
+```
+
+Verify:
+- [ ] All CI checks passing
+- [ ] Tests pass
+- [ ] Linters pass
+- [ ] Coverage meets threshold
+
+## How to Review Different Aspects
+
+### How to Review Code Quality
+
+**What to look for:**
 - Clear, readable code
-- Proper naming conventions
-- No code duplication (DRY principle)
-- Appropriate abstraction levels
-- Clean function/method boundaries
-- Consistent style with codebase
-- **CRITICAL: All imports at top of file (NO inline imports)**
-- Proper import organization (stdlib → third-party → local)
+- Descriptive variable/function names
+- No code duplication
+- Appropriate abstraction
+- Consistent with codebase style
 
-**Questions to Ask:**
-- Is the code self-explanatory?
-- Are names descriptive and accurate?
-- Is there unnecessary complexity?
-- Could this be simpler?
-- Are there any inline imports that need to be moved to the top?
+**Example review comments:**
 
-### 2. Architecture & Design
+**Good - specific and constructive:**
+```
+In drift/analyzer.py:45
 
-**Check for:**
+The variable name `d` is unclear. Consider renaming to `detector`
+for better readability:
+
+```python
+for detector in self.detectors:
+    results.append(detector.analyze(conversation))
+```
+```
+
+**Avoid vague feedback:**
+```
+The code quality could be better.
+```
+
+### How to Review Architecture
+
+**What to look for:**
 - Proper separation of concerns
-- Follows project patterns
+- Follows existing patterns
 - Scalable design
-- Appropriate use of abstractions
-- Good error handling strategy
 - Clear module boundaries
+- Good error handling
 
-**Questions to Ask:**
-- Does this fit with existing architecture?
-- Is this the right abstraction level?
-- Will this scale with more drift types/providers?
-- Is error handling comprehensive?
+**Example review comments:**
 
-### 3. Testing
+**Good - explains reasoning:**
+```
+In drift/detector.py:120-150
 
-**Check for:**
-- Unit tests for all new code
-- Integration tests for workflows
+This function is doing three distinct things:
+1. Building the prompt
+2. Calling the LLM
+3. Parsing the response
+
+Consider splitting into separate methods:
+- `_build_prompt(conversation)` → str
+- `_call_llm(prompt)` → dict
+- `_parse_response(response)` → List[DriftInstance]
+
+Benefits:
+- Easier to test each step independently
+- Can swap LLM providers more easily
+- More reusable components
+```
+
+### How to Review Tests
+
+**What to check:**
+- Unit tests for new code
 - Edge cases covered
-- Coverage ≥ 90%
-- Tests are clear and maintainable
-- Proper use of mocks/fixtures
+- Clear test names
+- Proper mocks/fixtures
+- Coverage report
 
-**Questions to Ask:**
-- Are edge cases tested?
-- Do tests verify behavior, not implementation?
-- Are tests easy to understand?
-- Is coverage comprehensive?
+**Example review comments:**
 
-### 4. Documentation
+**Good - specific gap identified:**
+```
+In tests/test_analyzer.py
 
-**Check for:**
+Tests cover the happy path well, but missing edge cases:
+
+1. What happens with empty conversation logs?
+2. How does it handle malformed JSON?
+3. What if LLM returns unexpected format?
+
+Please add tests for these scenarios:
+
+```python
+def test_analyze_empty_conversation():
+    """Test analyzer handles empty conversation gracefully."""
+    result = analyzer.analyze({"messages": []})
+    assert result == []
+
+def test_analyze_malformed_json():
+    """Test analyzer handles malformed input."""
+    with pytest.raises(ValueError, match="Invalid conversation"):
+        analyzer.analyze({"invalid": "structure"})
+```
+```
+
+**Check coverage:**
+```python
+# Review coverage report from CI
+# Look for uncovered lines
+# Ensure critical paths are tested
+```
+
+### How to Review Documentation
+
+**What to check:**
 - Docstrings on public functions
-- Clear parameter descriptions
-- Return value documented
+- Parameters documented
+- Return values described
 - Examples for complex features
-- Inline comments where helpful
-- **CRITICAL: Documentation updated for any code changes**
-  - New attributes/parameters documented in docstrings
-  - Configuration changes documented where appropriate
-  - Breaking changes clearly documented
-  - CLI changes reflected in help text
+- Configuration docs updated
 
-**Questions to Ask:**
-- Can someone understand this without asking?
-- Are all parameters documented?
-- Do examples cover common use cases?
-- Is the "why" explained for non-obvious code?
-- **Do documentation updates match code changes?**
-- Are all new public APIs documented?
-- Are configuration changes documented?
-- Are breaking changes clearly called out?
+**Example review comments:**
 
-### 5. Security
+**Good - identifies missing documentation:**
+```
+In drift/validators.py:78
 
-**Check for:**
+The new `CustomValidator` class is missing a docstring. Please add:
+
+```python
+class CustomValidator(BaseValidator):
+    """Validates custom rules defined by users.
+
+    Loads validation rules from .drift_rules.yaml and applies them
+    to project files. Supports regex patterns, file paths, and
+    content validation.
+
+    -- config_path: Path to .drift_rules.yaml
+    -- strict_mode: If True, fail on first violation
+
+    Returns:
+        List of ValidationResult objects
+    """
+```
+```
+
+### How to Review Security
+
+**What to check:**
 - No hardcoded credentials
-- Proper input validation
-- Safe handling of file paths
+- Input validation
+- Safe file path handling
+- API key security
 - No command injection risks
-- Secure API key handling
-- No exposure of sensitive data in logs
 
-**Questions to Ask:**
-- Could malicious input cause issues?
-- Are credentials properly secured?
-- Is user input validated?
-- Are API keys handled safely?
+**Example review comments:**
 
-### 6. Performance
+**Good - identifies security issue:**
+```
+In drift/utils.py:45
 
-**Check for:**
-- Efficient algorithms
-- No obvious bottlenecks
-- Proper resource management
-- No unnecessary API calls
-- Appropriate data structures
-- Reasonable memory usage
-
-**Questions to Ask:**
-- Will this perform well with large conversation logs?
-- Are resources cleaned up properly?
-- Could this be more efficient?
-- Are there unnecessary operations?
-
-## Review Process with MCP
-
-### 1. Get PR Details
+SECURITY ISSUE: This code is vulnerable to path traversal:
 
 ```python
-pr = mcp__github__get_pull_request(owner, repo, pull_number)
+# Current (vulnerable):
+file_path = f"/logs/{user_input}.json"
+with open(file_path) as f:
+    data = f.read()
 ```
 
-### 2. Get PR Files
+An attacker could use `../../../etc/passwd` as input.
 
+Fix:
 ```python
-files = mcp__github__get_pull_request_files(owner, repo, pull_number)
+from pathlib import Path
+
+# Resolve and validate path
+log_dir = Path("/logs").resolve()
+file_path = (log_dir / user_input).with_suffix(".json").resolve()
+
+# Ensure path is within log_dir
+if not file_path.is_relative_to(log_dir):
+    raise ValueError("Invalid log file path")
+```
 ```
 
-### 3. Get PR Status
+## How to Research Recommendations
 
-```python
-status = mcp__github__get_pull_request_status(owner, repo, pull_number)
-```
-
-### 4. Review Files
-
-For each file, check:
-- Code quality
-- Tests included
-- Documentation
-
-### 5. Create Review
-
-Use `mcp__github__create_pull_request_review`:
-
-**Approve:**
-```python
-mcp__github__create_pull_request_review(
-    owner, repo,
-    pull_number=42,
-    body="LGTM! Great test coverage and clean implementation.",
-    event="APPROVE"
-)
-```
-
-**Request Changes:**
-```python
-mcp__github__create_pull_request_review(
-    owner, repo,
-    pull_number=42,
-    body="Please address the following concerns before merging.",
-    event="REQUEST_CHANGES",
-    comments=[
-        {
-            "path": "drift/parser.py",
-            "line": 45,
-            "body": "This should validate input before processing to prevent errors with malformed logs."
-        },
-        {
-            "path": "tests/test_parser.py",
-            "line": 20,
-            "body": "Please add a test case for empty conversation logs."
-        }
-    ]
-)
-```
-
-**Comment Only:**
-```python
-mcp__github__create_pull_request_review(
-    owner, repo,
-    pull_number=42,
-    body="Few suggestions for improvement, but looks good overall.",
-    event="COMMENT",
-    comments=[
-        {
-            "path": "drift/cli.py",
-            "line": 67,
-            "body": "Consider extracting this into a helper function for better testability."
-        }
-    ]
-)
-```
-
-## Recommendations Must Be Research-Backed
-
-**CRITICAL REQUIREMENT:** Any recommendations you make MUST be researched using authoritative sources.
-
-### Research Requirements
-
-**Before making ANY recommendation:**
-1. Use the `mcp__context7` tools to look up best practices from official documentation
-2. Verify recommendations against Python official docs, library official docs, or established standards
+**CRITICAL REQUIREMENT**: Before making ANY recommendation, you MUST:
+1. Research using authoritative sources (Python docs, library docs, PEPs, project docs)
+2. Verify against official documentation using mcp__context7 tools
 3. Include source citations in your feedback
 
-**Example Research Process:**
+This ensures recommendations are trustworthy and verifiable, not based on assumptions.
+
+### How to Use Context7 MCP for Research
+
 ```python
-# To recommend a library or pattern, first research it:
-library_id = mcp__context7__resolve_library_id(libraryName="pytest")
+# Step 1: Resolve library ID
+library_result = mcp__context7__resolve_library_id(
+    libraryName="pytest"
+)
+
+library_id = library_result["libraries"][0]["id"]
+
+# Step 2: Get documentation
 docs = mcp__context7__get_library_docs(
-    context7CompatibleLibraryID=library_id["libraries"][0]["id"],
+    context7CompatibleLibraryID=library_id,
     topic="fixtures",
+    mode="code"
+)
+
+# Step 3: Review docs and cite in your recommendation
+```
+
+### Example: Research-Backed Recommendation
+
+**Before recommending a pattern, research it:**
+
+```python
+# Want to recommend pytest fixtures? Research first:
+pytest_docs = mcp__context7__get_library_docs(
+    context7CompatibleLibraryID="/pytest/pytest",
+    topic="fixture scopes",
     mode="code"
 )
 ```
 
-### Valid Sources for Recommendations
-
-**✅ Acceptable:**
-- Python official documentation (python.org)
-- Library official documentation (via Context7 MCP)
-- PEP documents (Python Enhancement Proposals)
-- Project's own documentation and patterns
-
-**❌ Not Acceptable:**
-- Personal opinions without research
-- Assumptions about best practices
-- Recommendations based on other projects without verification
-- "Common knowledge" that isn't documented
-
-### Recommendation Guidelines
-
-**DO:**
-- Research each recommendation thoroughly
-- Cite specific documentation sections
-- Verify the recommendation applies to the project's Python version
-- Check if the pattern already exists in the codebase
-- Limit recommendations to well-researched, high-impact suggestions
-
-**DON'T:**
-- Make recommendations without research
-- Suggest libraries without checking their documentation
-- Recommend patterns you're unsure about
-- Provide excessive recommendations (quality over quantity)
-- Suggest "best practices" without authoritative sources
-
-**Example - Good Recommendation:**
+**Then provide research-backed feedback:**
 ```
-Consider using `pytest.fixture(scope="session")` for the database connection.
-According to pytest documentation [via Context7], session-scoped fixtures are
-initialized once per test session, which will improve test performance.
+In tests/conftest.py:23
 
-Source: pytest official docs - Fixture scopes
-```
+Consider using `pytest.fixture(scope="session")` for the database
+connection fixture. According to pytest documentation, session-scoped
+fixtures are initialized once per test session, which improves
+performance by avoiding repeated setup.
 
-**Example - Bad Recommendation:**
-```
-You should probably use a session fixture here, it's faster.
-```
-
-## Feedback Guidelines
-
-### Be Constructive
-
-**Good:**
-```
-The error handling here could be more specific. Instead of catching
-all exceptions, consider catching specific ones like FileNotFoundError
-and JSONDecodeError. This will help users understand what went wrong.
+Source: pytest official docs - Fixture Scopes (via Context7)
 
 Example:
-try:
-    data = json.load(f)
-except JSONDecodeError as e:
-    raise ValueError(f"Invalid JSON in {path}: {e}")
+```python
+@pytest.fixture(scope="session")
+def db_connection():
+    """Database connection shared across all tests."""
+    conn = create_connection()
+    yield conn
+    conn.close()
+```
 ```
 
-**Bad:**
+**Never make recommendations without research:**
 ```
-This error handling is wrong.
-```
-
-### Be Specific
-
-**Good:**
-```
-The function `analyze_drift` in drift/detector.py:45 is doing too
-much. Consider splitting into:
-1. `_prepare_prompt()` - Build prompt
-2. `_call_llm()` - Make API call
-3. `_parse_response()` - Parse response
-
-This will make testing easier and improve readability.
+❌ BAD: "You should probably use a session fixture here, it's faster."
+✅ GOOD: Research pytest docs, then explain with citation
 ```
 
-**Bad:**
-```
-This function is too long.
-```
+## How to Provide Constructive Feedback
 
-### Prioritize Issues
+See [Feedback Examples](resources/feedback-examples.md) for detailed guidance on:
+- Being specific and actionable
+- Explaining the why
+- Offering solutions
+- Prioritizing issues (critical, important, minor)
+- Research-backed recommendations
 
-**Critical (Must Fix):**
-- Security vulnerabilities
-- Bugs that will cause failures
-- Missing required tests
-- Breaking changes
+## How to Prioritize Issues
 
-**Important (Should Fix):**
-- Code quality issues
-- Missing documentation
-- Suboptimal architecture
-- Incomplete error handling
+See [Prioritization Guide](resources/prioritization.md) for detailed guidance on:
+- Critical issues (must fix before merge)
+- Important issues (should fix)
+- Minor issues (nice to have)
+- Example comments for each priority level
 
-**Minor (Nice to Have):**
-- Style suggestions
-- Performance micro-optimizations
-- Extra documentation
-- Refactoring opportunities
 
 ## Review Checklist
 
-- [ ] Linked issue reviewed
-- [ ] Acceptance criteria met
-- [ ] Code quality is good
-- [ ] Architecture is sound
-- [ ] Tests are comprehensive (90%+ coverage)
-- [ ] **Documentation is complete and matches code changes**
-  - [ ] Docstrings added/updated for changed functions
-  - [ ] Configuration changes documented where appropriate
-  - [ ] CLI help text updated if needed
-  - [ ] Breaking changes clearly documented
-- [ ] **Any recommendations are research-backed with citations**
-- [ ] No security issues
-- [ ] Performance is acceptable
-- [ ] Linters pass
-- [ ] Manual testing performed
+See [Review Checklist](resources/checklist.md) for complete checklists covering:
+- Before starting review
+- During review (code quality, architecture, testing, docs, security, performance)
+- Before submitting review
 
-## Common Issues
+## Common Issues to Watch For
 
-### Code Duplication
+### Inline Imports
 
-Flag for refactoring if you see repeated patterns.
+```python
+# ❌ BAD - inline import
+def analyze_conversation():
+    from drift.detector import DriftDetector
+    detector = DriftDetector()
+    ...
 
-### Missing Edge Cases
+# ✅ GOOD - import at top
+from drift.detector import DriftDetector
 
-Ensure tests cover:
-- Invalid input
-- Empty/null values
-- Boundary conditions
-- Error scenarios
+def analyze_conversation():
+    detector = DriftDetector()
+    ...
+```
 
-### Insufficient Tests
+### Missing Edge Cases in Tests
 
-Check for:
-- Happy path only
-- Missing edge cases
-- No error handling tests
-- Low coverage
+```python
+# Common missing tests:
+- Empty input ([], "", {}, None)
+- Invalid input (malformed JSON, wrong types)
+- Boundary values (0, -1, MAX_VALUE)
+- Error conditions (file not found, API errors)
+```
+
+### Insufficient Error Handling
+
+```python
+# ❌ BAD - catches everything
+try:
+    process_data()
+except:
+    pass
+
+# ✅ GOOD - specific exceptions
+try:
+    process_data()
+except FileNotFoundError as e:
+    logger.error(f"File not found: {e}")
+    raise
+except JSONDecodeError as e:
+    logger.error(f"Invalid JSON: {e}")
+    raise ValueError(f"Malformed data: {e}")
+```
+
+### Missing Documentation Updates
+
+When code changes, check if documentation needs updates:
+- [ ] Docstrings match new parameters
+- [ ] README reflects new features
+- [ ] CLI help text updated
+- [ ] Configuration docs current
+
+## Example Workflows
+
+See [Workflows](resources/workflows.md) for detailed PR review workflows including:
+- Complete PR review workflow (7 steps)
+- Quick review workflow for small PRs
+- How to submit reviews (approve, request changes, comment)
 
 ## Resources
 
@@ -389,3 +443,13 @@ Anti-patterns and common problems to watch for in Drift code.
 Examples of constructive, specific code review feedback.
 
 **Use when:** Writing review comments or learning how to give better feedback.
+
+### 📖 [Workflows](resources/workflows.md)
+Complete and quick PR review workflows with MCP examples.
+
+**Use when:** Conducting a full PR review or submitting review feedback via MCP.
+
+### 📖 [Prioritization Guide](resources/prioritization.md)
+How to prioritize issues by severity (critical, important, minor).
+
+**Use when:** Determining which issues must be fixed before merge and which are optional.

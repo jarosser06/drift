@@ -23,7 +23,7 @@ class DocumentLoader:
         """List available resources of a given type.
 
         Args:
-            resource_type: Type of resource (skill, command, agent, etc.)
+            resource_type: Type of resource (skill, command, agent, rule, etc.)
 
         Returns:
             List of resource identifiers (e.g., skill names, command names)
@@ -33,6 +33,7 @@ class DocumentLoader:
             "skill": [".claude/skills/*/SKILL.md", ".claude/skills/*/skill.md"],
             "command": [".claude/commands/*.md"],
             "agent": [".claude/agents/*/AGENT.md", ".claude/agents/*/agent.md"],
+            "rule": [".claude/rules/*.md"],
         }
 
         patterns = patterns_map.get(resource_type, [])
@@ -48,8 +49,8 @@ class DocumentLoader:
                     if resource_type in ["skill", "agent"]:
                         # For skills/agents, use parent directory name
                         resource_names.append(match.parent.name)
-                    elif resource_type == "command":
-                        # For commands, use filename without extension
+                    elif resource_type in ["command", "rule"]:
+                        # For commands/rules, use filename without extension
                         resource_names.append(match.stem)
 
         return sorted(set(resource_names))

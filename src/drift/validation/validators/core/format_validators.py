@@ -44,26 +44,61 @@ class JsonSchemaValidator(BaseValidator):
         """Validate JSON file against schema.
 
         Expected params:
-            - file_path: File path to validate (required)
+            - file_path: File path to validate (optional - if not provided, validates bundle.files)
             - schema: Inline schema dict (required if no schema_file)
             - schema_file: Path to schema file (required if no schema)
 
-        -- rule: ValidationRule with params containing file_path and schema
+        -- rule: ValidationRule with params containing optional file_path and schema
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if validation fails, None if passes.
+
+        If params.file_path is provided, validates that specific file.
+        If params.file_path is not provided, validates all files in the bundle.
         """
         if not rule.params:
             raise ValueError("JsonSchemaValidator requires params")
 
         file_path_str = rule.params.get("file_path")
-        if not file_path_str:
-            raise ValueError("JsonSchemaValidator requires params.file_path")
 
-        if not rule.params:
-            raise ValueError("JsonSchemaValidator requires params with 'schema' or 'schema_file'")
+        # If file_path provided, validate that specific file (outside bundle)
+        if file_path_str:
+            return self._validate_specific_file(rule, bundle, file_path_str)
 
+        # Otherwise, validate all files in the bundle
+        failed_files = []
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+            failure = self._validate_file_content(rule, bundle, rel_path, content)
+            if failure:
+                failed_files.append((rel_path, failure))
+
+        if failed_files:
+            # Build detailed message
+            messages = [f"{path}: {issue}" for path, issue in failed_files]
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[f[0] for f in failed_files],
+                observed_issue="; ".join(messages),
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+            )
+
+        return None
+
+    def _validate_specific_file(
+        self, rule: ValidationRule, bundle: DocumentBundle, file_path_str: str
+    ) -> Optional[DocumentRule]:
+        """Validate a specific file by path (outside bundle).
+
+        -- rule: ValidationRule
+        -- bundle: Document bundle
+        -- file_path_str: Relative path to file
+
+        Returns DocumentRule if validation fails, None if passes.
+        """
         project_path = bundle.project_path
         file_path = project_path / file_path_str
 
@@ -76,17 +111,10 @@ class JsonSchemaValidator(BaseValidator):
                 observed_issue=f"File {file_path_str} does not exist",
             )
 
-        # Load JSON data
+        # Read file content
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except json.JSONDecodeError as e:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Invalid JSON: {e}",
-            )
+                content = f.read()
         except Exception as e:
             return self._create_failure(
                 rule=rule,
@@ -95,28 +123,49 @@ class JsonSchemaValidator(BaseValidator):
                 observed_issue=f"Failed to read file: {e}",
             )
 
-        # Load schema
-        schema = self._load_json_schema(rule, project_path)
-        if isinstance(schema, str):  # Error message
+        failure = self._validate_file_content(rule, bundle, file_path_str, content)
+        if failure:
             return self._create_failure(
                 rule=rule,
                 bundle=bundle,
                 file_paths=[file_path_str],
-                observed_issue=schema,
+                observed_issue=failure,
             )
+        return None
+
+    def _validate_file_content(
+        self, rule: ValidationRule, bundle: DocumentBundle, file_path: str, content: str
+    ) -> Optional[str]:
+        """Validate file content against JSON schema.
+
+        -- rule: ValidationRule
+        -- bundle: Document bundle
+        -- file_path: Relative path for error reporting
+        -- content: File content to validate
+
+        Returns error message if validation fails, None if passes.
+        """
+        # Load JSON data
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            return f"Invalid JSON: {e}"
+        except Exception as e:
+            return f"Failed to parse JSON: {e}"
+
+        # Load schema
+        project_path = bundle.project_path
+        schema = self._load_json_schema(rule, project_path)
+        if isinstance(schema, str):  # Error message
+            return schema
 
         # Validate against schema
         try:
             import jsonschema
         except ImportError:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=(
-                    "JSON Schema validation requires 'jsonschema' package. "
-                    "Install with: pip install jsonschema"
-                ),
+            return (
+                "JSON Schema validation requires 'jsonschema' package. "
+                "Install with: pip install jsonschema"
             )
 
         try:
@@ -125,19 +174,9 @@ class JsonSchemaValidator(BaseValidator):
         except jsonschema.ValidationError as e:
             # Format error message with path and details
             path = "/" + "/".join(str(p) for p in e.absolute_path) if e.absolute_path else "root"
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Schema validation failed at {path}: {e.message}",
-            )
+            return f"Schema validation failed at {path}: {e.message}"
         except jsonschema.SchemaError as e:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Invalid schema: {e.message}",
-            )
+            return f"Invalid schema: {e.message}"
 
     def _load_json_schema(self, rule: ValidationRule, project_path: Any) -> Any:
         """Load JSON schema from params or file.
@@ -219,26 +258,61 @@ class YamlSchemaValidator(BaseValidator):
         """Validate YAML file against schema.
 
         Expected params:
-            - file_path: File path to validate (required)
+            - file_path: File path to validate (optional - if not provided, validates bundle.files)
             - schema: Inline schema dict (required if no schema_file)
             - schema_file: Path to schema file (required if no schema)
 
-        -- rule: ValidationRule with params containing file_path and schema
+        -- rule: ValidationRule with params containing optional file_path and schema
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if validation fails, None if passes.
+
+        If params.file_path is provided, validates that specific file.
+        If params.file_path is not provided, validates all files in the bundle.
         """
         if not rule.params:
             raise ValueError("YamlSchemaValidator requires params")
 
         file_path_str = rule.params.get("file_path")
-        if not file_path_str:
-            raise ValueError("YamlSchemaValidator requires params.file_path")
 
-        if not rule.params:
-            raise ValueError("YamlSchemaValidator requires params with 'schema' or 'schema_file'")
+        # If file_path provided, validate that specific file (outside bundle)
+        if file_path_str:
+            return self._validate_yaml_specific_file(rule, bundle, file_path_str)
 
+        # Otherwise, validate all files in the bundle
+        failed_files = []
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+            failure = self._validate_yaml_file_content(rule, bundle, rel_path, content)
+            if failure:
+                failed_files.append((rel_path, failure))
+
+        if failed_files:
+            # Build detailed message
+            messages = [f"{path}: {issue}" for path, issue in failed_files]
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[f[0] for f in failed_files],
+                observed_issue="; ".join(messages),
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+            )
+
+        return None
+
+    def _validate_yaml_specific_file(
+        self, rule: ValidationRule, bundle: DocumentBundle, file_path_str: str
+    ) -> Optional[DocumentRule]:
+        """Validate a specific YAML file by path (outside bundle).
+
+        -- rule: ValidationRule
+        -- bundle: Document bundle
+        -- file_path_str: Relative path to file
+
+        Returns DocumentRule if validation fails, None if passes.
+        """
         project_path = bundle.project_path
         file_path = project_path / file_path_str
 
@@ -251,29 +325,10 @@ class YamlSchemaValidator(BaseValidator):
                 observed_issue=f"File {file_path_str} does not exist",
             )
 
-        # Load YAML data
-        try:
-            import yaml
-        except ImportError:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=(
-                    "YAML validation requires 'pyyaml' package. " "Install with: pip install pyyaml"
-                ),
-            )
-
+        # Read file content
         try:
             with open(file_path, "r", encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-        except yaml.YAMLError as e:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Invalid YAML: {e}",
-            )
+                content = f.read()
         except Exception as e:
             return self._create_failure(
                 rule=rule,
@@ -282,28 +337,54 @@ class YamlSchemaValidator(BaseValidator):
                 observed_issue=f"Failed to read file: {e}",
             )
 
-        # Load schema
-        schema = self._load_yaml_schema(rule, project_path)
-        if isinstance(schema, str):  # Error message
+        failure = self._validate_yaml_file_content(rule, bundle, file_path_str, content)
+        if failure:
             return self._create_failure(
                 rule=rule,
                 bundle=bundle,
                 file_paths=[file_path_str],
-                observed_issue=schema,
+                observed_issue=failure,
             )
+        return None
+
+    def _validate_yaml_file_content(
+        self, rule: ValidationRule, bundle: DocumentBundle, file_path: str, content: str
+    ) -> Optional[str]:
+        """Validate YAML file content against schema.
+
+        -- rule: ValidationRule
+        -- bundle: Document bundle
+        -- file_path: Relative path for error reporting
+        -- content: File content to validate
+
+        Returns error message if validation fails, None if passes.
+        """
+        # Load YAML data
+        try:
+            import yaml
+        except ImportError:
+            return "YAML validation requires 'pyyaml' package. Install with: pip install pyyaml"
+
+        try:
+            data = yaml.safe_load(content)
+        except yaml.YAMLError as e:
+            return f"Invalid YAML: {e}"
+        except Exception as e:
+            return f"Failed to parse YAML: {e}"
+
+        # Load schema
+        project_path = bundle.project_path
+        schema = self._load_yaml_schema(rule, project_path)
+        if isinstance(schema, str):  # Error message
+            return schema
 
         # Validate against schema using jsonschema
         try:
             import jsonschema
         except ImportError:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=(
-                    "YAML Schema validation requires 'jsonschema' package. "
-                    "Install with: pip install jsonschema"
-                ),
+            return (
+                "YAML Schema validation requires 'jsonschema' package. "
+                "Install with: pip install jsonschema"
             )
 
         try:
@@ -312,19 +393,9 @@ class YamlSchemaValidator(BaseValidator):
         except jsonschema.ValidationError as e:
             # Format error message with path and details
             path = "/" + "/".join(str(p) for p in e.absolute_path) if e.absolute_path else "root"
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Schema validation failed at {path}: {e.message}",
-            )
+            return f"Schema validation failed at {path}: {e.message}"
         except jsonschema.SchemaError as e:
-            return self._create_failure(
-                rule=rule,
-                bundle=bundle,
-                file_paths=[file_path_str],
-                observed_issue=f"Invalid schema: {e.message}",
-            )
+            return f"Invalid schema: {e.message}"
 
     def _load_yaml_schema(self, rule: ValidationRule, project_path: Any) -> Any:
         """Load YAML schema from params or file.

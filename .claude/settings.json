@@ -32,6 +32,9 @@
       "Skill(doc-audit)",
       "Skill(test-strategy)",
       "WebSearch"
+    ],
+    "deny": [
+      "Bash(sed:*)"
     ]
   }
 }

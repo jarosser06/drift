@@ -1,6 +1,6 @@
 ---
 name: test-strategy
-description: Expert in strategic pytest test planning for Drift's 90%+ coverage requirement, including coverage analysis with pytest-cov, edge case identification, and comprehensive test suite design. Use when determining what tests to write, analyzing coverage gaps, or planning test strategies.
+description: Plans pytest test strategies for Drift's 90%+ coverage requirement using coverage analysis, edge case identification, and test suite design. Use when determining what tests to write, analyzing coverage gaps, or planning test strategies.
 skills:
   - testing
   - python-basics
@@ -8,16 +8,7 @@ skills:
 
 # Test Strategy Skill
 
-Expert in strategic test planning for comprehensive test coverage in the Drift project.
-
-## Core Responsibilities
-
-- Identify what tests need to be written from requirements
-- Design comprehensive test coverage strategies
-- Identify edge cases and boundary conditions
-- Organize test suites for maintainability
-- Guide test pyramid balance (unit vs integration vs e2e)
-- Analyze coverage reports to find meaningful gaps
+Learn how to plan comprehensive test coverage for the Drift project.
 
 ## When to Use This Skill
 
@@ -35,11 +26,11 @@ Expert in strategic test planning for comprehensive test coverage in the Drift p
 
 ---
 
-## 1. Identifying What Tests to Write
+## How to Identify What Tests to Write
 
-### From User Stories to Test Cases
+### From Requirements to Test Cases
 
-**Process:**
+Follow this process:
 1. **Extract Requirements** - What should the code do?
 2. **Identify Behaviors** - What are all the possible behaviors?
 3. **Map to Test Cases** - One test per behavior
@@ -47,9 +38,9 @@ Expert in strategic test planning for comprehensive test coverage in the Drift p
 
 **Example: Validator Implementation**
 
-Given user story: "Create a validator that checks if code blocks exceed maximum line count"
+Given: "Create a validator that checks if code blocks exceed maximum line count"
 
-**Requirements Analysis:**
+**Step 1: Extract Requirements**
 - R1: Find code blocks in markdown files
 - R2: Count lines in each code block
 - R3: Compare against max_count parameter
@@ -57,136 +48,142 @@ Given user story: "Create a validator that checks if code blocks exceed maximum 
 - R5: Return failure if over limit
 - R6: Handle files without code blocks
 
-**Behavior Mapping:**
+**Step 2: Map Behaviors to Tests**
 ```python
 # From R2, R3, R4, R5:
-def test_passes_when_block_under_max()
-def test_fails_when_block_exceeds_max()
-def test_passes_when_block_equals_max()  # Boundary case!
+def test_passes_when_block_under_max():
+    """Block with 50 lines, max 100."""
+
+def test_fails_when_block_exceeds_max():
+    """Block with 150 lines, max 100."""
+
+def test_passes_when_block_equals_max():  # Boundary case!
+    """Block with exactly 100 lines, max 100."""
 
 # From R6:
-def test_passes_when_no_code_blocks()
+def test_passes_when_no_code_blocks():
+    """File with no code blocks."""
 
 # Additional behaviors discovered:
-def test_handles_empty_code_block()
-def test_handles_multiple_code_blocks()
-def test_counts_only_block_content_not_fence()
+def test_handles_empty_code_block():
+    """Empty code block (no lines)."""
+
+def test_handles_multiple_code_blocks():
+    """File with multiple code blocks, one exceeds."""
+
+def test_counts_only_block_content_not_fence():
+    """Doesn't count ``` fence lines."""
 ```
 
-### Test Pyramid Guidance
+### When to Write Each Test Type
 
-**Drift's Test Pyramid:**
-```
-        /\        E2E (< 5%)
-       /  \       - Full CLI workflows
-      /____\      - Multi-validator scenarios
-     /      \
-    /  INTEG \    Integration (10-15%)
-   /__________\   - Multi-phase analysis
-  /            \  - Validator with DocumentBundle
- /     UNIT     \ Unit (80-90%)
-/________________\ - Individual validators
-                   - Utility functions
-```
+**Unit Tests (80-90%):** Individual validators, utility functions, model validation, parsers, formatters
 
-**When to write each type:**
+**Integration Tests (10-15%):** Validator with DocumentBundle, analyzer with multiple phases, config loading
 
-**Unit Tests (80-90% of tests):**
-- Individual validator logic
-- Utility functions
-- Model validation
-- Parser functions
-- Format functions
+**E2E Tests (<5%):** Full `drift --no-llm` workflow, complete analysis pipeline
 
-**Integration Tests (10-15% of tests):**
-- Validator with DocumentBundle
-- Analyzer with multiple phases
-- Config loading with file system
-- CLI with multiple validators
-
-**E2E Tests (< 5% of tests):**
-- Full `drift --no-llm` workflow
-- Complete analysis pipeline
-- Real configuration files
+See [Test Identification Guide](resources/test-identification.md) for examples of each type.
 
 ---
 
-## 2. Getting Good Coverage
+## How to Achieve Good Coverage
 
 ### Coverage ≠ Quality
 
-**90% coverage means:**
-✅ 90% of lines are executed during tests
-❌ NOT that 90% of behaviors are tested
-
-**Good Coverage Strategy:**
-
-1. **Start with behaviors, not lines**
-   - List all expected behaviors
-   - Write tests for each behavior
-   - Check coverage to find gaps
-
-2. **Use coverage reports to identify gaps**
-   ```bash
-   pytest --cov=drift --cov-report=term-missing
-   ```
-
-   Look for:
-   - Uncovered error handling paths
-   - Untested branches (if/else)
-   - Edge cases in conditionals
-
-3. **Branch coverage over line coverage**
-   ```bash
-   pytest --cov-branch
-   ```
-
-   Ensures both paths of if/else are tested
+**Understanding 90% coverage:**
+- ✅ Means: 90% of lines are executed during tests
+- ❌ Does NOT mean: 90% of behaviors are tested
 
 ### Coverage Analysis Workflow
 
 **When coverage is below 90%:**
 
-1. Run coverage with missing lines
-2. Analyze uncovered lines (error handling? branch? edge case?)
-3. Write meaningful tests for behaviors, not just line hits
+1. **Run coverage with missing lines**
+   ```bash
+   pytest --cov=src/drift --cov-report=term-missing
+   ```
 
-**Example - Good vs Bad Coverage:**
+   Output shows:
+   ```
+   Name                    Stmts   Miss  Cover   Missing
+   src/drift/parser.py        45      3    93%   67-69
+   src/drift/detector.py     120     15    88%   45, 78-92
+   ```
 
-```python
-# BAD: Just hitting lines
-def test_coverage_filler():
-    validator.validate(rule, bundle)  # Just runs the code
+2. **Analyze uncovered lines**
+   ```python
+   # Read the file, look at lines 67-69
+   # Ask: What behavior do these lines represent?
+   # - Error handling?
+   # - Branch condition?
+   # - Edge case?
+   ```
 
-# GOOD: Testing behavior
-def test_fails_when_schema_validation_fails():
-    # Specifically tests schema validation failure path
-    invalid_rule = ValidationRule(...)
-    result = validator.validate(invalid_rule, bundle)
-    assert result is not None
-    assert "schema validation failed" in result.observed_issue
+3. **Write tests for behaviors, not just line hits**
+   ```python
+   # BAD: Just hitting lines
+   def test_coverage_filler():
+       validator.validate(rule, bundle)  # Just runs the code
+
+   # GOOD: Testing actual behavior
+   def test_fails_when_schema_validation_fails():
+       """Schema validation error path (lines 67-69)."""
+       invalid_rule = ValidationRule(schema={})
+       result = validator.validate(invalid_rule, bundle)
+       assert result is not None
+       assert "schema validation failed" in result.observed_issue
+   ```
+
+### Use Branch Coverage
+
+```bash
+# Check that both paths of if/else are tested
+pytest --cov-branch --cov=src/drift --cov-report=term-missing
 ```
 
-### Coverage Patterns from Drift
+This ensures:
+```python
+# Both paths tested
+if condition:
+    path_a()  # Covered
+else:
+    path_b()  # Also covered
+```
+
+### Coverage Patterns
 
 **Pattern 1: Test all validator outcomes**
 ```python
-def test_passes_when_valid()           # Happy path
-def test_fails_when_invalid()          # Failure path
-def test_handles_file_not_found()      # Error path
-def test_handles_missing_params()      # Configuration error
+def test_passes_when_valid():           # Happy path
+    """Valid input returns None."""
+
+def test_fails_when_invalid():          # Failure path
+    """Invalid input returns failure."""
+
+def test_handles_file_not_found():      # Error path
+    """Missing file raises appropriate error."""
+
+def test_handles_missing_params():      # Configuration error
+    """Missing required params detected."""
 ```
 
 **Pattern 2: Test exception paths**
 ```python
-def test_missing_package(monkeypatch)  # ImportError
-def test_file_read_error(monkeypatch)  # IOError
-def test_invalid_yaml(tmp_path)        # YAMLError
+def test_missing_package(monkeypatch):  # ImportError
+    """Handles missing optional dependency."""
+    monkeypatch.setattr("sys.modules", {"package": None})
+
+def test_file_read_error(monkeypatch):  # IOError
+    """Handles file read permissions error."""
+
+def test_invalid_yaml(tmp_path):        # YAMLError
+    """Handles malformed YAML gracefully."""
 ```
 
 ---
 
-## 3. Identifying Edge Cases
+## How to Identify Edge Cases
 
 ### Equivalence Partitioning
 
@@ -196,25 +193,31 @@ def test_invalid_yaml(tmp_path)        # YAMLError
 
 Input: code block line count (integer)
 
-**Partitions:**
-1. Below minimum (if min specified): 0, min-1
-2. Valid range: min, min+1, max-1, max
-3. Above maximum: max+1, max+100
+**Step 1: Identify Partitions**
+1. No code blocks
+2. Valid range (min to max)
+3. Above maximum
 
-**Test strategy:** Test one value from each partition + boundaries
-
+**Step 2: Test one value from each partition + boundaries**
 ```python
 # Partition 1: No code blocks
 def test_passes_when_no_code_blocks():
-    # content with no code blocks
+    """File with no code blocks."""
+    content = "# Just markdown\nNo code here"
+    assert validator.check(content, max_count=100) is None
 
 # Partition 2: Valid range
 def test_passes_when_in_valid_range():
-    # code block with 50 lines (middle of range)
+    """Code block with 50 lines (middle of range)."""
+    content = "```\n" + "\n".join([f"line{i}" for i in range(50)]) + "\n```"
+    assert validator.check(content, max_count=100) is None
 
-# Partition 3: Above max (if max=100)
+# Partition 3: Above max
 def test_fails_when_above_maximum():
-    # code block with 150 lines
+    """Code block with 150 lines exceeds max."""
+    content = "```\n" + "\n".join([f"line{i}" for i in range(150)]) + "\n```"
+    result = validator.check(content, max_count=100)
+    assert result is not None
 ```
 
 ### Boundary Value Analysis
@@ -226,81 +229,138 @@ def test_fails_when_above_maximum():
 2. At boundary
 3. Just above boundary
 
-**Example from BlockLineCountValidator:**
-
-If max_count = 100:
+**Example: max_count = 100**
 ```python
-def test_passes_with_99_lines()   # Just below
-def test_passes_with_100_lines()  # At boundary
-def test_fails_with_101_lines()   # Just above
+def test_passes_with_99_lines():   # Just below
+    """99 lines is under limit."""
+    content = create_code_block(99)
+    assert validator.check(content, max_count=100) is None
+
+def test_passes_with_100_lines():  # At boundary
+    """Exactly 100 lines is at limit (inclusive)."""
+    content = create_code_block(100)
+    assert validator.check(content, max_count=100) is None
+
+def test_fails_with_101_lines():   # Just above
+    """101 lines exceeds limit."""
+    content = create_code_block(101)
+    result = validator.check(content, max_count=100)
+    assert result is not None
 ```
 
 **Common boundaries in Drift:**
-- Empty collections: [], "", {}, None
-- Zero values: 0, 0.0
+- Empty collections: `[]`, `""`, `{}`, `None`
+- Zero values: `0`, `0.0`
 - File boundaries: empty file, no code blocks
-- String boundaries: "", "a", very long string
+- String boundaries: `""`, `"a"`, very long string
 
 ### Type-Specific Edge Cases
 
 **Strings:**
 ```python
-# Empty, whitespace, special chars, very long
-"", "   ", "\n\t", "!" * 10000
+@pytest.mark.parametrize("value", [
+    "",           # Empty
+    "   ",        # Whitespace only
+    "\n\t",       # Special chars
+    "a" * 10000,  # Very long
+])
+def test_handles_string_edge_cases(value):
+    """Test with various string edge cases."""
+    result = process_string(value)
+    assert result is not None
 ```
 
 **Lists/Arrays:**
 ```python
-# Empty, single item, many items
-[], [item], [i1, i2, ...]
+@pytest.mark.parametrize("items", [
+    [],              # Empty
+    [single_item],   # Single item
+    many_items,      # Many items
+])
+def test_handles_list_edge_cases(items):
+    """Test with various list sizes."""
+    result = process_list(items)
+    assert isinstance(result, list)
 ```
 
 **Files:**
 ```python
-# Non-existent, empty, unreadable, malformed
-Path("missing.txt"), empty_file, invalid_markdown
+def test_handles_missing_file():
+    """File doesn't exist."""
+    with pytest.raises(FileNotFoundError):
+        load_file("missing.txt")
+
+def test_handles_empty_file(tmp_path):
+    """File exists but is empty."""
+    empty = tmp_path / "empty.txt"
+    empty.touch()
+    result = load_file(str(empty))
+    assert result == ""
+
+def test_handles_malformed_file(tmp_path):
+    """File has invalid format."""
+    bad_file = tmp_path / "bad.yaml"
+    bad_file.write_text("{invalid yaml")
+    with pytest.raises(ValueError):
+        load_yaml(str(bad_file))
 ```
 
 **Numbers:**
 ```python
-# Zero, negative, boundary, overflow
-0, -1, MAX_COUNT, MAX_COUNT + 1
+@pytest.mark.parametrize("count", [
+    0,                # Zero
+    -1,               # Negative
+    MAX_COUNT,        # Boundary
+    MAX_COUNT + 1,    # Overflow
+])
+def test_handles_number_edge_cases(count):
+    """Test with various number edge cases."""
+    result = validate_count(count, max_count=MAX_COUNT)
+    # Assertions depend on expected behavior
 ```
 
 ### Error Guessing Technique
 
-**Based on Drift patterns, common edge cases:**
+Based on Drift patterns, anticipate these common edge cases:
 
-1. **File operations:**
-   - File doesn't exist
-   - File is empty
-   - File is unreadable (permissions)
-   - File is malformed
+**1. File operations:**
+```python
+def test_file_doesnt_exist()     # Path("missing.txt")
+def test_file_is_empty()         # Empty file
+def test_file_unreadable()       # Permission denied
+def test_file_malformed()        # Invalid content
+```
 
-2. **YAML/JSON parsing:**
-   - Unclosed frontmatter
-   - Invalid YAML syntax
-   - Empty frontmatter
-   - Missing required fields
+**2. YAML/JSON parsing:**
+```python
+def test_unclosed_frontmatter()  # Missing ---
+def test_invalid_yaml_syntax()   # {bad: yaml
+def test_empty_frontmatter()     # --- ---
+def test_missing_required_fields() # No 'name' field
+```
 
-3. **Validation logic:**
-   - Missing required parameters
-   - Invalid parameter types
-   - Boundary conditions
-   - Resource not found
+**3. Validation logic:**
+```python
+def test_missing_required_params()  # No max_count provided
+def test_invalid_parameter_types()  # max_count="not_a_number"
+def test_boundary_conditions()      # Exactly at limit
+def test_resource_not_found()       # Referenced file missing
+```
 
-4. **Bundle operations:**
-   - Empty bundle.files
-   - Missing file_path in rule
-   - all_bundles is None
+**4. Bundle operations:**
+```python
+def test_empty_bundle_files()    # bundle.files = []
+def test_missing_file_path()     # rule.file_path is None
+def test_all_bundles_none()      # all_bundles parameter = None
+```
 
 ---
 
-## 4. Test Organization
+## How to Organize Tests
 
 ### File Naming Conventions
 
-**Drift's pattern:**
+Follow Drift's pattern:
 ```
 tests/
 ├── unit/
@@ -318,235 +378,82 @@ tests/
 
 ### Test Class Organization
 
-**Drift's pattern:**
-```python
-class Test<ComponentName>:
-    """Tests for <ComponentName>."""
-
-    @pytest.fixture
-    def validator(self):
-        """Create validator instance."""
-        return ComponentValidator()
-
-    @pytest.fixture
-    def bundle(self, tmp_path):
-        """Create test bundle."""
-        return DocumentBundle(...)
-
-    # Happy path tests
-    def test_passes_when_valid(self, validator, bundle):
-        ...
-
-    # Failure tests
-    def test_fails_when_invalid(self, validator, bundle):
-        ...
-
-    # Edge case tests
-    def test_handles_empty_file(self, validator, bundle):
-        ...
-```
+See [Test Organization Patterns](resources/test-organization.md) for detailed class organization examples.
 
 ### Test Method Naming
 
-**Convention:** `test_<component>_<behavior>_<condition>`
-
-**Good names:**
-```python
-def test_validator_passes_when_within_limit()
-def test_parser_raises_error_on_invalid_json()
-def test_analyzer_skips_disabled_rules()
-```
-
-**Bad names:**
-```python
-def test_validator()              # Too vague
-def test_case_1()                 # No context
-def test_this_should_work()       # Unclear
-```
-
-### Fixture Management
-
-**Fixture hierarchy in Drift:**
+Use descriptive names that explain the scenario:
 
 ```python
-# conftest.py - Shared across all tests
-@pytest.fixture
-def temp_dir():
-    """Temporary directory for all tests."""
+# Good names
+def test_passes_when_block_under_max()
+def test_fails_when_block_exceeds_max()
+def test_handles_empty_code_block()
+def test_handles_multiple_blocks_one_exceeds()
 
-# test_file.py - Test-specific fixtures
-class TestValidator:
-    @pytest.fixture
-    def validator(self):
-        """Validator instance for this test class."""
-
-    @pytest.fixture
-    def bundle(self, tmp_path):
-        """Test bundle with specific setup."""
+# Avoid vague names
+def test_validator()        # What about it?
+def test_case_1()           # What is case 1?
+def test_edge()             # Which edge?
 ```
 
-**Fixture composition:**
-```python
-# Build complex fixtures from simple ones
-@pytest.fixture
-def sample_drift_config(
-    sample_provider_config,
-    sample_model_config,
-    sample_learning_type
-):
-    """Compose complex config from simpler fixtures."""
-    return DriftConfig(
-        providers={"bedrock": sample_provider_config},
-        models={"haiku": sample_model_config},
-        ...
-    )
-```
+## Test Planning Checklist
 
----
+When planning tests for a feature:
 
-## 5. Mocking Strategies
+1. **Requirements Analysis**
+   - [ ] Listed all requirements
+   - [ ] Identified all behaviors
+   - [ ] Mapped behaviors to test cases
 
-### When to Mock
+2. **Edge Cases**
+   - [ ] Tested boundary values
+   - [ ] Tested empty/null cases
+   - [ ] Tested error conditions
+   - [ ] Used equivalence partitioning
 
-**Mock when:**
-- Testing code that depends on external services (APIs, databases)
-- Testing code with non-deterministic behavior (time, random)
-- Testing code with slow operations (file I/O, network calls)
-- Isolating the unit under test from its dependencies
+3. **Coverage**
+   - [ ] Achieves 90%+ line coverage
+   - [ ] Tests all branches (if/else)
+   - [ ] Tests error handling paths
+   - [ ] Tests are meaningful, not just line hits
 
-**Don't mock when:**
-- Testing simple pure functions
-- Testing internal implementation details
-- Over-isolating leads to meaningless tests
-- The real dependency is fast and reliable
+4. **Organization**
+   - [ ] Tests organized by type (unit/integration/e2e)
+   - [ ] Test files named consistently
+   - [ ] Fixtures reused effectively
+   - [ ] Test names are descriptive
 
-### Choosing Your Tool
-
-**pytest monkeypatch:**
-- Simple attribute/function replacements
-- Environment variables
-- Dictionary/object modifications
-- Built-in, no extra dependencies
-
-**unittest.mock / pytest-mock:**
-- Complex mocking with call tracking
-- Need to verify how mocks are called
-- Decorator-based patching
-- More advanced features (return_value, side_effect)
-
-### Mock Verification
-
-Always verify mocks are called correctly:
-- `assert_called_once()`
-- `assert_called_with(args)`
-- `mock.call_count`
-- `mock.call_args_list`
-
-**Example from Drift:**
-
-```python
-from unittest.mock import Mock, patch
-
-@patch("drift.providers.anthropic.Anthropic", autospec=True)
-def test_token_counting(mock_anthropic):
-    """Test with autospec for type safety."""
-    # Configure mock
-    mock_client = Mock()
-    mock_client.count_tokens.return_value = 500
-    mock_anthropic.return_value = mock_client
-
-    # Test
-    result = count_tokens("test content")
-
-    # Verify
-    assert result == 500
-    mock_client.count_tokens.assert_called_once_with("test content")
-```
-
-**Common anti-patterns to avoid:**
-- Over-mocking (too many mocks = brittle tests)
-- Not using `autospec=True` (allows invalid method signatures)
-- Mocking implementation instead of interface
-- Mocks falling out of sync with reality
-
----
-
-## Test Strategy Workflow
-
-### Planning Tests for New Feature
-
-1. **Understand the requirement**
-   - Read user story/issue
-   - Identify acceptance criteria
-   - List expected behaviors
-
-2. **Identify test types needed**
-   - Primarily unit tests?
-   - Need integration tests?
-   - Any e2e scenarios?
-
-3. **List all behaviors to test**
-   - Happy path
-   - Failure cases
-   - Edge cases
-   - Error conditions
-
-4. **Design test structure**
-   - Test class name
-   - Fixture requirements
-   - Test method names
-
-5. **Implement tests**
-   - Use testing skill for pytest details
-   - Follow Drift patterns from similar tests
-
-### Analyzing Coverage Gaps
-
-1. **Run coverage report:**
-   ```bash
-   pytest --cov=drift --cov-report=term-missing --cov-branch
-   ```
-
-2. **For each uncovered line, ask:**
-   - What behavior triggers this line?
-   - Is it an edge case I missed?
-   - Is it error handling?
-   - Is it defensive code that's OK to skip?
-
-3. **Write targeted tests:**
-   - One test per uncovered behavior
-   - Focus on meaningful coverage, not just lines
-
-4. **Verify coverage improvement:**
-   ```bash
-   pytest --cov=drift --cov-report=term
-   ```
-
----
+5. **Balance**
+   - [ ] Mostly unit tests (fast feedback)
+   - [ ] Some integration tests (confidence)
+   - [ ] Minimal e2e tests (coverage of critical paths)
 
 ## Resources
 
-### 📖 [Test Identification Guide](resources/test-identification.md)
-Step-by-step process for identifying what tests to write from requirements, user stories, and code changes.
+All test strategy resources are available in the [resources/](resources/) directory:
 
-**Use when:** Planning tests for a new feature or analyzing existing code for missing tests.
+### 📖 [Test Identification Guide](resources/test-identification.md)
+Step-by-step process for identifying what tests to write from requirements.
+
+**Use when:** Planning tests for a new feature or analyzing what's missing.
 
 ### 📖 [Coverage Strategies](resources/coverage-strategies.md)
-Techniques for achieving meaningful 90%+ coverage beyond just hitting lines, including branch coverage and gap analysis.
+Techniques for achieving and maintaining 90%+ coverage meaningfully.
 
-**Use when:** Coverage is below target or you want to improve test quality.
+**Use when:** Coverage is below target or analyzing coverage reports.
 
 ### 📖 [Edge Case Techniques](resources/edge-case-techniques.md)
-Comprehensive guide to equivalence partitioning, boundary value analysis, and error guessing with Drift-specific examples.
+Detailed guide on equivalence partitioning, boundary analysis, and error guessing.
 
-**Use when:** Identifying what edge cases to test or reviewing test completeness.
+**Use when:** Identifying missing edge cases or reviewing test completeness.
 
 ### 📖 [Test Organization Patterns](resources/test-organization.md)
-Drift's patterns for organizing tests, naming conventions, fixture management, and test data strategies.
+Patterns for organizing test files, classes, and fixtures.
 
 **Use when:** Setting up tests for a new module or refactoring test structure.
 
 ### 📖 [Mocking Strategies](resources/mocking-strategies.md)
-Comprehensive guide to mocking in Python/pytest, including when to mock, monkeypatch vs unittest.mock, common anti-patterns, and Drift-specific patterns.
+Patterns for mocking dependencies, external APIs, and file systems.
 
-**Use when:** Deciding whether to mock, choosing mocking tools, or implementing mocks for external dependencies.
+**Use when:** Testing code with external dependencies or complex interactions.

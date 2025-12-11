@@ -43,7 +43,15 @@ skill_validation:
       failure_message: "Skill frontmatter must include 'name' and 'description' fields"
       expected_behavior: "All skills must have valid YAML frontmatter with 'name' and 'description' fields"
 
-    # Phase 3: Description quality
+    # Phase 3: Line count validation
+    - name: check_line_count
+      type: core:file_size
+      params:
+        max_count: 500
+      failure_message: "Skill file exceeds 500 lines - consider splitting into multiple resource files"
+      expected_behavior: "Skill files should be <= 500 lines for maintainability"
+
+    # Phase 4: Description quality
     - name: check_description_quality
       type: prompt
       model: sonnet
@@ -74,42 +82,37 @@ skill_validation:
       available_resources:
         - skill
 
-    # Phase 4: Structural quality
+    # Phase 5: Structural quality
     - name: check_structural_quality
       type: prompt
       model: sonnet
       prompt: |
-        Evaluate if skill provides adequate structure per Anthropic best practices.
+        Evaluate if skill provides adequate HOW-TO guidance (not WHAT standards).
 
         A GOOD skill includes:
-        - Clear instructions or workflows (what to do)
-        - Concrete examples or code snippets (how to do it)
-        - References to additional resources when needed
-        - Step-by-step processes for complex tasks
+        - Clear workflows and step-by-step processes
+        - Concrete examples showing HOW to do things
+        - Tool usage patterns and commands
+        - Techniques and best practices for implementation
+        - Pure capability/workflow content
 
         CRITICAL ISSUES (report these):
-        - Skill has NO actionable instructions (only vague statements)
-        - Skill is missing any examples, code, or concrete guidance
-        - SKILL.md body exceeds 500 lines without splitting into separate files
+        - Skill contains MUST/MUST NOT declarations (should be in .claude/rules/)
+        - Skill defines quality thresholds or standards (should be in .claude/rules/)
+        - Skill has no actionable HOW-TO instructions (only rules/standards)
 
-        Examples of GOOD structure:
-        - "Use pdfplumber: [code example]"
-        - "Workflow: 1. Read files 2. Validate 3. Generate output"
-        - "Call mcp__github__get_issue(owner, repo, number)"
-        - "See [REFERENCE.md] for complete API docs"
+        ACCEPTABLE (do NOT report):
+        - Practical examples showing technique application
+        - Workflow descriptions
+        - Tool usage instructions
+        - "Here's how to..." language
+        - Code examples and patterns
 
-        Examples of BAD (report these):
-        - Only abstract descriptions with no concrete guidance
-        - No code examples or workflows anywhere
-        - Massive content dumps without file organization
-
-        Note: MCP tool examples (mcp__server__function syntax) are valid code examples.
-
-        Focus: Does the skill provide ACTIONABLE guidance?
+        Focus: Does the skill teach HOW to do things, or define WHAT standards must be met?
       available_resources:
         - skill
 
-    # Phase 5: Verify dependencies
+    # Phase 6: Verify dependencies
     - name: verify_dependencies
       type: prompt
       model: sonnet
@@ -135,7 +138,7 @@ skill_validation:
       available_resources:
         - skill
 
-    # Phase 6: Check broken links
+    # Phase 7: Check broken links
     - name: check_broken_links
       type: core:markdown_link
       description: "Check for broken links in skill documentation"
@@ -144,15 +147,17 @@ skill_validation:
       params:
         check_local_files: true
         check_external_urls: false
+        skip_code_blocks: true
         custom_skip_patterns:
           - '\.py'
           - '\.yaml'
           - '\.yml'
           - '\.cfg'
+          - '\.json'  # Skip JSON files (often placeholders like log.json)
           - 'CHANGELOG\.md'
           - 'github/workflows/'
 
-    # Phase 7: Check duplicate dependencies
+    # Phase 8: Check duplicate dependencies
     - name: check_duplicate_dependencies
       type: core:dependency_duplicate
       description: "Check for redundant transitive dependencies in skills"
@@ -162,7 +167,7 @@ skill_validation:
         resource_dirs:
           - .claude/skills
 
-    # Phase 8: Check circular dependencies
+    # Phase 9: Check circular dependencies
     - name: check_circular_dependencies
       type: core:circular_dependencies
       description: "Check for circular dependencies in skill dependency graphs"
@@ -172,7 +177,7 @@ skill_validation:
         resource_dirs:
           - .claude/skills
 
-    # Phase 9: Check max dependency depth
+    # Phase 10: Check max dependency depth
     - name: check_max_dependency_depth
       type: core:claude_max_dependency_depth
       description: "Ensure dependencies don't exceed maximum depth"
@@ -360,11 +365,13 @@ agent_validation:
       params:
         check_local_files: true
         check_external_urls: false
+        skip_code_blocks: true
         custom_skip_patterns:
           - '\.py'
           - '\.yaml'
           - '\.yml'
           - '\.cfg'
+          - '\.json'  # Skip JSON files (often placeholders like log.json)
           - 'CHANGELOG\.md'
           - 'github/workflows/'
 
@@ -601,11 +608,13 @@ command_validation:
       params:
         check_local_files: true
         check_external_urls: false
+        skip_code_blocks: true
         custom_skip_patterns:
           - '\.py'
           - '\.yaml'
           - '\.yml'
           - '\.cfg'
+          - '\.json'  # Skip JSON files (often placeholders like log.json)
           - 'CHANGELOG\.md'
           - 'github/workflows/'
 
@@ -679,6 +688,134 @@ command_validation:
         - command
         - skill
         - agent
+
+# ==============================================================================
+# RULE VALIDATION
+# ==============================================================================
+rule_validation:
+  description: "Comprehensive validation for Claude Code rules"
+  scope: project_level
+  context: "Rules define project standards following Claude Code's best practices. Each rule must be focused, well-named, and provide clear validation criteria."
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: rule
+    file_patterns:
+      - .claude/rules/*.md
+    bundle_strategy: individual
+    resource_patterns: []
+  phases:
+    # Phase 1: Check frontmatter exists and is valid
+    - name: check_frontmatter
+      type: core:yaml_frontmatter
+      params:
+        required_fields:
+          - name
+          - description
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+              pattern: "^[a-z][a-z0-9-]*$"
+              description: "Rule name in kebab-case"
+            description:
+              type: string
+              minLength: 10
+              description: "One-sentence description of what this rule validates"
+            path:
+              type: string
+              description: "Optional glob pattern for files this rule applies to (e.g., '**/*.py', 'tests/**/*.py')"
+          required:
+            - name
+            - description
+      failure_message: "Rule file has invalid or missing frontmatter"
+      expected_behavior: "Rules must have 'name' and 'description' fields in YAML frontmatter. Optional 'path' field can specify which files the rule applies to."
+
+    # Phase 2: Check for broken links
+    - name: check_broken_links
+      type: core:markdown_link
+      params:
+        check_local_files: true
+        check_external_urls: false
+        skip_code_blocks: true
+        custom_skip_patterns:
+          - '\.py'
+          - '\.yaml'
+      failure_message: "Found broken links in rule file"
+      expected_behavior: "All file references should be valid"
+
+    # Phase 3: Check rule follows best practices
+    - name: check_best_practices
+      type: prompt
+      model: sonnet
+      prompt: |
+        Evaluate if this rule file follows Claude Code best practices.
+
+        CRITICAL ISSUES (report these):
+        1. **Multiple UNRELATED topics in one file**: Rule covers topics that would be used in completely different contexts
+           - Example BAD: File covers imports AND testing (different workflows)
+           - Example BAD: File covers git commits AND Python formatting (different domains)
+           - Example GOOD: File covers prohibited language AND citation requirements (both about documentation quality)
+           - Example GOOD: File covers version format AND tag format AND changelog rules (all about releases)
+
+        2. **Vague filename**: Filename doesn't clearly indicate what rule covers
+           - Example BAD: "standards.md", "rules.md", "python.md"
+           - Example GOOD: "python-imports.md", "test-coverage.md", "git-commits.md"
+
+        3. **Contains HOW-TO content**: Shows workflows or step-by-step processes (belongs in skills)
+           - Example BAD: "Run pytest with these flags...", "Here's how to organize imports..."
+           - Example GOOD: "MUST have 90% coverage", "MUST place imports at top"
+
+        ACCEPTABLE (do NOT report):
+        - Single focused domain/topic with multiple related aspects
+        - Related constraints that work together (e.g., all documentation quality rules together)
+        - Different facets of the same concern (e.g., prohibited terms + required citations = documentation standards)
+        - Clear MUST/MUST NOT statements
+        - Specific thresholds (90% coverage, 100 char line length)
+        - Rationale sections explaining why
+        - Brief examples showing WHAT is required (not HOW to achieve it)
+
+        Focus: Does this rule cover ONE cohesive topic/domain, or multiple UNRELATED topics that should be separate?
+      available_resources:
+        - rule
+
+    # Phase 4: Semantic quality check
+    - name: check_rule_quality
+      type: prompt
+      model: sonnet
+      prompt: |
+        Analyze this rule file for quality.
+
+        CRITICAL ISSUES (report these):
+        1. Vague requirements without specifics (e.g., "code should be good")
+        2. No clear success criteria or measurable standards
+        3. Missing rationale for important constraints
+        4. Instructional/workflow rules instead of declarative standards:
+           - WRONG: "MUST verify recommendations against official docs" (tells AI what to DO)
+           - WRONG: "MUST update documentation for changes" (tells AI a workflow step)
+           - WRONG: "Implementation is source of truth" (tells AI where to check)
+           - WRONG: "Test-driven validation" (tells AI HOW to work)
+           - RIGHT: "MUST follow PEP 8" (declarative standard about code)
+           - RIGHT: "MUST have 90% coverage" (measurable threshold)
+           - RIGHT: "MUST NOT use subjective language like 'easily'" (declarative standard about content)
+        5. MCP tool references (e.g., "Use mcp__context7", "Use mcp__serena", "Use mcp__github")
+           - These are AI-specific instructions that belong in skills/agents/commands
+
+        Rules should describe what the FINAL ARTIFACT looks like, not what the AI should do during work.
+        Workflow instructions belong in skills/agents/commands, not rules.
+
+        ACCEPTABLE (do NOT report):
+        - Declarative standards about code/docs (e.g., "MUST use snake_case")
+        - Specific thresholds (90% coverage, 100 char line length)
+        - Forbidden patterns with examples (e.g., "MUST NOT use: easily, simply, just")
+        - Format requirements (e.g., "Commit messages MUST be under 72 characters")
+        - What the artifact MUST/MUST NOT contain
+
+        Focus: Does this describe what the final artifact should BE, or does it tell the AI what to DO?
+      available_resources:
+        - rule
 
 # ==============================================================================
 # CLAUDE.MD VALIDATION

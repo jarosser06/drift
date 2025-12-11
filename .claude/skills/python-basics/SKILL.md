@@ -5,33 +5,11 @@ description: Expert in Python 3.10+ fundamentals and best practices for the Drif
 
 # Python Basics Skill
 
-Expert in Python fundamentals, best practices, and code organization for the Drift project.
+Learn how to write clean, well-organized Python code following Drift project conventions.
 
-## Core Responsibilities
+## How to Organize Imports
 
-- Enforce Python best practices
-- Ensure proper import organization
-- Maintain PEP 8 compliance
-- Guide proper code structure
-- Prevent common Python pitfalls
-
-## Import Standards
-
-### CRITICAL RULE: ALL IMPORTS MUST BE AT THE TOP OF THE FILE
-
-**NEVER use inline imports.** All imports must be placed at the top of the file, immediately after the module docstring.
-
-### Import Order
-
-Imports must follow this strict order:
-
-1. **Standard library imports**
-2. **Related third-party imports**
-3. **Local application/library imports**
-
-Each group should be separated by a blank line.
-
-### Example: Correct Import Structure
+When writing Python files, place imports immediately after the module docstring and organize them in three groups:
 
 ```python
 """Module for analyzing conversation logs."""
@@ -53,24 +31,30 @@ from drift.core.detector import DriftDetector
 from drift.utils.config import load_config
 ```
 
-### Example: INCORRECT Import Structure
+### Within Each Group
+
+Organize imports consistently:
+1. `import x` statements first
+2. `from x import y` statements second
+3. Alphabetically within each subgroup
 
 ```python
-"""Module for analyzing conversation logs."""
-
+# Good organization
 import json
-import click  # Third-party mixed with stdlib
+import os
+from pathlib import Path
+from typing import Any, Dict
 
-def analyze_file(path: str):
-    from drift.core.parser import parse_conversation  # WRONG: Inline import
-    return parse_conversation(path)
-
-import os  # WRONG: Import not at top
+# Poor organization (mixed order)
+from typing import Any, Dict
+import os
+from pathlib import Path
+import json
 ```
 
 ## Why No Inline Imports?
 
-**Inline imports are prohibited because:**
+Understanding the reasoning helps you make better architectural decisions:
 
 1. **Readability:** Dependencies should be visible at the top of the file
 2. **Maintainability:** Easier to track and manage dependencies
@@ -78,71 +62,92 @@ import os  # WRONG: Import not at top
 4. **Static Analysis:** Tools can analyze dependencies properly
 5. **PEP 8 Compliance:** Follows Python style guide recommendations
 
-### The ONLY Exception
+### The Exception: TYPE_CHECKING Blocks
 
-Inline imports are acceptable ONLY for:
-- Avoiding circular import issues (very rare)
-- Type checking imports within `TYPE_CHECKING` blocks
+When you need to avoid circular imports for type hints only:
 
 ```python
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from drift.core.detector import DriftDetector  # OK: Type checking only
+
+def process(detector: "DriftDetector") -> None:
+    """Process using detector."""
+    pass
 ```
 
-## Import Organization
+This technique allows forward references without runtime circular dependencies.
 
-### Grouping Imports
+## How to Fix Import Issues
 
-Within each section, organize imports:
+When your linter flags import problems:
 
-1. `import x` statements first
-2. `from x import y` statements second
-3. Alphabetically within each group
+### Using isort
+
+```bash
+# Auto-sort all imports
+isort .
+
+# Check what would change
+isort --check-only .
+
+# Sort a specific file
+isort src/drift/core/parser.py
+```
+
+### Manual Fixes
+
+**Problem**: Imports mixed with code
 
 ```python
-# Good
+# Before
+import json
+
+def process():
+    pass
+
+import os  # Wrong location!
+```
+
+```python
+# After
 import json
 import os
-from pathlib import Path
-from typing import Any, Dict
 
-# Bad
-from typing import Any, Dict
-import os
-from pathlib import Path
+def process():
+    pass
+```
+
+**Problem**: Wrong grouping
+
+```python
+# Before
 import json
+import click  # Third-party mixed with stdlib
+from drift.core import parser
 ```
 
-### Relative vs Absolute Imports
-
-**Prefer absolute imports:**
-
 ```python
-# Good
-from drift.core.parser import parse_conversation
-from drift.utils.config import load_config
+# After
+import json
 
-# Avoid relative imports unless necessary
-from ..core.parser import parse_conversation  # Only when needed
+import click
+
+from drift.core import parser
 ```
 
-## Code Organization
+## How to Structure Python Modules
 
-### Module Structure
-
-1. Module docstring
-2. Imports (standard → third-party → local)
-3. Constants and configuration
-4. Class definitions
-5. Function definitions
-6. `if __name__ == "__main__":` block (if applicable)
+Follow this organization pattern:
 
 ```python
-"""Module for drift detection."""
+"""Module for drift detection.
 
-# Imports
+This module provides the core drift detection functionality.
+"""
+
+# Imports (organized as shown above)
 import json
 from typing import Any
 
@@ -154,89 +159,65 @@ MAX_RETRIES = 3
 
 # Classes
 class DriftDetector:
-    """Detects drift patterns."""
-    pass
+    """Detects drift patterns in conversations."""
+
+    def __init__(self, model: str = DEFAULT_MODEL):
+        """Initialize detector."""
+        self.model = model
 
 # Functions
 def detect_drift(conversation: dict) -> list[str]:
     """Detect drift in conversation."""
-    pass
+    detector = DriftDetector()
+    return detector.analyze(conversation)
 
 # Main execution
 if __name__ == "__main__":
     main()
 ```
 
-## PEP 8 Essentials
+## How to Handle Circular Imports
 
-### Line Length
-- Maximum 100 characters (project standard)
-- Break long lines logically
+When you encounter circular import errors, try these solutions in order:
 
-### Naming Conventions
-- `snake_case` for functions and variables
-- `PascalCase` for classes
-- `UPPER_CASE` for constants
-- `_leading_underscore` for private/internal
+### 1. Refactor to Remove the Circle (Preferred)
 
-### Spacing
-- 2 blank lines between top-level definitions
-- 1 blank line between method definitions
-- No trailing whitespace
-
-## Common Anti-Patterns to Avoid
-
-### 1. Inline Imports (CRITICAL)
+Move shared code to a separate module:
 
 ```python
-# WRONG
-def process_data(data):
-    import json  # NO! Import at top
-    return json.loads(data)
+# Before: module_a.py imports module_b.py, module_b.py imports module_a.py
 
-# RIGHT
-import json
-
-def process_data(data):
-    return json.loads(data)
+# After: Create module_c.py with shared code
+# module_a.py imports module_c.py
+# module_b.py imports module_c.py
 ```
 
-### 2. Wildcard Imports
+### 2. Use Dependency Injection
+
+Pass dependencies as function parameters instead of importing:
 
 ```python
-# WRONG
-from drift.core import *  # Don't use *
-
-# RIGHT
-from drift.core import DriftDetector, parse_conversation
+# Instead of importing DriftDetector in multiple places
+def analyze_file(path: str, detector: DriftDetector) -> dict:
+    """Analyze file using provided detector."""
+    return detector.analyze(path)
 ```
 
-### 3. Unused Imports
+### 3. Import at Function Level (Last Resort)
+
+Only when the above solutions don't work:
 
 ```python
-# WRONG
-import json
-import os
-from typing import Any  # Unused imports
-
-def hello():
-    print("hello")
-
-# RIGHT
-def hello():
-    print("hello")
+def process_with_detector():
+    """Process using detector."""
+    from drift.core.detector import DriftDetector  # Local import
+    detector = DriftDetector()
+    return detector.analyze()
 ```
 
-### 4. Circular Imports
+## How to Add Type Hints
 
-If you encounter circular imports, refactor:
-- Move shared code to a separate module
-- Use dependency injection
-- Import at function level ONLY as last resort
-
-## Type Hints
-
-Use type hints on all public functions:
+Use this pattern for function signatures:
 
 ```python
 from typing import Optional
@@ -246,55 +227,204 @@ def detect_drift(
     drift_type: str,
     config: Optional[dict] = None
 ) -> list[str]:
-    """Detect drift in conversation."""
+    """Detect drift in conversation.
+
+    -- conversation: Conversation data
+    -- drift_type: Type of drift to detect
+    -- config: Optional configuration
+
+    Returns list of detected drift patterns.
+    """
     pass
 ```
 
-## Error Handling
-
-Be specific with exceptions:
+For optional parameters:
 
 ```python
-# Good
+from typing import Optional
+
+def fetch_user(user_id: str, cache: Optional[Cache] = None) -> User:
+    """Fetch user by ID with optional caching."""
+    if cache:
+        return cache.get(user_id)
+    return database.fetch(user_id)
+```
+
+## How to Handle Errors Effectively
+
+Be specific with exception types:
+
+```python
+# Good - specific exceptions
 try:
     data = json.load(f)
 except json.JSONDecodeError as e:
-    raise ValueError(f"Invalid JSON: {e}")
+    logger.error(f"Invalid JSON in {path}: {e}")
+    raise ValueError(f"Cannot parse {path}") from e
 except FileNotFoundError:
-    raise FileNotFoundError(f"File not found: {path}")
+    logger.error(f"File not found: {path}")
+    raise
 
-# Bad
+# Avoid - too broad
 try:
     data = json.load(f)
-except Exception as e:  # Too broad
+except Exception as e:  # Catches too much!
     raise
 ```
 
-## String Formatting
+When to catch broad exceptions:
+- At application boundaries (CLI entry points)
+- When you need to clean up resources regardless of error type
+- When logging all errors for debugging
 
-Prefer f-strings:
+## How to Format Strings
+
+Use f-strings for readability and performance:
 
 ```python
-# Good
+# Recommended
 message = f"Found {count} drift instances in {file_path}"
+details = f"Status: {status}, Time: {elapsed:.2f}s"
 
-# Avoid
+# Avoid (harder to read)
 message = "Found {} drift instances in {}".format(count, file_path)
 message = "Found " + str(count) + " drift instances"
 ```
 
-## Review Checklist
+## How to Use Black for Formatting
 
-When reviewing or writing Python code:
+```bash
+# Format all files
+black .
 
-- [ ] All imports at the top of the file
-- [ ] Imports organized in correct order (stdlib → third-party → local)
-- [ ] No inline imports (except TYPE_CHECKING)
-- [ ] No wildcard imports
-- [ ] No unused imports
-- [ ] Type hints on public functions
-- [ ] PEP 8 naming conventions followed
-- [ ] Line length ≤ 100 characters
-- [ ] Proper spacing and blank lines
-- [ ] Specific exception handling
+# Check what would change without modifying
+black --check .
 
+# Format specific file
+black src/drift/core/parser.py
+
+# See what would change
+black --diff src/drift/core/parser.py
+```
+
+## Code Review Workflow
+
+When reviewing or writing Python code, work through these steps:
+
+### 1. Check Imports
+- Are all imports at the top?
+- Are they grouped correctly (stdlib → third-party → local)?
+- Any inline imports that should be moved?
+- Any wildcard or unused imports?
+
+### 2. Check Type Hints
+- Do public functions have type hints?
+- Are Optional types used correctly?
+
+### 3. Check Naming
+- Functions/variables: snake_case?
+- Classes: PascalCase?
+- Constants: UPPER_CASE?
+- Private identifiers: _leading_underscore?
+
+### 4. Check Formatting
+- Lines under 100 characters?
+- Proper spacing (2 lines between classes/functions, 1 line between methods)?
+- No trailing whitespace?
+
+### 5. Run Auto-formatters
+```bash
+# Fix all formatting automatically
+black .
+isort .
+
+# Verify
+black --check .
+isort --check-only .
+```
+
+## Anti-Pattern Examples
+
+### Inline Imports
+
+```python
+# Avoid this pattern
+def process_data(data):
+    import json  # Import should be at top
+    return json.loads(data)
+
+# Use this instead
+import json
+
+def process_data(data):
+    return json.loads(data)
+```
+
+### Wildcard Imports
+
+```python
+# Avoid - unclear what's being imported
+from drift.core import *
+
+# Use explicit imports
+from drift.core import DriftDetector, parse_conversation
+```
+
+### Unused Imports
+
+```python
+# Avoid - these imports aren't used
+import json
+import os
+from typing import Any
+
+def hello():
+    print("hello")
+
+# Keep it clean
+def hello():
+    print("hello")
+```
+
+Run `isort` and your linter will catch these automatically.
+
+## Common Patterns
+
+### Optional Configuration
+
+```python
+from typing import Optional
+
+def analyze(
+    data: dict,
+    config: Optional[dict] = None
+) -> dict:
+    """Analyze data with optional configuration."""
+    if config is None:
+        config = get_default_config()
+    return _analyze_impl(data, config)
+```
+
+### Path Handling
+
+```python
+from pathlib import Path
+
+def read_config(config_path: str | Path) -> dict:
+    """Read configuration from file."""
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Config not found: {path}")
+    return json.loads(path.read_text())
+```
+
+### Context Managers
+
+```python
+def process_file(path: str) -> dict:
+    """Process file with automatic cleanup."""
+    with open(path) as f:
+        data = json.load(f)
+    # File automatically closed here
+    return data
+```
