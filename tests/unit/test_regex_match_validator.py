@@ -320,3 +320,138 @@ class TestRegexMatchValidator:
 
         result = validator.validate(rule, bundle)
         assert result is None
+
+    def test_bundle_mode_validates_all_files(self, validator, tmp_path):
+        """Test that validator iterates over bundle.files when file_path not provided."""
+        # Create test files
+        file1 = tmp_path / "file1.md"
+        file2 = tmp_path / "file2.md"
+        file3 = tmp_path / "file3.md"
+
+        file1.write_text("# Header\n## Prerequisites\nSome content")
+        file2.write_text("# Another Header\nNo prerequisites section here")  # Missing pattern
+        file3.write_text("# Third\n## Prerequisites\nMore content")
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.md",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.md",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+                DocumentFile(
+                    relative_path="file3.md",
+                    content=file3.read_text(),
+                    file_path=str(file3),
+                ),
+            ],
+        )
+
+        # Validate without file_path - should check all files in bundle
+        rule = ValidationRule(
+            rule_type="core:regex_match",
+            description="Check for Prerequisites section",
+            params={"pattern": r"## Prerequisites"},  # file2 missing this
+            failure_message="Missing Prerequisites section",
+            expected_behavior="All files should have Prerequisites section",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail because file2.md doesn't match
+        assert result is not None
+        assert "file2.md" in result.file_paths
+        assert "1 file(s)" in result.context
+
+        # file1 and file3 should NOT be in failures
+        assert "file1.md" not in result.file_paths
+        assert "file3.md" not in result.file_paths
+
+    def test_bundle_mode_all_files_pass(self, validator, tmp_path):
+        """Test that bundle mode returns None when all files pass."""
+        file1 = tmp_path / "file1.md"
+        file2 = tmp_path / "file2.md"
+
+        file1.write_text("# Header\n## Installation\nContent")
+        file2.write_text("# Another\n## Installation\nMore content")
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.md",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.md",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type="core:regex_match",
+            description="Check for Installation section",
+            params={"pattern": r"## Installation"},
+            failure_message="Missing Installation section",
+            expected_behavior="All files should have Installation section",
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is None  # All files pass
+
+    def test_bundle_mode_vs_file_path_mode(self, validator, tmp_path):
+        """Test that file_path param validates specific file, not bundle files."""
+        # Create files
+        bundle_file = tmp_path / "bundle_file.md"
+        specific_file = tmp_path / "specific.md"
+
+        bundle_file.write_text("# Bundle\n## Installation\nContent")  # Has pattern
+        specific_file.write_text("# Specific\nNo installation section")  # Missing pattern
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="bundle_file.md",
+                    content=bundle_file.read_text(),
+                    file_path=str(bundle_file),
+                ),
+            ],
+        )
+
+        # When file_path provided, should validate that specific file (not bundle files)
+        rule = ValidationRule(
+            rule_type="core:regex_match",
+            description="Check specific file",
+            params={
+                "file_path": "specific.md",  # Not in bundle
+                "pattern": r"## Installation",
+            },
+            failure_message="Missing Installation section",
+            expected_behavior="File should have Installation section",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail on specific.md, not bundle_file.md
+        assert result is not None
+        assert "specific.md" in result.file_paths
+        assert "Pattern '## Installation' not found" in result.context

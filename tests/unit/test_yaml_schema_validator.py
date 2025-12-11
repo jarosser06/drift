@@ -20,12 +20,22 @@ class TestYamlSchemaValidator:
     @pytest.fixture
     def bundle(self, tmp_path):
         """Create test bundle."""
+        test_file = tmp_path / "config.yaml"
+        content = "name: TestProject\nversion: '1.0.0'\ndebug: true\n"
+        test_file.write_text(content)
+
         return DocumentBundle(
             bundle_id="test",
             bundle_type="mixed",
             bundle_strategy="individual",
             project_path=tmp_path,
-            files=[],
+            files=[
+                DocumentFile(
+                    relative_path="config.yaml",
+                    content=content,
+                    file_path=str(test_file),
+                )
+            ],
         )
 
     def test_valid_yaml_with_inline_schema(self, validator, bundle, tmp_path):
@@ -164,17 +174,28 @@ class TestYamlSchemaValidator:
         assert "Schema file not found" in result.observed_issue
 
     def test_missing_file_path(self, validator, bundle):
-        """Test that validation fails when file_path is missing."""
+        """Test that validator validates bundle files when file_path is missing (bundle mode)."""
         rule = ValidationRule(
             rule_type="core:yaml_schema",
             description="Test rule",
-            params={"schema": {"type": "object"}},
+            params={
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "debug": {"type": "boolean"},
+                    },
+                    "required": ["name", "version", "debug"],
+                }
+            },
             failure_message="Failure",
-            expected_behavior="Expected",
+            expected_behavior="Should validate bundle files",
         )
 
-        with pytest.raises(ValueError, match="requires params.file_path"):
-            validator.validate(rule, bundle)
+        # Should validate all files in the bundle and pass since config.yaml matches the schema
+        result = validator.validate(rule, bundle)
+        assert result is None
 
     def test_missing_params(self, validator, bundle, tmp_path):
         """Test that validation fails when schema/schema_file is missing."""
@@ -609,3 +630,158 @@ required:
         # Should catch SchemaError and return failure
         assert result is not None
         assert "Invalid schema" in result.observed_issue
+
+    # ==================== Bundle Mode Tests ====================
+
+    def test_bundle_mode_validates_all_files(self, validator, tmp_path):
+        """Test that validator iterates over bundle.files when file_path not provided."""
+        # Create test files
+        file1 = tmp_path / "file1.yaml"
+        file2 = tmp_path / "file2.yaml"
+        file3 = tmp_path / "file3.yaml"
+
+        file1.write_text("name: John\nage: 30\n")
+        file2.write_text("name: Jane\n")  # Missing 'age'
+        file3.write_text("name: Bob\nage: 25\n")
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.yaml",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.yaml",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+                DocumentFile(
+                    relative_path="file3.yaml",
+                    content=file3.read_text(),
+                    file_path=str(file3),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        # Validate without file_path - should check all files in bundle
+        rule = ValidationRule(
+            rule_type="core:yaml_schema",
+            description="Check for required fields",
+            params={"schema": schema},  # file2 missing 'age'
+            failure_message="Invalid YAML structure",
+            expected_behavior="All files should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail because file2.yaml doesn't have 'age'
+        assert result is not None
+        assert "file2.yaml" in result.file_paths
+        assert "'age' is a required property" in result.observed_issue
+
+        # file1 and file3 should NOT be in failures
+        assert "file1.yaml" not in result.file_paths
+        assert "file3.yaml" not in result.file_paths
+
+    def test_bundle_mode_all_files_pass(self, validator, tmp_path):
+        """Test that bundle mode returns None when all files pass."""
+        file1 = tmp_path / "file1.yaml"
+        file2 = tmp_path / "file2.yaml"
+
+        file1.write_text("name: John\nage: 30\n")
+        file2.write_text("name: Jane\nage: 25\n")
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.yaml",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.yaml",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        rule = ValidationRule(
+            rule_type="core:yaml_schema",
+            description="Check for required fields",
+            params={"schema": schema},
+            failure_message="Invalid YAML structure",
+            expected_behavior="All files should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is None  # All files pass
+
+    def test_bundle_mode_vs_file_path_mode(self, validator, tmp_path):
+        """Test that file_path param validates specific file, not bundle files."""
+        # Create files
+        bundle_file = tmp_path / "bundle_file.yaml"
+        specific_file = tmp_path / "specific.yaml"
+
+        bundle_file.write_text("name: John\nage: 30\n")  # Valid
+        specific_file.write_text("name: Jane\n")  # Missing 'age'
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="bundle_file.yaml",
+                    content=bundle_file.read_text(),
+                    file_path=str(bundle_file),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        # When file_path provided, should validate that specific file (not bundle files)
+        rule = ValidationRule(
+            rule_type="core:yaml_schema",
+            description="Check specific file",
+            params={
+                "file_path": "specific.yaml",  # Not in bundle
+                "schema": schema,
+            },
+            failure_message="Invalid YAML structure",
+            expected_behavior="File should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail on specific.yaml, not bundle_file.yaml
+        assert result is not None
+        assert "specific.yaml" in result.file_paths
+        assert "'age' is a required property" in result.observed_issue

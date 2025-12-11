@@ -3,7 +3,9 @@ name: doc-audit
 description: Expert in auditing Sphinx/RST documentation for Drift project. Use when validating code examples and removing subjective language before release.
 ---
 
-# Documentation Audit
+# Documentation Audit Skill
+
+Learn how to audit documentation for Drift project - validate code examples and ensure objective language.
 
 ## When to Use This Skill
 
@@ -13,204 +15,432 @@ description: Expert in auditing Sphinx/RST documentation for Drift project. Use 
 - Checking for outdated or incorrect examples
 - Maintaining documentation quality standards
 
-## Quick Reference
+## How to Audit Documentation
 
-### Audit Types
-- **Code Example Validation**: Verify all code examples match actual implementation
-- **Subjective Language Detection**: Flag subjective or marketing language
-- **API Accuracy**: Ensure documented APIs exist and work as described
-- **Import Path Verification**: Validate all import statements are correct
+### Overview of Audit Process
 
-### Common Issues to Check
-- Outdated code examples
-- Incorrect import paths
-- Non-existent APIs or methods
-- Subjective adjectives (e.g., "easily", "simply", "powerful")
-- Marketing language instead of technical documentation
-- Missing error handling in examples
-- **False claims** (e.g., "most users", "most teams", "most workflows") - never make claims about user behavior without data
+A complete documentation audit includes three phases:
+1. **Code Example Validation** - Verify all code examples match actual implementation
+2. **Subjective Language Detection** - Flag subjective or marketing language
+3. **Cross-Reference Implementation** - Check against actual code using serena MCP
 
-## Resource Guides
+Work through each phase systematically for each documentation file.
 
-### 📖 [Code Example Validation](resources/code-validation.md)
-Comprehensive guide for validating code examples against actual implementation.
+## How to Validate Code Examples
 
-**Use when**: Checking if documentation code examples are accurate and working.
+### Step 1: Extract Code Examples
 
-## Audit Process
+Look through documentation files for code blocks:
 
-### Phase 1: Code Example Validation
+**RST files:**
+```rst
+.. code-block:: python
 
-1. **Extract all code examples** from documentation files
-   - Look for `.. code-block:: python` in RST files
-   - Look for `.. code-block:: yaml` for configuration file examples
-   - Identify complete examples vs. snippets
-
-2. **Validate imports** against actual package structure
-   - Check `from drift.cli import ...`
-   - Check `from drift.core.analyzer import ...`
-   - Check `from drift.config.loader import ...`
-   - Check `from drift.providers import ...`
-   - Check `from drift.validation import ...`
-   - Use serena MCP to find actual symbols and validate paths
-
-3. **Verify CLI command examples**
-   - Check `drift` basic command
-   - Check `drift --no-llm` (programmatic validation only)
-   - Check `drift --days 7` (analyze last 7 days)
-   - Check `drift --format json` (JSON output)
-   - Verify all flags and options exist in actual CLI
-
-4. **Validate configuration examples**
-   - Check configuration file structure
-   - Verify validation rule names match actual validators
-   - Check provider configuration (anthropic vs bedrock)
-   - Validate parameter names and types
-
-5. **Verify API methods**
-   - Check `Analyzer` class methods
-   - Verify `Config` loading methods
-   - Check provider interfaces (AnthropicProvider, BedrockProvider)
-   - Validate validation rule implementations
-
-6. **Test example completeness**
-   - Ensure examples have all required imports
-   - Check that examples can theoretically run
-   - Verify no undefined variables or missing context
-
-### Phase 2: Subjective Language Detection
-
-1. **Scan for subjective adjectives/adverbs**
-   - "easily", "simply", "just", "obviously", "clearly"
-   - "powerful", "elegant", "beautiful", "amazing"
-   - "best", "better", "great", "excellent"
-   - "effortlessly", "seamlessly", "straightforward"
-
-2. **Check for marketing language**
-   - Superlatives without data
-   - Emotional appeals
-   - Vague benefit claims
-   - Comparisons without specifics
-
-3. **Flag ambiguous statements**
-   - "This makes things easier" → How? Quantify.
-   - "Drift is powerful" → State specific capabilities.
-   - "You can quickly analyze..." → Remove "quickly", state what you can analyze.
-
-4. **CRITICAL: Flag false claims about user behavior**
-   - "most users", "most teams", "most workflows", "most people"
-   - "many users", "typically", "commonly", "usually"
-   - ANY claim about what users do without hard data
-   - Replace with factual statements: "Programmatic validation (--no-llm) works without API calls" instead of "Most users run --no-llm"
-
-5. **Verify factual accuracy**
-   - All claims should be verifiable
-   - Features should be demonstrated, not praised
-   - Benefits should be concrete and measurable
-
-### Phase 3: Cross-Reference Implementation
-
-1. **Use serena MCP tools to validate**
-   - `find_symbol` to locate classes and methods
-   - `get_symbols_overview` to check module structure
-   - `search_for_pattern` to find usage examples in tests
-
-2. **Check against actual code**
-   - Read actual implementation files
-   - Compare method signatures
-   - Verify default values and parameter types
-   - Check for deprecated APIs
-
-3. **Validate against tests**
-   - Look at test files for correct usage patterns
-   - Ensure documentation matches test expectations
-   - Use tests as source of truth for API behavior
-
-## Reporting Format
-
-### Example Report Structure
-
-```markdown
-# Documentation Audit Report
-
-## Executive Summary
-- Files audited: X
-- Code examples validated: Y
-- Issues found: Z
-- Critical issues: N
-
-## Code Example Issues
-
-### File: docs/quickstart.rst
-
-#### Issue 1: Incorrect Import Path (Line 26)
-**Severity**: Critical
-**Current**: `from drift.core.analyzer import Analyzer`
-**Issue**: Import path needs verification
-**Action**: Verify with serena MCP
-
-#### Issue 2: Missing Parameter (Line 84)
-**Severity**: High
-**Current**: `analyzer.analyze()`
-**Issue**: Method signature needs verification
-**Action**: Check actual Analyzer implementation
-
-## Subjective Language Issues
-
-### File: docs/overview.rst
-
-#### Issue 1: Subjective Adverb (Line 45)
-**Severity**: Medium
-**Current**: "You can easily analyze AI conversations..."
-**Suggested**: "You can analyze AI conversations..."
-**Reason**: "Easily" is subjective and adds no technical value
-
-#### Issue 2: Marketing Language (Line 102)
-**Severity**: Low
-**Current**: "Drift provides a powerful validation system..."
-**Suggested**: "Drift provides a validation system..."
-**Reason**: "Powerful" is subjective; let capabilities speak for themselves
-
-## Recommendations
-
-1. Update import examples in quickstart.rst
-2. Remove subjective language from overview.rst
-3. Add missing error handling examples in configuration.rst
-4. Verify all CLI examples against latest version
+   from drift.cli import cli
+   drift.analyze("log.json")
 ```
 
-## Key Principles
+**Markdown files:**
+```markdown
+```python
+from drift.cli import cli
+drift.analyze("log.json")
+```
+```
 
-1. **Implementation is Source of Truth**: Always validate against actual code, not assumptions
-2. **Use MCP Tools**: Leverage serena for symbol lookup and code navigation
-3. **Objective Language Only**: Documentation should be factual and demonstrative
-4. **Complete Examples**: Code examples should be runnable or clearly marked as snippets
-5. **Version-Aware**: Check documentation matches current version of framework
-6. **Test-Driven Validation**: Use test files as examples of correct usage
+Categorize as:
+- Complete examples (should run as-is)
+- Snippets (partial code for illustration)
 
-## Drift-Specific Validation
+### Step 2: Validate Imports with Serena MCP
+
+Use `mcp__serena__find_symbol` to verify imports:
+
+**Example validation:**
+```python
+# Documentation says:
+from drift.cli import cli
+
+# Verify with serena:
+mcp__serena__find_symbol(
+    name_path_pattern="cli",
+    relative_path="src/drift/cli.py"
+)
+```
+
+**Common import patterns to check:**
+- `from drift.cli import ...`
+- `from drift.core.analyzer import ...`
+- `from drift.config.loader import ...`
+- `from drift.providers import ...`
+- `from drift.validation import ...`
+
+If symbol not found, import path is incorrect.
+
+### Step 3: Verify CLI Commands
+
+Check all CLI examples in documentation:
+
+**Commands to verify:**
+```bash
+drift                    # Basic usage
+drift --no-llm           # Programmatic validation only
+drift --days 7           # Analyze last 7 days
+drift --format json      # JSON output
+drift --cwd PATH         # Working directory
+drift --rules NAMES      # Specific rules
+```
+
+**How to verify:**
+```bash
+# Run command to check it exists and works
+drift --help
+
+# Check for specific flags
+drift --help | grep -- --no-llm
+drift --help | grep -- --format
+```
+
+### Step 4: Validate Configuration Examples
+
+Check YAML configuration examples:
+
+**Example documentation config:**
+```yaml
+# From docs/configuration.rst
+drift_rules:
+  provider: anthropic
+  model: claude-3-sonnet-20240229
+```
+
+**Validate with serena:**
+```python
+# Check config structure
+mcp__serena__find_symbol(
+    name_path_pattern="Config",
+    relative_path="src/drift/config"
+)
+
+# Read actual config loading code
+mcp__serena__find_symbol(
+    name_path_pattern="load_config",
+    relative_path="src/drift/config",
+    include_body=True
+)
+```
+
+Look for:
+- Correct parameter names
+- Valid provider values (anthropic, bedrock, claude-code)
+- Correct structure and nesting
+
+### Step 5: Verify API Methods
+
+Use serena to check that documented APIs exist:
+
+**Documentation example:**
+```python
+analyzer = Analyzer(config_path=".drift.yaml")
+results = analyzer.analyze()
+```
+
+**Verify with serena:**
+```python
+# Find Analyzer class
+mcp__serena__find_symbol(
+    name_path_pattern="Analyzer",
+    relative_path="src/drift",
+    depth=1  # Include methods
+)
+
+# Check analyze method specifically
+mcp__serena__find_symbol(
+    name_path_pattern="Analyzer/analyze",
+    relative_path="src/drift",
+    include_body=True
+)
+```
+
+Compare:
+- Method exists
+- Parameters match
+- Return type matches
+- No deprecated methods
+
+### Step 6: Check Example Completeness
+
+For each code example, verify:
+
+**Complete example checklist:**
+- [ ] All imports included
+- [ ] No undefined variables
+- [ ] No missing context
+- [ ] Could theoretically run (or marked as snippet)
+- [ ] Error handling shown (where relevant)
+
+**Example of incomplete documentation:**
+```python
+# BAD - missing imports and context
+result = analyzer.analyze()
+print(result)
+```
+
+**Should be:**
+```python
+# GOOD - complete example
+from drift.core.analyzer import Analyzer
+
+analyzer = Analyzer(config_path=".drift.yaml")
+result = analyzer.analyze()
+print(result)
+```
+
+## How to Detect Subjective Language
+
+### Step 1: Scan for Subjective Adjectives/Adverbs
+
+Search documentation for these patterns:
+
+**Common subjective words:**
+- "easily", "simply", "just"
+- "obviously", "clearly"
+- "powerful", "elegant", "beautiful"
+- "amazing", "best", "better"
+- "great", "excellent"
+- "effortlessly", "seamlessly"
+- "straightforward"
+
+**How to search:**
+```bash
+grep -n "easily\|simply\|just\|powerful" docs/*.rst
+```
+
+Or use serena:
+```python
+mcp__serena__search_for_pattern(
+    substring_pattern="easily|simply|just|powerful",
+    relative_path="docs/"
+)
+```
+
+### Step 2: Flag Marketing Language
+
+**Bad - marketing language:**
+```
+Drift provides a powerful validation system that makes
+it easy to ensure code quality.
+```
+
+**Good - objective technical description:**
+```
+Drift validates project structure using rule-based checks.
+Validation runs programmatically without LLM calls.
+```
+
+**What to look for:**
+- Superlatives without data ("best", "most powerful")
+- Emotional appeals
+- Vague benefit claims
+- Comparisons without specifics
+
+### Step 3: Identify False User Behavior Claims
+
+**CRITICAL - never claim user behavior without data:**
+
+**Bad examples:**
+```
+Most users run drift --no-llm in CI/CD
+Many teams use this for code review
+Typically developers check this daily
+Users commonly integrate with GitHub Actions
+```
+
+**Good alternatives:**
+```
+drift --no-llm runs without API calls, suitable for CI/CD
+Integrates with GitHub Actions via workflow files
+Can be scheduled to run periodically
+```
+
+**Prohibited phrases:**
+- "most users", "most teams", "most workflows"
+- "many users", "many developers"
+- "typically", "commonly", "usually"
+- Any claim about what users do without hard data
+
+### Step 4: Suggest Replacements
+
+**Pattern:** Subjective claim → Objective fact
+
+**Example 1:**
+```
+Bad:  "You can easily analyze AI conversations..."
+Good: "You can analyze AI conversations..."
+```
+
+**Example 2:**
+```
+Bad:  "Drift's powerful validation system..."
+Good: "Drift's validation system..."
+```
+
+**Example 3:**
+```
+Bad:  "Most users run validation before commits"
+Good: "Validation can run before commits via pre-commit hooks"
+```
+
+## How to Use Serena MCP for Validation
+
+### Find Symbols
+
+```python
+# Find a class
+mcp__serena__find_symbol(
+    name_path_pattern="Analyzer",
+    relative_path="src/drift",
+    depth=1  # Include methods
+)
+
+# Find specific method
+mcp__serena__find_symbol(
+    name_path_pattern="Analyzer/analyze",
+    relative_path="src/drift",
+    include_body=True  # See implementation
+)
+```
+
+### Check Module Structure
+
+```python
+# Get overview of a module
+mcp__serena__get_symbols_overview(
+    relative_path="src/drift/cli.py",
+    depth=1
+)
+```
+
+Shows all functions, classes, methods in the file.
+
+### Search for Usage Patterns
+
+```python
+# Find how something is used
+mcp__serena__search_for_pattern(
+    substring_pattern="Analyzer\\(",
+    relative_path="tests/",
+    restrict_search_to_code_files=True
+)
+```
+
+Look at test files to see correct usage patterns.
+
+### Verify Import Paths
+
+```python
+# Check if import exists
+mcp__serena__find_symbol(
+    name_path_pattern="cli",
+    relative_path="src/drift/cli.py"
+)
+
+# If not found, import path in docs is wrong
+```
+
+## How to Generate Audit Reports
+
+See [Report Structure](resources/report-structure.md) for:
+- Complete report template
+- Issue severity guidelines
+- Example issue documentation
+
+## Drift-Specific Validation Areas
 
 ### Validation Rules Documentation
-- Verify rule names match `validation/validators/` structure
-- Check conversation analysis rules exist
-- Check project validation rules exist
-- Validate rule configuration examples
 
-### Provider Examples
-- Anthropic API setup (ANTHROPIC_API_KEY)
-- AWS Bedrock setup (AWS credentials)
-- Provider configuration in project config file
+Check that documented rules exist:
 
-### CLI Examples
-- Basic usage: `drift`
-- No LLM: `drift --no-llm`
-- Time range: `drift --days N`
-- Output format: `drift --format json`
-- Working directory: `drift --cwd PATH`
+```python
+# Find validation rules
+mcp__serena__list_dir(
+    relative_path="src/drift/validators",
+    recursive=True
+)
 
-## Automation Opportunities
+# Verify rule names match documentation
+mcp__serena__search_for_pattern(
+    substring_pattern="class.*Validator",
+    relative_path="src/drift/validators"
+)
+```
 
-- Create scripts to extract and validate code examples
-- Build linter for subjective language patterns
-- Integrate with CI to catch documentation issues early
-- Use AST parsing to validate Python code examples
+### Provider Configuration Examples
+
+Validate provider examples in docs:
+
+**Anthropic configuration:**
+```yaml
+provider: anthropic
+model: claude-3-sonnet-20240229
+```
+
+**Bedrock configuration:**
+```yaml
+provider: bedrock
+model: anthropic.claude-v2
+region: us-east-1
+```
+
+**Verify:**
+```python
+# Check provider loading code
+mcp__serena__find_symbol(
+    name_path_pattern="load_provider",
+    relative_path="src/drift"
+)
+```
+
+### CLI Documentation
+
+Validate all CLI examples:
+
+```bash
+# Documented commands to check:
+drift                    # Basic usage
+drift --no-llm           # No LLM mode
+drift --days 7           # Time range
+drift --format json      # Output format
+drift --rules NAMES      # Specific rules
+drift --cwd PATH         # Working directory
+```
+
+**Verify each flag exists:**
+```bash
+drift --help | grep "flag-name"
+```
+
+## Example Workflows
+
+See [Workflows](resources/workflows.md) for detailed audit workflows:
+- Auditing a single documentation file
+- Validating all CLI examples
+- Complete audit workflow (3 phases)
+
+## Resources
+
+### 📖 [Code Validation](resources/code-validation.md)
+Detailed guide for validating code examples in documentation.
+
+**Use when:** Checking code examples, imports, and API usage in docs.
+
+### 📖 [Workflows](resources/workflows.md)
+Step-by-step workflows for different types of documentation audits.
+
+**Use when:** Performing a documentation audit before release.
+
+### 📖 [Report Structure](resources/report-structure.md)
+Documentation audit report template with issue severity guidelines.
+
+**Use when:** Generating an audit report with findings and recommendations.
+
+

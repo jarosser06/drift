@@ -546,3 +546,55 @@ class TestMarkdownLinkValidator:
 
         # Test unknown pattern
         assert validator._guess_resource_type("unknown:([^)]+)") is None
+
+    def test_remove_code_blocks_with_nested_blocks(self):
+        r"""Test that nested code blocks are handled correctly.
+
+        BUG: The current regex pattern r"^```.*?^```\\s*$" with re.MULTILINE | re.DOTALL
+        doesn't handle nested code blocks correctly. The non-greedy .*? matches to the
+        FIRST closing ``` instead of the LAST one that actually closes the outer block.
+
+        This test demonstrates the bug by creating a markdown code block that contains
+        a python code block inside it. The entire outer block should be removed, including
+        all nested content.
+        """
+        from drift.utils.link_validator import LinkValidator
+
+        # Create a LinkValidator instance to test _remove_code_blocks
+        link_validator = LinkValidator(skip_code_blocks=True)
+
+        # Create content with nested code blocks
+        # The outer ```markdown block contains a ```python block inside it
+        content = """# Some markdown content
+
+```markdown
+# Example documentation
+
+```python
+def example():
+    pass
+```
+
+More markdown content with [docs/overview.rst] reference
+
+```
+
+After the code block with [actual-link.md]
+"""
+
+        result = link_validator._remove_code_blocks(content)
+
+        # The bug: the regex matches from ```markdown to the first ```
+        # (closing the python block), leaving "More markdown content" in the output.
+        # Expected behavior: the entire outer markdown block (including the nested
+        # python block and the "More markdown content" line) should be removed.
+
+        # This assertion will FAIL with the current implementation, confirming the bug
+        assert "[docs/overview.rst]" not in result, (
+            "Bug confirmed: nested code block content was not fully removed. "
+            "The regex matched to the first closing ``` instead of the last one."
+        )
+
+        # After the fix, only the content after the outer code block should remain
+        assert "After the code block" in result
+        assert "[actual-link.md]" in result

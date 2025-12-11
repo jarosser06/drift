@@ -119,8 +119,7 @@ Python 3.10+
                 PhaseDefinition(
                     name="phase4_line_count",
                     type="core:file_size",
-                    file_path="CLAUDE.md",
-                    max_count=300,
+                    params={"file_path": "CLAUDE.md", "max_count": 300},
                     failure_message="File too large",
                     expected_behavior="File under 300 lines",
                 ),

@@ -187,30 +187,87 @@ class FileSizeValidator(BaseValidator):
         """Check if file meets size constraints.
 
         Expected params:
-            - file_path: File path to validate (required)
+            - file_path: File path to validate (optional - if not provided, validates bundle.files)
             - max_count: Maximum number of lines (optional)
             - min_count: Minimum number of lines (optional)
             - max_size: Maximum file size in bytes (optional)
             - min_size: Minimum file size in bytes (optional)
 
-        -- rule: ValidationRule with params containing file_path and size constraints
+        -- rule: ValidationRule with params containing optional file_path and size constraints
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
 
         Returns DocumentRule if constraints violated, None if satisfied.
         """
+        # Check params exist
         if not rule.params:
             raise ValueError("FileSizeValidator requires params")
-
-        file_path_str = rule.params.get("file_path")
-        if not file_path_str:
-            raise ValueError("FileSizeValidator requires params.file_path")
 
         max_count = rule.params.get("max_count")
         min_count = rule.params.get("min_count")
         max_size = rule.params.get("max_size")
         min_size = rule.params.get("min_size")
+        file_path_str = rule.params.get("file_path")
 
+        # At least one constraint must be specified (file_path doesn't count)
+        if all(c is None for c in [max_count, min_count, max_size, min_size]):
+            raise ValueError(
+                "FileSizeValidator requires at least one constraint: "
+                "max_count, min_count, max_size, or min_size"
+            )
+
+        # If file_path provided, validate that specific file (outside bundle)
+        if file_path_str:
+            return self._validate_specific_file(
+                rule, bundle, file_path_str, max_count, min_count, max_size, min_size
+            )
+
+        # Otherwise, validate all files in the bundle
+        failed_files = []
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+            failure = self._validate_file_constraints(
+                rel_path, abs_path, content, max_count, min_count, max_size, min_size
+            )
+            if failure:
+                failed_files.append((rel_path, failure))
+
+        if failed_files:
+            # Build detailed message
+            messages = [f"{path}: {issue}" for path, issue in failed_files]
+            return DocumentRule(
+                bundle_id=bundle.bundle_id,
+                bundle_type=bundle.bundle_type,
+                file_paths=[f[0] for f in failed_files],
+                observed_issue="; ".join(messages),
+                expected_quality=self._get_expected_behavior(rule),
+                rule_type="",
+                context=f"Validation rule: {rule.description}",
+            )
+
+        return None
+
+    def _validate_specific_file(
+        self,
+        rule: ValidationRule,
+        bundle: DocumentBundle,
+        file_path_str: str,
+        max_count: Optional[int],
+        min_count: Optional[int],
+        max_size: Optional[int],
+        min_size: Optional[int],
+    ) -> Optional[DocumentRule]:
+        """Validate a specific file path (outside bundle).
+
+        -- rule: ValidationRule being executed
+        -- bundle: Document bundle for context
+        -- file_path_str: Relative path to file to validate
+        -- max_count: Maximum line count
+        -- min_count: Minimum line count
+        -- max_size: Maximum byte size
+        -- min_size: Minimum byte size
+
+        Returns DocumentRule if validation fails, None otherwise.
+        """
         project_path = bundle.project_path
         file_path = project_path / file_path_str
 
@@ -222,48 +279,76 @@ class FileSizeValidator(BaseValidator):
                 observed_issue=f"File {file_path_str} does not exist",
             )
 
+        try:
+            content = file_path.read_text(encoding="utf-8")
+        except Exception as e:
+            return self._create_failure(
+                rule=rule,
+                bundle=bundle,
+                file_paths=[file_path_str],
+                observed_issue=f"Failed to read file: {e}",
+            )
+
+        failure = self._validate_file_constraints(
+            file_path_str, str(file_path), content, max_count, min_count, max_size, min_size
+        )
+
+        if failure:
+            return self._create_failure(
+                rule=rule,
+                bundle=bundle,
+                file_paths=[file_path_str],
+                observed_issue=failure,
+            )
+
+        return None
+
+    def _validate_file_constraints(
+        self,
+        rel_path: str,
+        abs_path: str,
+        content: str,
+        max_count: Optional[int],
+        min_count: Optional[int],
+        max_size: Optional[int],
+        min_size: Optional[int],
+    ) -> Optional[str]:
+        """Validate file against size constraints.
+
+        -- rel_path: Relative path for error messages
+        -- abs_path: Absolute path for file operations
+        -- content: File content
+        -- max_count: Maximum line count
+        -- min_count: Minimum line count
+        -- max_size: Maximum byte size
+        -- min_size: Minimum byte size
+
+        Returns error message if validation fails, None otherwise.
+        """
         # Check line count constraints
         if max_count is not None or min_count is not None:
-            with open(file_path, "r", encoding="utf-8") as f:
-                line_count = sum(1 for _ in f)
+            line_count = content.count("\n") + (1 if content and not content.endswith("\n") else 0)
 
             if max_count is not None and line_count > max_count:
-                return self._create_failure(
-                    rule=rule,
-                    bundle=bundle,
-                    file_paths=[file_path_str],
-                    observed_issue=f"File has {line_count} lines (exceeds max {max_count})",
-                )
+                return f"File has {line_count} lines (exceeds max {max_count})"
 
             if min_count is not None and line_count < min_count:
-                return self._create_failure(
-                    rule=rule,
-                    bundle=bundle,
-                    file_paths=[file_path_str],
-                    observed_issue=f"File has {line_count} lines (below min {min_count})",
-                )
+                return f"File has {line_count} lines (below min {min_count})"
 
         # Check byte size constraints
         if max_size is not None or min_size is not None:
-            byte_size = file_path.stat().st_size
+            from pathlib import Path
 
-            if max_size is not None and byte_size > max_size:
-                return self._create_failure(
-                    rule=rule,
-                    bundle=bundle,
-                    file_paths=[file_path_str],
-                    observed_issue=f"File is {byte_size} bytes (exceeds max {max_size})",
-                )
+            file_path = Path(abs_path)
+            if file_path.exists():
+                byte_size = file_path.stat().st_size
 
-            if min_size is not None and byte_size < min_size:
-                return self._create_failure(
-                    rule=rule,
-                    bundle=bundle,
-                    file_paths=[file_path_str],
-                    observed_issue=f"File is {byte_size} bytes (below min {min_size})",
-                )
+                if max_size is not None and byte_size > max_size:
+                    return f"File is {byte_size} bytes (exceeds max {max_size})"
 
-        # All constraints satisfied
+                if min_size is not None and byte_size < min_size:
+                    return f"File is {byte_size} bytes (below min {min_size})"
+
         return None
 
     def _create_failure(

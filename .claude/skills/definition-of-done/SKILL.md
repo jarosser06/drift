@@ -5,170 +5,463 @@ description: Expert in validating work meets all requirements, acceptance criter
 
 # Definition of Done Skill
 
-Expert in validating that work meets all requirements and quality standards.
+Learn how to validate that work meets all requirements and quality standards before creating PRs.
 
-## Core Responsibilities
+## When to Use This Skill
 
-- Validate work against issue requirements
-- Ensure all acceptance criteria met
-- Verify comprehensive testing
-- Check documentation completeness
-- Confirm code quality standards
-- Create requirement traceability
+- Before creating a pull request
+- Validating work against issue requirements
+- Reviewing PRs against acceptance criteria
+- Ensuring work is complete and ready for review
+- Creating requirement traceability documentation
 
-## Validation Checklist
+## How to Validate Work is Complete
 
-### 1. Requirements Traceability
+### Overview of Validation Process
 
-Map each acceptance criterion to implementation:
+Complete validation includes:
+1. **Requirements Traceability** - Map acceptance criteria to implementation
+2. **Quality Checks** - Run linters and verify standards
+3. **Testing Verification** - Check coverage and test quality
+4. **Documentation Review** - Ensure docs are complete
+5. **Functional Testing** - Manually verify it works
+6. **Git Hygiene** - Check commits and branch status
 
+## How to Create Requirement Traceability
+
+### Step 1: Review Issue Acceptance Criteria
+
+From the issue, list all acceptance criteria:
+
+**Example issue #42:**
 ```markdown
-## Requirement Traceability
-
-- [x] **AC1:** Add CLI argument for drift type
-  - Implementation: `drift/cli.py:45-52`
-  - Tests: `tests/unit/test_cli.py:test_drift_type_argument`
-
-- [x] **AC2:** Support multiple drift types
-  - Implementation: `drift/detector.py:analyze_multi_pass`
-  - Tests: `tests/integration/test_multi_pass.py`
-
-- [x] **AC3:** Output results to stdout
-  - Implementation: `drift/formatter.py:format_output`
-  - Tests: `tests/unit/test_formatter.py`
+## Acceptance Criteria
+- [ ] CLI accepts multiple --drift-type arguments
+- [ ] Each drift type runs in separate LLM call
+- [ ] Results combined in single output
+- [ ] Tests cover multi-type analysis
+- [ ] Documentation updated with examples
 ```
 
-### 2. Code Quality
+### Step 2: Map Each Criterion to Implementation
 
-- [ ] All linters pass (`./lint.sh`)
-- [ ] Code follows project patterns
-- [ ] No code duplication
-- [ ] Proper error handling
-- [ ] Type hints on public functions
-- [ ] No debug code or commented blocks
+For each acceptance criterion, identify:
+- Where it's implemented (file and lines)
+- Which tests cover it
+- Any related documentation updates
 
-### 3. Testing
+**Traceability mapping:**
+```markdown
+## Requirement Traceability - Issue #42
 
-- [ ] Unit tests written for new code
-- [ ] Integration tests for workflows
-- [ ] Edge cases covered
-- [ ] All tests pass (`./test.sh`)
-- [ ] Coverage ≥ 90% (`./test.sh --coverage`)
-- [ ] Mocks used appropriately
+### AC1: CLI accepts multiple --drift-type arguments
+**Status:** ✅ Complete
+- **Implementation:** `src/drift/cli.py:45-52`
+- **Code:**
+  ```python
+  @click.option('--drift-type', multiple=True)
+  def analyze(drift_type):
+      types = drift_type or config.get('drift_types')
+  ```
+- **Tests:** `tests/unit/test_cli.py::test_multiple_drift_types`
+- **Verification:** Tested with `drift --drift-type incomplete --drift-type spec`
 
-### 4. Documentation
+### AC2: Each drift type runs in separate LLM call
+**Status:** ✅ Complete
+- **Implementation:** `src/drift/detector.py:120-145`
+- **Code:** MultiPassAnalyzer class, analyze_multi() method
+- **Tests:** `tests/integration/test_multi_pass.py::test_separate_llm_calls`
+- **Verification:** Mocked LLM calls show one call per type
 
-- [ ] Docstrings on all public functions
-- [ ] README updated if needed
-- [ ] CLI help text added/updated
-- [ ] Examples provided for complex features
-- [ ] No TODOs in code
+### AC3: Results combined in single output
+**Status:** ✅ Complete
+- **Implementation:** `src/drift/formatter.py:67-82`
+- **Code:** CombinedResultFormatter.format() method
+- **Tests:** `tests/unit/test_formatter.py::test_combined_output`
+- **Verification:** Output shows all types in single JSON/text output
 
-### 5. Functionality
+### AC4: Tests cover multi-type analysis
+**Status:** ✅ Complete
+- **Unit tests:** 8 tests in test_multi_pass.py
+- **Integration tests:** 3 tests in test_integration_multi.py
+- **Coverage:** 94% for new code
+- **Edge cases:** empty types, single type, three types
 
-- [ ] Feature works as described
-- [ ] No regressions introduced
-- [ ] Error messages are clear
-- [ ] Performance is acceptable
-- [ ] Works with sample data
+### AC5: Documentation updated with examples
+**Status:** ✅ Complete
+- **README:** Section "Multi-Type Analysis" added
+- **CLI help:** --drift-type option documented
+- **Examples:** Three usage examples provided
+```
 
-### 6. Git Hygiene
+### Step 3: Verify All Criteria Met
 
+Check each criterion:
+- [ ] Implementation exists and works
+- [ ] Tests cover the functionality
+- [ ] Documentation is updated
+- [ ] Manual verification passed
+
+## How to Run Quality Checks
+
+### Step 1: Run Linters
+
+```bash
+# Run all linters
+./lint.sh
+```
+
+Check output:
+- ✅ All linters pass: Ready to proceed
+- ❌ Linting errors: Fix before continuing
+
+**Common linting issues:**
+- Line too long (> 100 chars)
+- Import order incorrect
+- Missing type hints
+- Trailing whitespace
+
+### Step 2: Run Tests with Coverage
+
+```bash
+# Run tests with coverage report
+./test.sh --coverage
+```
+
+Check output:
+- Coverage percentage
+- Which files are below threshold
+- Which lines aren't covered
+
+**Coverage checklist:**
+- [ ] Overall coverage ≥ 90%
+- [ ] New code coverage ≥ 90%
+- [ ] Critical paths covered
+- [ ] Edge cases tested
+
+### Step 3: Review Test Quality
+
+Not just coverage percentage, but quality:
+
+**Check for:**
+- Tests have clear names
+- Tests are independent
+- Edge cases covered
+- Error scenarios tested
+- Mocks used appropriately
+
+**Example quality check:**
+```python
+# Review test file
+# tests/unit/test_multi_pass.py
+
+# Good test indicators:
+✅ def test_analyze_empty_drift_types():  # Clear name
+✅ def test_analyze_with_api_error():     # Error case
+✅ def test_analyze_three_types():        # Edge case
+
+# Issues to fix:
+❌ def test_case_1():                     # Vague name
+❌ Only happy path tested                 # Missing edge cases
+```
+
+## How to Verify Documentation
+
+### Step 1: Check Docstrings
+
+For each new/modified public function:
+
+```python
+# Verify docstring exists and is complete
+def analyze_multi_pass(drift_types: List[str]) -> List[DriftResult]:
+    """Analyze conversation for multiple drift types.
+
+    Runs separate LLM analysis for each drift type and combines
+    results. Each type is analyzed independently to avoid
+    cross-contamination.
+
+    -- drift_types: List of drift types to analyze
+        Valid values: incomplete_work, spec_adherence, context_loss
+
+    Returns:
+        List of DriftResult objects, one per detected issue
+
+    Raises:
+        ValueError: If drift_types is empty or contains invalid types
+        APIError: If LLM API calls fail
+    """
+```
+
+**Checklist:**
+- [ ] Purpose explained
+- [ ] Parameters documented
+- [ ] Return value described
+- [ ] Exceptions listed
+- [ ] Examples provided (if complex)
+
+### Step 2: Check User-Facing Documentation
+
+**README updates:**
+- [ ] New features documented
+- [ ] Usage examples added
+- [ ] Configuration options explained
+- [ ] Installation instructions current
+
+**Example README section:**
+```markdown
+## Multi-Type Analysis
+
+Analyze for multiple drift types in one run:
+
+```bash
+drift --drift-type incomplete_work --drift-type spec_adherence
+```
+
+Results show all detected issues organized by type.
+```
+
+**CLI help text:**
+```bash
+# Verify help text updated
+drift --help
+
+# Should show:
+--drift-type TEXT  Drift type to analyze (can be specified multiple times)
+```
+
+## How to Test Functionality Manually
+
+### Step 1: Test Happy Path
+
+Run the feature with expected inputs:
+
+```bash
+# Example for multi-type feature
+drift --drift-type incomplete_work --drift-type spec_adherence log.json
+
+# Verify:
+✅ Command executes without errors
+✅ Output shows both drift types
+✅ Results are formatted correctly
+✅ Exit code is appropriate
+```
+
+### Step 2: Test Edge Cases
+
+Try unusual but valid inputs:
+
+```bash
+# Single type (should still work)
+drift --drift-type incomplete_work log.json
+
+# No types specified (should use defaults)
+drift log.json
+
+# Empty conversation log
+drift --drift-type incomplete_work empty.json
+```
+
+### Step 3: Test Error Scenarios
+
+Verify error handling:
+
+```bash
+# Invalid drift type
+drift --drift-type invalid_type log.json
+# Expect: Clear error message explaining valid types
+
+# Missing log file
+drift --drift-type incomplete_work missing.json
+# Expect: FileNotFoundError with helpful message
+
+# Malformed JSON
+drift --drift-type incomplete_work bad.json
+# Expect: JSONDecodeError with clear explanation
+```
+
+## How to Check Git Hygiene
+
+### Review Commits
+
+```bash
+# List commits on branch
+git log main..HEAD --oneline
+```
+
+**Check for:**
 - [ ] Commits are logical and atomic
-- [ ] Commit messages are descriptive
+- [ ] Each commit message is descriptive
+- [ ] No "WIP" or "fix" commits (squash if present)
+- [ ] Commit messages follow project format
+
+**Good commit history:**
+```
+abc1234 Add MultiPassAnalyzer for multi-type analysis
+def5678 Add CLI support for multiple --drift-type flags
+ghi9012 Update documentation with multi-type examples
+```
+
+**Bad commit history (needs cleanup):**
+```
+abc1234 WIP
+def5678 fix bug
+ghi9012 more fixes
+jkl3456 actually works now
+```
+
+### Check Branch Status
+
+```bash
+# Check for merge conflicts and remote status
+git status
+```
+
+**Verify:**
 - [ ] No merge conflicts
 - [ ] Branch is up to date with main
-- [ ] No unintended files committed
+- [ ] No untracked files that should be committed
+- [ ] No unintended files committed (.DS_Store, __pycache__, etc.)
 
-## Pre-PR Validation
+**Update branch if needed:**
+```bash
+git fetch origin
+git rebase origin/main
 
-Before creating a PR, verify:
+# Or merge if preferred
+git merge origin/main
+```
 
-1. **Run Full Check**
-   ```bash
-   ./lint.sh && ./test.sh --coverage
-   ```
+## Pre-PR Validation Checklist
 
-2. **Review Changes**
-   ```bash
-   git diff main...HEAD
-   ```
+See [Validation Guide](resources/validation-guide.md) for complete checklist workflow.
 
-3. **Test Manually**
-   - Run CLI with real inputs
-   - Verify output format
-   - Check error scenarios
+## How to Generate Validation Report
 
-4. **Check Traceability**
-   - All acceptance criteria implemented
-   - Each criterion has tests
-   - Requirements fully satisfied
+See [Report Template](resources/report-template.md) for a complete validation report template covering:
+- Requirements traceability
+- Code quality verification
+- Testing summary
+- Documentation checklist
+- Functionality validation
+- Git hygiene check
+- Summary and next steps
 
-## Common Gaps to Watch For
+## Common Gaps and How to Fix Them
 
-### Incomplete Implementation
+### Gap: Incomplete Implementation
+
+**Symptom:**
 - Feature partially works
 - Edge cases not handled
-- Error handling missing
+- Only happy path implemented
 
-### Testing Gaps
-- Missing unit tests
-- Integration tests not comprehensive
+**Example:**
+```python
+# Current (incomplete):
+def analyze_multi(drift_types):
+    return [analyze(t) for t in drift_types]
+    # Missing: empty list check, invalid type validation
+```
+
+**How to fix:**
+```python
+def analyze_multi(drift_types):
+    if not drift_types:
+        raise ValueError("drift_types cannot be empty")
+
+    for dtype in drift_types:
+        if dtype not in VALID_TYPES:
+            raise ValueError(f"Invalid drift type: {dtype}")
+
+    return [analyze(t) for t in drift_types]
+```
+
+### Gap: Testing Gaps
+
+**Symptom:**
 - Coverage below 90%
-- Edge cases not tested
+- Only happy path tested
+- Edge cases missing
+- No error scenario tests
 
-### Documentation Gaps
-- Missing docstrings
-- Unclear parameter descriptions
+**How to identify:**
+```bash
+# Run coverage with missing lines
+pytest --cov=src/drift --cov-report=term-missing
+
+# Output shows uncovered lines:
+# src/drift/detector.py:78-82  (error handling not tested)
+```
+
+**How to fix:**
+Add tests for uncovered code:
+```python
+def test_analyze_multi_empty_types():
+    """Test error when drift_types is empty."""
+    with pytest.raises(ValueError, match="cannot be empty"):
+        analyze_multi([])
+
+def test_analyze_multi_invalid_type():
+    """Test error with invalid drift type."""
+    with pytest.raises(ValueError, match="Invalid drift type"):
+        analyze_multi(["invalid_type"])
+```
+
+### Gap: Documentation Missing
+
+**Symptom:**
+- Missing docstrings on new functions
+- README not updated for new features
+- CLI help text not updated
 - No usage examples
-- README not updated
 
-### Quality Issues
-- Linting errors
-- Type hint missing
-- Code duplication
-- Poor naming
+**How to identify:**
+```python
+# Check for missing docstrings
+grep -r "^def " src/drift/new_module.py | while read line; do
+    # Check if function has docstring
+done
+```
 
-## Validation Report Template
+**How to fix:**
+Add complete docstrings:
+```python
+def analyze_multi(drift_types: List[str]) -> List[DriftResult]:
+    """Analyze conversation for multiple drift types.
 
+    -- drift_types: List of drift types to analyze
+
+    Returns:
+        List of DriftResult objects
+
+    Raises:
+        ValueError: If drift_types is empty or invalid
+    """
+```
+
+Update README:
 ```markdown
-## Definition of Done - Validation Report
+## New Feature: Multi-Type Analysis
 
-**Issue:** #<number> - <title>
-
-### Requirements Met
-✓ All acceptance criteria implemented
-✓ Requirement traceability documented
-✓ Functionality verified
-
-### Code Quality
-✓ All linters pass
-✓ Type hints present
-✓ No code duplication
-
-### Testing
-✓ Unit tests: <count> tests
-✓ Integration tests: <count> tests
-✓ Coverage: <percentage>%
-✓ All tests passing
-
-### Documentation
-✓ Docstrings complete
-✓ README updated
-✓ Examples provided
-
-### Ready for Review
-All definition of done criteria satisfied.
+```bash
+drift --drift-type incomplete_work --drift-type spec_adherence
+```
 ```
 
 ## Resources
 
 ### 📖 [Validation Guide](resources/validation-guide.md)
-Step-by-step guide for validating work meets all requirements and quality standards.
+Step-by-step validation process and quality checks.
 
-**Use when:** Verifying task completion before creating a PR.
+**Use when:** Starting a validation workflow before creating a PR.
 
 ### 📖 [Common Gaps](resources/common-gaps.md)
-Common completion gaps to watch for with examples and fixes.
+Common implementation, testing, and documentation gaps with fixes.
 
-**Use when:** Checking for typical issues that cause work to be incomplete.
+**Use when:** Identifying why validation is failing or improving code quality.
+
+### 📖 [Report Template](resources/report-template.md)
+Complete validation report template with all sections.
+
+**Use when:** Generating a validation report before creating a PR.
+

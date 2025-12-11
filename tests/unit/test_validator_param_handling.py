@@ -244,11 +244,11 @@ class TestFileSizeValidatorParams:
         )
 
     def test_missing_file_path_param_raises_error(self, validator, bundle):
-        """Test that validator raises clear error when file_path is missing."""
+        """Test that validator raises clear error when params is empty."""
         rule = ValidationRule(
             rule_type="core:file_size",
             description="Check file size",
-            params={},  # Empty params, no file_path
+            params={},  # Empty params
         )
 
         with pytest.raises(ValueError, match="requires params"):

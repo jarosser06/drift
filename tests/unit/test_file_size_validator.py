@@ -256,30 +256,31 @@ class TestFileSizeValidator:
         assert "nonexistent.md" in result.file_paths
 
     def test_missing_file_path(self, validator, bundle_with_file):
-        """Test that validator raises error when file_path is missing."""
+        """Test that validator works with bundle files when file_path is not provided."""
         rule = ValidationRule(
             rule_type="core:file_size",
             description="No file path",
-            max_count=100,
+            params={"max_count": 100},
             failure_message="Error",
-            expected_behavior="Should error",
+            expected_behavior="Should pass",
         )
 
-        with pytest.raises(ValueError, match="requires params"):
-            validator.validate(rule, bundle_with_file)
+        # Should validate files in bundle when file_path not provided
+        result = validator.validate(rule, bundle_with_file)
+        assert result is None  # Should pass since bundle file is under 100 lines
 
     def test_no_constraints(self, validator, bundle_with_file):
-        """Test that validation passes when no constraints are specified."""
+        """Test that validator raises error when no constraints are specified."""
         rule = ValidationRule(
             rule_type="core:file_size",
             description="No constraints",
             params={"file_path": "test.md"},
             failure_message="Error",
-            expected_behavior="Should pass",
+            expected_behavior="Should error",
         )
 
-        result = validator.validate(rule, bundle_with_file)
-        assert result is None
+        with pytest.raises(ValueError, match="requires at least one constraint"):
+            validator.validate(rule, bundle_with_file)
 
     def test_both_line_and_byte_constraints(self, validator, tmp_path):
         """Test validation with both line count and byte size constraints."""
@@ -379,3 +380,140 @@ class TestFileSizeValidator:
 
         result = validator.validate(rule, bundle)
         assert result is None
+
+    def test_bundle_mode_validates_all_files(self, validator, tmp_path):
+        """Test that validator iterates over bundle.files when file_path not provided."""
+        # Create test files
+        file1 = tmp_path / "file1.md"
+        file2 = tmp_path / "file2.md"
+        file3 = tmp_path / "file3.md"
+
+        file1.write_text("\n".join([f"Line {i}" for i in range(100)]))  # 100 lines
+        file2.write_text("\n".join([f"Line {i}" for i in range(200)]))  # 200 lines (exceeds)
+        file3.write_text("\n".join([f"Line {i}" for i in range(50)]))  # 50 lines
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.md",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.md",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+                DocumentFile(
+                    relative_path="file3.md",
+                    content=file3.read_text(),
+                    file_path=str(file3),
+                ),
+            ],
+        )
+
+        # Validate without file_path - should check all files in bundle
+        rule = ValidationRule(
+            rule_type="core:file_size",
+            description="Check line count",
+            params={"max_count": 150},  # file2 exceeds this
+            failure_message="File exceeds max lines",
+            expected_behavior="Files should be under 150 lines",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail because file2.md exceeds 150 lines
+        assert result is not None
+        assert "file2.md" in result.observed_issue
+        assert "200 lines" in result.observed_issue
+        assert "exceeds max 150" in result.observed_issue
+
+        # file1 and file3 should NOT be in failures
+        assert "file1.md" not in result.observed_issue
+        assert "file3.md" not in result.observed_issue
+
+    def test_bundle_mode_all_files_pass(self, validator, tmp_path):
+        """Test that bundle mode returns None when all files pass."""
+        file1 = tmp_path / "file1.md"
+        file2 = tmp_path / "file2.md"
+
+        file1.write_text("\n".join([f"Line {i}" for i in range(50)]))
+        file2.write_text("\n".join([f"Line {i}" for i in range(30)]))
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.md",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.md",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+            ],
+        )
+
+        rule = ValidationRule(
+            rule_type="core:file_size",
+            description="Check line count",
+            params={"max_count": 100},
+            failure_message="File too large",
+            expected_behavior="Files should be under 100 lines",
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is None  # All files pass
+
+    def test_bundle_mode_vs_file_path_mode(self, validator, tmp_path):
+        """Test that file_path param validates specific file, not bundle files."""
+        # Create files
+        bundle_file = tmp_path / "bundle_file.md"
+        specific_file = tmp_path / "specific.md"
+
+        bundle_file.write_text("\n".join([f"Line {i}" for i in range(50)]))  # OK
+        specific_file.write_text("\n".join([f"Line {i}" for i in range(200)]))  # Too large
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="skill",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="bundle_file.md",
+                    content=bundle_file.read_text(),
+                    file_path=str(bundle_file),
+                ),
+            ],
+        )
+
+        # When file_path provided, should validate that specific file (not bundle files)
+        rule = ValidationRule(
+            rule_type="core:file_size",
+            description="Check specific file",
+            params={
+                "file_path": "specific.md",  # Not in bundle
+                "max_count": 100,
+            },
+            failure_message="File too large",
+            expected_behavior="File should be under 100 lines",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail on specific.md, not bundle_file.md
+        assert result is not None
+        assert "specific.md" in result.file_paths
+        assert "200 lines" in result.observed_issue
+        assert "exceeds max 100" in result.observed_issue

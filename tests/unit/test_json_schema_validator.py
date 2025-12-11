@@ -219,17 +219,28 @@ class TestJsonSchemaValidator:
     # ==================== Error Handling Tests ====================
 
     def test_missing_file_path(self, validator, bundle_with_json):
-        """Test that validator raises error when file_path is missing."""
+        """Test that validator validates bundle files when file_path is missing (bundle mode)."""
         rule = ValidationRule(
             rule_type="core:json_schema",
             description="No file path",
-            params={"schema": {"type": "object"}},
+            params={
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "version": {"type": "string"},
+                        "count": {"type": "number"},
+                    },
+                    "required": ["name", "version", "count"],
+                }
+            },
             failure_message="Error",
-            expected_behavior="Should error",
+            expected_behavior="Should validate bundle files",
         )
 
-        with pytest.raises(ValueError, match="requires params.file_path"):
-            validator.validate(rule, bundle_with_json)
+        # Should validate all files in the bundle and pass since config.json matches the schema
+        result = validator.validate(rule, bundle_with_json)
+        assert result is None
 
     def test_missing_params(self, validator, bundle_with_json):
         """Test that validation fails when schema/schema_file is missing."""
@@ -698,3 +709,158 @@ class TestJsonSchemaValidator:
         # Should catch SchemaError and return failure
         assert result is not None
         assert "Invalid schema" in result.observed_issue
+
+    # ==================== Bundle Mode Tests ====================
+
+    def test_bundle_mode_validates_all_files(self, validator, tmp_path):
+        """Test that validator iterates over bundle.files when file_path not provided."""
+        # Create test files
+        file1 = tmp_path / "file1.json"
+        file2 = tmp_path / "file2.json"
+        file3 = tmp_path / "file3.json"
+
+        file1.write_text(json.dumps({"name": "John", "age": 30}))
+        file2.write_text(json.dumps({"name": "Jane"}))  # Missing 'age'
+        file3.write_text(json.dumps({"name": "Bob", "age": 25}))
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.json",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.json",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+                DocumentFile(
+                    relative_path="file3.json",
+                    content=file3.read_text(),
+                    file_path=str(file3),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        # Validate without file_path - should check all files in bundle
+        rule = ValidationRule(
+            rule_type="core:json_schema",
+            description="Check for required fields",
+            params={"schema": schema},  # file2 missing 'age'
+            failure_message="Invalid JSON structure",
+            expected_behavior="All files should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail because file2.json doesn't have 'age'
+        assert result is not None
+        assert "file2.json" in result.file_paths
+        assert "age" in result.observed_issue or "required" in result.observed_issue.lower()
+
+        # file1 and file3 should NOT be in failures
+        assert "file1.json" not in result.file_paths
+        assert "file3.json" not in result.file_paths
+
+    def test_bundle_mode_all_files_pass(self, validator, tmp_path):
+        """Test that bundle mode returns None when all files pass."""
+        file1 = tmp_path / "file1.json"
+        file2 = tmp_path / "file2.json"
+
+        file1.write_text(json.dumps({"name": "John", "age": 30}))
+        file2.write_text(json.dumps({"name": "Jane", "age": 25}))
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="file1.json",
+                    content=file1.read_text(),
+                    file_path=str(file1),
+                ),
+                DocumentFile(
+                    relative_path="file2.json",
+                    content=file2.read_text(),
+                    file_path=str(file2),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        rule = ValidationRule(
+            rule_type="core:json_schema",
+            description="Check for required fields",
+            params={"schema": schema},
+            failure_message="Invalid JSON structure",
+            expected_behavior="All files should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is None  # All files pass
+
+    def test_bundle_mode_vs_file_path_mode(self, validator, tmp_path):
+        """Test that file_path param validates specific file, not bundle files."""
+        # Create files
+        bundle_file = tmp_path / "bundle_file.json"
+        specific_file = tmp_path / "specific.json"
+
+        bundle_file.write_text(json.dumps({"name": "John", "age": 30}))  # Valid
+        specific_file.write_text(json.dumps({"name": "Jane"}))  # Missing 'age'
+
+        bundle = DocumentBundle(
+            bundle_id="test",
+            bundle_type="mixed",
+            bundle_strategy="individual",
+            project_path=tmp_path,
+            files=[
+                DocumentFile(
+                    relative_path="bundle_file.json",
+                    content=bundle_file.read_text(),
+                    file_path=str(bundle_file),
+                ),
+            ],
+        )
+
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number"}},
+            "required": ["name", "age"],
+        }
+
+        # When file_path provided, should validate that specific file (not bundle files)
+        rule = ValidationRule(
+            rule_type="core:json_schema",
+            description="Check specific file",
+            params={
+                "file_path": "specific.json",  # Not in bundle
+                "schema": schema,
+            },
+            failure_message="Invalid JSON structure",
+            expected_behavior="File should have name and age",
+        )
+
+        result = validator.validate(rule, bundle)
+
+        # Should fail on specific.json, not bundle_file.json
+        assert result is not None
+        assert "specific.json" in result.file_paths
+        assert "age" in result.observed_issue or "required" in result.observed_issue.lower()
