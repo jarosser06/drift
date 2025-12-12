@@ -22,7 +22,3 @@ path: "tests/**/*.py"
 ## Validation
 
 **MUST**: Coverage report must be generated before commits.
-
-## Rationale
-
-High test coverage ensures code reliability and catches regressions early. The test pyramid ensures fast feedback (unit tests) while maintaining confidence in system integration. The 90% threshold is enforced by pytest configuration.

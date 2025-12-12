@@ -323,22 +323,34 @@ The ``--rules-file`` CLI argument loads rules from local files or remote HTTP(S)
 
 Remote rules are fetched with a 10-second timeout. Both HTTP and HTTPS URLs are supported.
 
-Rules Loading Priority System
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rules Loading Behavior
+~~~~~~~~~~~~~~~~~~~~~~~
 
-When rules are loaded from multiple sources, Drift applies a priority order where later sources override earlier ones:
+Drift uses different rule loading behavior depending on whether ``--rules-file`` is specified:
+
+**When --rules-file is provided:**
+
+Drift loads ONLY the specified rules files, excluding default rule sources. This allows isolated testing and controlled rule sets.
+
+.. code-block:: bash
+
+    # Load ONLY custom-rules.yaml (ignores .drift.yaml and .drift_rules.yaml)
+    drift --rules-file custom-rules.yaml
+
+**When --rules-file is NOT provided:**
+
+Drift loads rules from default locations with this priority order (later sources override earlier ones):
 
 1. ``.drift.yaml`` ``rule_definitions`` (lowest priority)
-2. ``.drift_rules.yaml`` in project root
-3. ``--rules-file`` CLI arguments (highest priority, applied in order)
+2. ``.drift_rules.yaml`` in project root (highest priority)
 
-Rules with the same name in higher-priority sources replace rules from lower-priority sources.
+This default behavior maintains backward compatibility and supports the standard workflow of keeping configuration and rules separate.
 
-**Example workflow:**
+**Example: Default behavior (no --rules-file):**
 
 .. code-block:: yaml
 
-    # .drift.yaml - Project config only
+    # .drift.yaml - Project config and base rules
     providers:
       anthropic:
         provider: anthropic
@@ -354,14 +366,22 @@ Rules with the same name in higher-priority sources replace rules from lower-pri
 
     default_model: sonnet
 
+    rule_definitions:
+      base_rule:
+        description: "Base validation"
+        scope: project_level
+        phases:
+          - name: check
+            type: file_exists
+            file_path: README.md
+
 .. code-block:: yaml
 
-    # .drift_rules.yaml - Project-specific rules
+    # .drift_rules.yaml - Project-specific rules (override base_rule)
     rule_definitions:
-      readme_exists:
-        description: "Project must have README.md"
+      base_rule:
+        description: "Enhanced validation"
         scope: project_level
-        context: "README.md documents project"
         phases:
           - name: check
             type: file_exists
@@ -369,52 +389,70 @@ Rules with the same name in higher-priority sources replace rules from lower-pri
 
 .. code-block:: bash
 
-    # Command line - Load team-wide rules (highest priority)
+    # Run with default behavior - loads both files
+    drift
+    # Result: Uses base_rule from .drift_rules.yaml (overrides .drift.yaml version)
+
+**Example: Isolated testing with --rules-file:**
+
+.. code-block:: bash
+
+    # Load ONLY team-wide rules (ignores .drift.yaml and .drift_rules.yaml)
     drift --rules-file https://github.com/myorg/drift-rules/main/standard-rules.yaml
+    # Result: Uses only rules from remote URL
 
-In this example:
-
-1. Project configuration comes from ``.drift.yaml``
-2. Project-specific rules come from ``.drift_rules.yaml``
-3. Team-wide rules from the remote URL override any conflicting rules
+    # Load ONLY specific local rules file
+    drift --rules-file /path/to/test-rules.yaml
+    # Result: Uses only rules from test-rules.yaml
 
 Use Cases and Benefits
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-**Sharing rules across projects:**
+**Isolated testing with specific rule sets:**
 
-Create a central rules repository and reference it from multiple projects:
+Test rules in isolation without interference from default project rules:
 
 .. code-block:: bash
 
+    # Test only team standards (ignores project-specific rules)
     drift --rules-file https://github.com/myorg/drift-rules/main/python-standards.yaml
 
-**Team-wide defaults with project overrides:**
+    # Test experimental rules without modifying project config
+    drift --rules-file experimental-rules.yaml
 
-Teams can maintain standard rules remotely while allowing projects to override specific rules in ``.drift_rules.yaml``:
+**Combining multiple rule sources:**
+
+When using ``--rules-file``, you can load multiple files with later files overriding earlier ones:
 
 .. code-block:: bash
 
     # Load base team rules, then project customizations
     drift --rules-file https://internal.company.com/drift-rules/base.yaml \
-          --rules-file .drift_rules.yaml
+          --rules-file custom-overrides.yaml
 
-**Separation of concerns:**
+**Separation of concerns (default behavior):**
 
-Keep configuration (providers, models) separate from validation logic (rules):
+Keep configuration separate from rules using the default loading behavior:
 
 - ``.drift.yaml`` - Provider configuration and model settings
-- ``.drift_rules.yaml`` - Validation rules
-- Remote rules - Organization standards
-
-**Environment-specific rules:**
-
-Load different rule sets based on environment:
+- ``.drift_rules.yaml`` - Project validation rules (automatically loaded)
 
 .. code-block:: bash
 
-    # Development
+    # Automatically loads .drift.yaml config + .drift_rules.yaml rules
+    drift
+
+**Environment-specific validation:**
+
+Use different rule sets for different environments:
+
+.. code-block:: bash
+
+    # Development environment (relaxed rules)
     drift --rules-file rules/dev-rules.yaml
 
-    # Production
+    # Production environment (strict rules)
     drift --rules-file rules/prod-rules.yaml
+
+    # CI/CD environment (subset of checks)
+    drift --rules-file rules/ci-rules.yaml

@@ -4,7 +4,7 @@ description: Exception handling requirements for Python code
 path: "**/*.py"
 ---
 
-# Python Exception Handling Requirements
+# Python Exception Handling Standards
 
 ## Exception Handling
 

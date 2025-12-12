@@ -401,7 +401,7 @@ class TestRuleGroupsFileLoading:
             assert config.default_group_name == "My Custom Group"
 
     def test_multiple_files_same_group_merges(self):
-        """Test that multiple files with same group_name merge rules correctly."""
+        """Test that multiple CLI files with same group_name merge rules correctly."""
         with TemporaryDirectory() as tmpdir:
             project_path = Path(tmpdir)
 
@@ -434,7 +434,7 @@ class TestRuleGroupsFileLoading:
                 yaml.dump(main_config, f)
 
             # Create first rules file with "Skills" group
-            rules_file_1 = project_path / ".drift_rules.yaml"
+            rules_file_1 = project_path / "rules1.yaml"
             rules_content_1 = {
                 "group_name": "Skills",
                 "rule_one": {
@@ -448,7 +448,7 @@ class TestRuleGroupsFileLoading:
                 yaml.dump(rules_content_1, f)
 
             # Create second rules file also with "Skills" group
-            rules_file_2 = project_path / "extra_rules.yaml"
+            rules_file_2 = project_path / "rules2.yaml"
             rules_content_2 = {
                 "group_name": "Skills",
                 "rule_two": {
@@ -461,8 +461,10 @@ class TestRuleGroupsFileLoading:
             with open(rules_file_2, "w") as f:
                 yaml.dump(rules_content_2, f)
 
-            # Load config with both rules files
-            config = ConfigLoader.load_config(project_path, rules_files=[str(rules_file_2)])
+            # Load config with BOTH CLI rules files (issue #54)
+            config = ConfigLoader.load_config(
+                project_path, rules_files=[str(rules_file_1), str(rules_file_2)]
+            )
 
             # Both rules should be present with same group
             assert "rule_one" in config.rule_definitions

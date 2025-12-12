@@ -1,8 +1,4 @@
-"""Integration tests for statistics aggregation across multiple rules files.
-
-This reproduces issue #47: When using --rules-file, the total_checks count
-only reflects checks from one file, not the combined total from all files.
-"""
+"""Integration tests for statistics aggregation across multiple rules files."""
 
 import tempfile
 from pathlib import Path
@@ -31,10 +27,10 @@ class TestMultiFileStatistics:
             yield project_path
 
     def test_total_checks_with_two_files_same_group(self, temp_project, monkeypatch):
-        """Test total_checks when two rules files contribute to the SAME group.
+        """Test total_checks when two default rules files contribute to the SAME group.
 
         Scenario: .drift.yaml has 1 rule in "Documentation" group
-                  extra_rules.yaml has 1 more rule in "Documentation" group
+                  .drift_rules.yaml has 1 more rule in "Documentation" group
         Expected: total_checks = 2 (both rules counted)
         """
         monkeypatch.setattr(
@@ -66,7 +62,7 @@ rule_definitions:
         drift_yaml = temp_project / ".drift.yaml"
         drift_yaml.write_text(drift_yaml_content)
 
-        # Additional rules file - just the rules, not full config
+        # Additional rules file - using .drift_rules.yaml (default location)
         extra_rules_content = """
 check_changelog:
   description: "CHANGELOG must exist"
@@ -85,11 +81,11 @@ check_changelog:
         description: "CHANGELOG must exist"
         file_path: "CHANGELOG.md"
 """
-        rules_file = temp_project / "extra_rules.yaml"
+        rules_file = temp_project / ".drift_rules.yaml"
         rules_file.write_text(extra_rules_content)
 
-        # Load with both files
-        loaded_config = ConfigLoader.load_config(temp_project, rules_files=[str(rules_file)])
+        # Load without CLI rules_files (uses defaults)
+        loaded_config = ConfigLoader.load_config(temp_project)
 
         # Run analysis
         analyzer = DriftAnalyzer(loaded_config, temp_project)
@@ -97,17 +93,17 @@ check_changelog:
 
         # Assert counts
         assert result.summary.total_checks == 2, (
-            f"BUG: total_checks is {result.summary.total_checks}, expected 2 "
-            f"(1 from .drift.yaml + 1 from extra_rules.yaml)"
+            f"total_checks is {result.summary.total_checks}, expected 2 "
+            f"(1 from .drift.yaml + 1 from .drift_rules.yaml)"
         )
         assert result.summary.checks_passed == 2
         assert result.summary.by_group.get("Documentation", 0) == 2
 
     def test_total_checks_with_two_files_different_groups(self, temp_project, monkeypatch):
-        """Test total_checks when two rules files contribute to DIFFERENT groups.
+        """Test total_checks when two default rules files contribute to DIFFERENT groups.
 
         Scenario: .drift.yaml has 1 rule in "Documentation" group
-                  extra_rules.yaml has 1 rule in "Legal" group
+                  .drift_rules.yaml has 1 rule in "Legal" group
         Expected: total_checks = 2, by_group has both Documentation and Legal
         """
         monkeypatch.setattr(
@@ -139,7 +135,7 @@ rule_definitions:
         drift_yaml = temp_project / ".drift.yaml"
         drift_yaml.write_text(drift_yaml_content)
 
-        # Extra rules - DIFFERENT group
+        # Extra rules - DIFFERENT group, using .drift_rules.yaml (default location)
         extra_rules_content = """
 check_license:
   description: "LICENSE must exist"
@@ -158,11 +154,11 @@ check_license:
         description: "LICENSE must exist"
         file_path: "LICENSE"
 """
-        rules_file = temp_project / "extra_rules.yaml"
+        rules_file = temp_project / ".drift_rules.yaml"
         rules_file.write_text(extra_rules_content)
 
-        # Load and analyze
-        loaded_config = ConfigLoader.load_config(temp_project, rules_files=[str(rules_file)])
+        # Load without CLI rules_files (uses defaults)
+        loaded_config = ConfigLoader.load_config(temp_project)
         analyzer = DriftAnalyzer(loaded_config, temp_project)
         result = analyzer.analyze_documents()
 
@@ -173,10 +169,10 @@ check_license:
         assert result.summary.by_group.get("Legal", 0) == 1
 
     def test_total_checks_with_single_file_multiple_groups(self, temp_project, monkeypatch):
-        """Test total_checks when ONE file has rules in DIFFERENT groups.
+        """Test total_checks when ONE default file has rules in DIFFERENT groups.
 
-        Scenario: extra_rules.yaml has 2 rules, each in a different group
-        Expected: total_checks = 3 (1 base + 2 from extra), 3 groups total
+        Scenario: .drift_rules.yaml has 2 rules, each in a different group
+        Expected: total_checks = 3 (1 from .drift.yaml + 2 from .drift_rules.yaml), 3 groups total
         """
         monkeypatch.setattr(
             ConfigLoader,
@@ -207,7 +203,7 @@ rule_definitions:
         drift_yaml = temp_project / ".drift.yaml"
         drift_yaml.write_text(drift_yaml_content)
 
-        # Extra rules with 2 rules in DIFFERENT groups
+        # Extra rules with 2 rules in DIFFERENT groups, using .drift_rules.yaml (default location)
         extra_rules_content = """
 check_changelog:
   description: "CHANGELOG must exist"
@@ -243,17 +239,17 @@ check_contributing:
         description: "CONTRIBUTING must exist"
         file_path: "CONTRIBUTING.md"
 """
-        rules_file = temp_project / "extra_rules.yaml"
+        rules_file = temp_project / ".drift_rules.yaml"
         rules_file.write_text(extra_rules_content)
 
-        # Load and analyze
-        loaded_config = ConfigLoader.load_config(temp_project, rules_files=[str(rules_file)])
+        # Load without CLI rules_files (uses defaults)
+        loaded_config = ConfigLoader.load_config(temp_project)
         analyzer = DriftAnalyzer(loaded_config, temp_project)
         result = analyzer.analyze_documents()
 
-        # Assert counts - THIS IS THE BUG REPRODUCTION
+        # Assert counts
         assert result.summary.total_checks == 3, (
-            f"BUG REPRODUCED! total_checks is {result.summary.total_checks}, expected 3. "
+            f"total_checks is {result.summary.total_checks}, expected 3. "
             f"by_group: {result.summary.by_group}"
         )
         assert result.summary.checks_passed == 3

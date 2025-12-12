@@ -20,7 +20,3 @@ description: Pull request template and requirements
 ## Summary Requirements
 
 **MUST**: Provide 3-5 bullet points summarizing the changes
-
-## Rationale
-
-Structured PRs make reviews efficient and help maintainers understand context quickly. Linking to issues maintains traceability. The required sections ensure reviewers have all information needed to evaluate changes effectively.
