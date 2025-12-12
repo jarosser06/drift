@@ -33,6 +33,7 @@ class Provider(ABC):
         system_prompt: Optional[str] = None,
         cache_key: Optional[str] = None,
         content_hash: Optional[str] = None,
+        prompt_hash: Optional[str] = None,
         drift_type: Optional[str] = None,
     ) -> str:
         """Generate a response from the LLM with optional caching.
@@ -42,6 +43,7 @@ class Provider(ABC):
             system_prompt: Optional system prompt
             cache_key: Optional cache key (arbitrary string, e.g., file name)
             content_hash: Optional SHA-256 hash for cache validation
+            prompt_hash: Optional SHA-256 hash of the prompt for cache invalidation
             drift_type: Optional drift type for cache metadata
 
         Returns:
@@ -52,7 +54,7 @@ class Provider(ABC):
         """
         # Try cache if enabled and parameters provided
         if self.cache and cache_key and content_hash:
-            cached_response = self.cache.get(cache_key, content_hash)
+            cached_response = self.cache.get(cache_key, content_hash, prompt_hash)
             if cached_response is not None:
                 return cached_response
 
@@ -61,7 +63,7 @@ class Provider(ABC):
 
         # Store in cache if enabled and parameters provided
         if self.cache and cache_key and content_hash:
-            self.cache.set(cache_key, content_hash, response, drift_type)
+            self.cache.set(cache_key, content_hash, response, prompt_hash, drift_type)
 
         return response
 
