@@ -39,7 +39,3 @@ path: "{docs/**/*,*.md,*.rst}"
 ## TODOs
 
 **MUST NOT**: Include TODOs in code
-
-## Rationale
-
-Objective documentation sets accurate expectations. Claims about user behavior without data can mislead. Subjective language is opinion, not fact. Requiring authoritative sources ensures recommendations are trustworthy and verifiable. Keeping documentation synchronized with code prevents confusion.

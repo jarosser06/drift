@@ -33,7 +33,7 @@ class DocumentLoader:
             "skill": [".claude/skills/*/SKILL.md", ".claude/skills/*/skill.md"],
             "command": [".claude/commands/*.md"],
             "agent": [".claude/agents/*/AGENT.md", ".claude/agents/*/agent.md"],
-            "rule": [".claude/rules/*.md"],
+            "rule": [".claude/rules/**/*.md"],
         }
 
         patterns = patterns_map.get(resource_type, [])

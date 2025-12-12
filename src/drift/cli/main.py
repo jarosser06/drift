@@ -38,13 +38,13 @@ Examples:
   # Use sonnet model for all analysis
   drift --model sonnet
 
-  # Use custom rules file
+  # Use custom rules file (ignores .drift.yaml/.drift_rules.yaml rules)
   drift --rules-file custom_rules.yaml
 
-  # Use multiple rules files
+  # Use multiple rules files (later files override earlier ones)
   drift --rules-file base_rules.yaml --rules-file extra_rules.yaml
 
-  # Use remote rules file
+  # Use remote rules file for isolated testing
   drift --rules-file https://example.com/drift-rules.yaml
 
   # Draft command - generate AI prompts from rules
@@ -198,7 +198,12 @@ Examples:
         "--rules-file",
         action="append",
         default=None,
-        help="Path to rules file (local file or HTTP(S) URL). Can be specified multiple times.",
+        help=(
+            "Path to rules file (local file or HTTP(S) URL). "
+            "Can be specified multiple times. "
+            "When provided, ONLY loads specified files "
+            "(ignores .drift.yaml and .drift_rules.yaml rules)."
+        ),
     )
 
     parser.add_argument(

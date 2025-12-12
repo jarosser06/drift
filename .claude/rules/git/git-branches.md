@@ -16,7 +16,3 @@ description: Branch naming conventions
 **MUST**: Descriptive but concise
 
 **MUST**: Always reference issue number
-
-## Rationale
-
-Consistent branch naming makes it easy to identify the purpose of a branch and link it to the corresponding issue. This convention improves traceability and helps with automated tooling and CI/CD workflows.

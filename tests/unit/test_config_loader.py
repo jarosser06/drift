@@ -864,23 +864,22 @@ class TestRulesFileLoading:
         assert "default_rule" in config.rule_definitions
         assert config.rule_definitions["default_rule"].description == "Rule from .drift_rules.yaml"
 
-    def test_load_config_priority_cli_over_default_rules_file(self, temp_dir, monkeypatch):
-        """Test that CLI rules file overrides .drift_rules.yaml."""
+    def test_load_config_cli_rules_exclude_drift_rules_yaml(self, temp_dir, monkeypatch):
+        """Test that CLI rules file excludes .drift_rules.yaml (issue #54)."""
         monkeypatch.setattr(
             ConfigLoader,
             "GLOBAL_CONFIG_PATHS",
             [temp_dir / "nonexistent.yaml"],
         )
 
-        # Create .drift_rules.yaml
+        # Create .drift_rules.yaml (should be ignored when CLI rules provided)
         default_rules_file = temp_dir / ".drift_rules.yaml"
         default_rules = {
-            "shared_rule": {
+            "default_rule": {
                 "description": "From .drift_rules.yaml",
                 "scope": "conversation_level",
                 "context": "Default",
                 "requires_project_context": False,
-                "group_name": "TestGroup",
             }
         }
         with open(default_rules_file, "w") as f:
@@ -889,12 +888,11 @@ class TestRulesFileLoading:
         # Create CLI rules file
         cli_rules_file = temp_dir / "cli_rules.yaml"
         cli_rules = {
-            "shared_rule": {
+            "cli_rule": {
                 "description": "From CLI",
                 "scope": "conversation_level",
                 "context": "CLI",
                 "requires_project_context": True,
-                "group_name": "TestGroup",
             }
         }
         with open(cli_rules_file, "w") as f:
@@ -902,8 +900,10 @@ class TestRulesFileLoading:
 
         config = ConfigLoader.load_config(temp_dir, rules_files=[str(cli_rules_file)])
 
-        assert config.rule_definitions["shared_rule"].description == "From CLI"
-        assert config.rule_definitions["shared_rule"].scope == "conversation_level"
+        # Only CLI rule should be present
+        assert "cli_rule" in config.rule_definitions
+        assert "default_rule" not in config.rule_definitions
+        assert config.rule_definitions["cli_rule"].description == "From CLI"
 
     def test_load_config_priority_default_rules_over_drift_yaml(self, temp_dir, monkeypatch):
         """Test that .drift_rules.yaml overrides rule_definitions in .drift.yaml."""
@@ -948,8 +948,8 @@ class TestRulesFileLoading:
         assert config.rule_definitions["shared_rule"].description == "From .drift_rules.yaml"
         assert config.rule_definitions["shared_rule"].scope == "conversation_level"
 
-    def test_load_config_combines_rules_from_all_sources(self, temp_dir, monkeypatch):
-        """Test that rules from all sources are combined."""
+    def test_load_config_combines_rules_from_default_sources(self, temp_dir, monkeypatch):
+        """Test that rules from default sources are combined when no CLI rules provided."""
         monkeypatch.setattr(
             ConfigLoader,
             "GLOBAL_CONFIG_PATHS",
@@ -984,25 +984,12 @@ class TestRulesFileLoading:
         with open(default_rules_file, "w") as f:
             yaml.dump(default_rules, f)
 
-        # Create CLI rules file
-        cli_rules_file = temp_dir / "cli_rules.yaml"
-        cli_rules = {
-            "rule_from_cli": {
-                "description": "From CLI",
-                "scope": "conversation_level",
-                "context": "CLI",
-                "requires_project_context": False,
-            }
-        }
-        with open(cli_rules_file, "w") as f:
-            yaml.dump(cli_rules, f)
+        # Load config WITHOUT CLI rules files (uses defaults)
+        config = ConfigLoader.load_config(temp_dir)
 
-        config = ConfigLoader.load_config(temp_dir, rules_files=[str(cli_rules_file)])
-
-        # All three rules should be present
+        # Both default rules should be present (from .drift.yaml and .drift_rules.yaml)
         assert "rule_from_config" in config.rule_definitions
         assert "rule_from_default" in config.rule_definitions
-        assert "rule_from_cli" in config.rule_definitions
 
     def test_load_config_rules_file_not_found_error(self, temp_dir, monkeypatch):
         """Test error when specified rules file doesn't exist."""
@@ -1051,3 +1038,148 @@ class TestRulesFileLoading:
             ConfigLoader.load_config(temp_dir)
 
         assert "Error loading .drift_rules.yaml" in str(exc_info.value)
+
+    def test_load_config_cli_rules_exclude_defaults(self, temp_dir, monkeypatch):
+        """Test that CLI rules files exclude default rule locations (issue #54)."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift.yaml with rule_definitions
+        drift_yaml = temp_dir / ".drift.yaml"
+        drift_config = {
+            "rule_definitions": {
+                "rule_from_config": {
+                    "description": "From .drift.yaml",
+                    "scope": "conversation_level",
+                    "context": "Config",
+                    "requires_project_context": False,
+                }
+            }
+        }
+        with open(drift_yaml, "w") as f:
+            yaml.dump(drift_config, f)
+
+        # Create .drift_rules.yaml
+        default_rules_file = temp_dir / ".drift_rules.yaml"
+        default_rules = {
+            "rule_from_default": {
+                "description": "From .drift_rules.yaml",
+                "scope": "conversation_level",
+                "context": "Default rules",
+                "requires_project_context": False,
+            }
+        }
+        with open(default_rules_file, "w") as f:
+            yaml.dump(default_rules, f)
+
+        # Create CLI rules file
+        cli_rules_file = temp_dir / "cli_rules.yaml"
+        cli_rules = {
+            "rule_from_cli": {
+                "description": "From CLI",
+                "scope": "conversation_level",
+                "context": "CLI",
+                "requires_project_context": False,
+            }
+        }
+        with open(cli_rules_file, "w") as f:
+            yaml.dump(cli_rules, f)
+
+        # Load config with CLI rules file
+        config = ConfigLoader.load_config(temp_dir, rules_files=[str(cli_rules_file)])
+
+        # ONLY CLI rule should be present (default locations excluded)
+        assert "rule_from_cli" in config.rule_definitions
+        assert "rule_from_config" not in config.rule_definitions
+        assert "rule_from_default" not in config.rule_definitions
+
+    def test_load_config_cli_rules_empty_list_uses_defaults(self, temp_dir, monkeypatch):
+        """Test that empty rules_files list is treated as None (uses defaults)."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create .drift.yaml with rule_definitions
+        drift_yaml = temp_dir / ".drift.yaml"
+        drift_config = {
+            "rule_definitions": {
+                "rule_from_config": {
+                    "description": "From .drift.yaml",
+                    "scope": "conversation_level",
+                    "context": "Config",
+                    "requires_project_context": False,
+                }
+            }
+        }
+        with open(drift_yaml, "w") as f:
+            yaml.dump(drift_config, f)
+
+        # Load config with empty rules_files list
+        config = ConfigLoader.load_config(temp_dir, rules_files=[])
+
+        # Should use default locations since rules_files is empty
+        assert "rule_from_config" in config.rule_definitions
+
+    def test_load_config_multiple_cli_rules_exclude_defaults(self, temp_dir, monkeypatch):
+        """Test that multiple CLI rules files exclude default locations."""
+        monkeypatch.setattr(
+            ConfigLoader,
+            "GLOBAL_CONFIG_PATHS",
+            [temp_dir / "nonexistent.yaml"],
+        )
+
+        # Create default rules that should be ignored
+        drift_yaml = temp_dir / ".drift.yaml"
+        drift_config = {
+            "rule_definitions": {
+                "default_rule": {
+                    "description": "Should be ignored",
+                    "scope": "conversation_level",
+                    "context": "Default",
+                    "requires_project_context": False,
+                }
+            }
+        }
+        with open(drift_yaml, "w") as f:
+            yaml.dump(drift_config, f)
+
+        # Create first CLI rules file
+        rules_file1 = temp_dir / "rules1.yaml"
+        rules_data1 = {
+            "cli_rule1": {
+                "description": "First CLI rule",
+                "scope": "conversation_level",
+                "context": "CLI1",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file1, "w") as f:
+            yaml.dump(rules_data1, f)
+
+        # Create second CLI rules file
+        rules_file2 = temp_dir / "rules2.yaml"
+        rules_data2 = {
+            "cli_rule2": {
+                "description": "Second CLI rule",
+                "scope": "conversation_level",
+                "context": "CLI2",
+                "requires_project_context": False,
+            }
+        }
+        with open(rules_file2, "w") as f:
+            yaml.dump(rules_data2, f)
+
+        # Load config with multiple CLI rules files
+        config = ConfigLoader.load_config(
+            temp_dir, rules_files=[str(rules_file1), str(rules_file2)]
+        )
+
+        # Only CLI rules should be present
+        assert "cli_rule1" in config.rule_definitions
+        assert "cli_rule2" in config.rule_definitions
+        assert "default_rule" not in config.rule_definitions

@@ -1,6 +1,6 @@
 ---
 name: python-formatting
-description: Code formatting and structure requirements for Python files including naming, spacing, and module organization
+description: Line length, naming conventions, spacing, and module structure standards for Python files
 path: "**/*.py"
 ---
 
@@ -38,12 +38,8 @@ path: "**/*.py"
 5. Function definitions
 6. `if __name__ == "__main__":` block
 
-## Tooling
+## Formatting Tooling
 
 **MUST**: Use black for code formatting.
 
 **MUST**: Use isort for import sorting.
-
-## Rationale
-
-Consistent formatting improves readability, reduces diff noise in version control, and eliminates debates about style preferences. Automated formatters ensure consistency across the codebase.

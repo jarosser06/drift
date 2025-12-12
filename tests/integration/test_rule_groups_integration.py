@@ -78,29 +78,13 @@ class TestRuleGroupsEndToEnd:
             with open(rules_file, "w") as f:
                 yaml.dump(rules_file_content, f)
 
-            # Create second rules file with different group
-            extra_rules_content = {
-                "validation_rule": {
-                    "description": "Validation rule",
-                    "scope": "project_level",
-                    "context": "Validation context",
-                    "requires_project_context": True,
-                    "group_name": "Workflow Validation",
-                }
-            }
-
-            extra_rules_file = project_path / "extra_rules.yaml"
-            with open(extra_rules_file, "w") as f:
-                yaml.dump(extra_rules_content, f)
-
-            # Load config with all rules
-            config = ConfigLoader.load_config(project_path, rules_files=[str(extra_rules_file)])
+            # Load config (uses default locations: .drift.yaml + .drift_rules.yaml)
+            config = ConfigLoader.load_config(project_path)
 
             # Verify all groups are set correctly
             assert config.rule_definitions["config_rule"].group_name == "Configuration"
             assert config.rule_definitions["doc_rule_1"].group_name == "Documentation Quality"
             assert config.rule_definitions["doc_rule_2"].group_name == "Documentation Quality"
-            assert config.rule_definitions["validation_rule"].group_name == "Workflow Validation"
 
             # Create analysis results with grouped rules
             rules = [
@@ -122,15 +106,6 @@ class TestRuleGroupsEndToEnd:
                     rule_type="doc_rule_1",
                     group_name="Documentation Quality",
                 ),
-                Rule(
-                    turn_number=3,
-                    agent_tool="test",
-                    conversation_file="/test",
-                    observed_behavior="Validation issue",
-                    expected_behavior="Expected validation",
-                    rule_type="validation_rule",
-                    group_name="Workflow Validation",
-                ),
             ]
 
             analysis_result = AnalysisResult(
@@ -145,7 +120,7 @@ class TestRuleGroupsEndToEnd:
                 metadata={},
                 summary=AnalysisSummary(
                     total_conversations=1,
-                    total_rule_violations=3,
+                    total_rule_violations=2,
                     conversations_with_drift=1,
                     rules_passed=["doc_rule_2"],
                 ),
@@ -159,7 +134,6 @@ class TestRuleGroupsEndToEnd:
             # Verify all groups appear in output
             assert "### Configuration" in output
             assert "### Documentation Quality" in output
-            assert "### Workflow Validation" in output
 
             # Verify passed rules section also has groups
             assert "## Checks Passed" in output
@@ -167,7 +141,6 @@ class TestRuleGroupsEndToEnd:
             # Verify rules appear under correct groups
             assert "#### config_rule" in output
             assert "#### doc_rule_1" in output
-            assert "#### validation_rule" in output
 
     def test_multi_file_rules_with_duplicate_detection(self):
         """Test that duplicate rule+group combinations are detected across files."""

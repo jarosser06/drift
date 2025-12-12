@@ -37,7 +37,3 @@ description: SemVer, tagging, and changelog rules
 - Bug fixes
 - Breaking changes
 - CLI changes
-
-## Rationale
-
-SemVer provides clear expectations about backward compatibility. Scripted version bumps prevent human error. Focused changelogs help users understand what affects their usage. The immutability of PyPI versions requires careful version management.

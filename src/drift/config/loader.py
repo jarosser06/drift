@@ -275,16 +275,17 @@ class ConfigLoader:
     ) -> DriftConfig:
         """Load complete configuration with proper merging.
 
-        Priority (highest to lowest):
+        Configuration priority (highest to lowest):
         1. Project config (.drift.yaml)
         2. Global config (~/.config/drift/config.yaml)
         3. Default config (hardcoded)
 
-        Rules loading priority (highest to lowest):
-        1. --rules-file CLI arguments (if provided, can be multiple)
-        2. .drift_rules.yaml in project root (if exists)
-        3. rule_definitions section in .drift.yaml (current behavior)
-        4. Empty rules dict (use built-in defaults only)
+        Rules loading behavior:
+        - If rules_files is provided: Load ONLY specified files (ignore defaults)
+        - If rules_files is None/empty: Use default locations with priority
+          (later overrides earlier):
+          1. rule_definitions section in .drift.yaml (lowest priority)
+          2. .drift_rules.yaml in project root (highest priority, if exists)
 
         -- project_path: Path to project directory (defaults to current directory)
         -- rules_files: Optional list of rules file paths/URLs from CLI
@@ -312,27 +313,28 @@ class ConfigLoader:
         # Load rules with priority order
         rules_dict: Dict[str, Any] = {}
 
-        # Start with rules from .drift.yaml (lowest priority)
-        if "rule_definitions" in merged:
-            rules_dict = merged.get("rule_definitions", {})
-
-        # Check for .drift_rules.yaml in project root
-        default_rules_file = project_path / cls.DEFAULT_RULES_FILE
-        if default_rules_file.exists():
-            try:
-                default_rules = cls._load_rules_file(str(default_rules_file))
-                rules_dict = cls._merge_rules(rules_dict, default_rules, default_group_name)
-            except ValueError as e:
-                raise ValueError(f"Error loading {cls.DEFAULT_RULES_FILE}: {e}")
-
-        # Apply CLI-specified rules files (highest priority)
         if rules_files:
+            # CLI rules files provided - use ONLY these (ignore defaults)
             for rules_file in rules_files:
                 try:
                     file_rules = cls._load_rules_file(rules_file)
                     rules_dict = cls._merge_rules(rules_dict, file_rules, default_group_name)
                 except ValueError as e:
                     raise ValueError(f"Error loading rules file '{rules_file}': {e}")
+        else:
+            # No CLI rules files - use default locations
+            # Start with rules from .drift.yaml (lowest priority)
+            if "rule_definitions" in merged:
+                rules_dict = merged.get("rule_definitions", {})
+
+            # Check for .drift_rules.yaml in project root
+            default_rules_file = project_path / cls.DEFAULT_RULES_FILE
+            if default_rules_file.exists():
+                try:
+                    default_rules = cls._load_rules_file(str(default_rules_file))
+                    rules_dict = cls._merge_rules(rules_dict, default_rules, default_group_name)
+                except ValueError as e:
+                    raise ValueError(f"Error loading {cls.DEFAULT_RULES_FILE}: {e}")
 
         # Update merged config with final rules
         merged["rule_definitions"] = rules_dict

@@ -1,10 +1,10 @@
 ---
 name: python-imports
-description: Standards for organizing and placing imports in Python files
+description: Import location, ordering, and style requirements for Python files
 path: "**/*.py"
 ---
 
-# Python Import Requirements
+# Python Import Standards
 
 ## Import Location
 
@@ -31,10 +31,3 @@ path: "**/*.py"
 **MUST NOT**: Use wildcard imports (`from module import *`).
 
 **MUST NOT**: Keep unused imports in the code.
-
-## Rationale
-
-- Top-level imports make dependencies explicit
-- Consistent ordering improves readability and reduces merge conflicts
-- Prevents circular import issues
-- Makes it easy to identify project dependencies at a glance

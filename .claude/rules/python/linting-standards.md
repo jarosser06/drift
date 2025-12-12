@@ -32,7 +32,3 @@ path: "**/*.py"
 - Creating commits
 - Creating PRs
 - Merging to main
-
-## Rationale
-
-Consistent linting standards prevent code quality degradation. Zero tolerance ensures high code quality is maintained. Configuration is defined in `pyproject.toml` for centralized management. The ignored rules (E203, W503) are necessary for black compatibility.
