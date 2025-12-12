@@ -300,3 +300,148 @@ class TestResponseCache:
         # Should treat as expired due to invalid timestamp
         result = cache.get("test_key", "hash123")
         assert result is None
+
+    def test_cache_invalidation_prompt_hash_mismatch(self, tmp_path):
+        """Test cache invalidation when prompt hash changes."""
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        # Store with prompt_hash1
+        cache.set("test_key", "content_hash", "old response", prompt_hash="prompt_hash1")
+
+        # Try to retrieve with different prompt hash
+        result = cache.get("test_key", "content_hash", prompt_hash="prompt_hash2")
+        assert result is None
+
+        # Cache file should be deleted
+        cache_files = list(tmp_path.glob("*.json"))
+        assert len(cache_files) == 0
+
+    def test_cache_hit_with_matching_prompt_hash(self, tmp_path):
+        """Test cache hit when prompt hash matches."""
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        # Store with prompt hash
+        cache.set("test_key", "content_hash", "test response", prompt_hash="prompt_hash1")
+
+        # Retrieve with same prompt hash
+        result = cache.get("test_key", "content_hash", prompt_hash="prompt_hash1")
+        assert result == "test response"
+
+    def test_cache_backward_compatible_no_prompt_hash(self, tmp_path):
+        """Test cache works without prompt_hash for backward compatibility."""
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        # Store without prompt hash (old behavior)
+        cache.set("test_key", "content_hash", "test response")
+
+        # Retrieve without prompt hash
+        result = cache.get("test_key", "content_hash")
+        assert result == "test response"
+
+        # Retrieve with prompt hash when cache has none should still work
+        result = cache.get("test_key", "content_hash", prompt_hash=None)
+        assert result == "test response"
+
+    def test_cache_stores_prompt_hash_metadata(self, tmp_path):
+        """Test that cache stores prompt_hash in metadata."""
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        cache.set("test_key", "content_hash", "test response", prompt_hash="prompt_hash1")
+
+        # Read cache file directly
+        cache_file = tmp_path / "test_key.json"
+        with open(cache_file, "r") as f:
+            data = json.load(f)
+
+        assert data["content_hash"] == "content_hash"
+        assert data["prompt_hash"] == "prompt_hash1"
+        assert data["response_content"] == "test response"
+
+    def test_cache_invalidation_content_hash_mismatch_with_prompt_hash(self, tmp_path):
+        """Test cache invalidates on content hash mismatch even with matching prompt hash."""
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        # Store with both hashes
+        cache.set("test_key", "content_hash1", "response", prompt_hash="prompt_hash1")
+
+        # Try to retrieve with different content hash but same prompt hash
+        result = cache.get("test_key", "content_hash2", prompt_hash="prompt_hash1")
+        assert result is None
+
+        # Cache file should be deleted
+        cache_files = list(tmp_path.glob("*.json"))
+        assert len(cache_files) == 0
+
+    def test_cache_old_entry_accessed_with_new_prompt_hash(self, tmp_path):
+        """Test old cache entry invalidated when accessed with prompt_hash.
+
+        Verifies that cache entries without prompt_hash (old format) are
+        invalidated when accessed with a new prompt_hash parameter.
+        """
+        cache = ResponseCache(cache_dir=tmp_path)
+
+        # Store without prompt hash (simulate old cache entry)
+        cache.set("test_key", "content_hash1", "old response")
+
+        # Verify cache file exists and has no prompt_hash
+        cache_file = tmp_path / "test_key.json"
+        with open(cache_file, "r") as f:
+            data = json.load(f)
+        assert "prompt_hash" not in data
+
+        # Try to retrieve with prompt_hash=None - should work
+        result = cache.get("test_key", "content_hash1", prompt_hash=None)
+        assert result == "old response"
+
+        # Store again without prompt_hash
+        cache.set("test_key", "content_hash1", "old response")
+
+        # Try to retrieve with an actual prompt_hash - should invalidate
+        # because old cache entries without prompt_hash don't match new prompt_hash
+        result = cache.get("test_key", "content_hash1", prompt_hash="some_prompt_hash")
+        assert result is None
+
+    def test_cache_gitignore_creation(self, tmp_path):
+        """Test that .gitignore is created in .drift directory."""
+        drift_dir = tmp_path / ".drift"
+        cache_dir = drift_dir / "cache"
+
+        # Create cache (should trigger gitignore creation)
+        ResponseCache(cache_dir=cache_dir, enabled=True)
+
+        # Verify .gitignore exists in .drift directory
+        gitignore_path = drift_dir / ".gitignore"
+        assert gitignore_path.exists()
+
+        # Verify content
+        content = gitignore_path.read_text()
+        assert "cache/" in content
+
+    def test_cache_gitignore_not_overwritten(self, tmp_path):
+        """Test that existing .gitignore is not overwritten."""
+        drift_dir = tmp_path / ".drift"
+        drift_dir.mkdir()
+        cache_dir = drift_dir / "cache"
+
+        # Create custom .gitignore
+        gitignore_path = drift_dir / ".gitignore"
+        custom_content = "# Custom content\nmy_files/\n"
+        gitignore_path.write_text(custom_content)
+
+        # Create cache (should NOT overwrite .gitignore)
+        ResponseCache(cache_dir=cache_dir, enabled=True)
+
+        # Verify .gitignore still has custom content
+        content = gitignore_path.read_text()
+        assert content == custom_content
+
+    def test_cache_gitignore_not_created_outside_drift_dir(self, tmp_path):
+        """Test that .gitignore is not created if cache dir is not in .drift."""
+        cache_dir = tmp_path / "some_other_cache"
+
+        # Create cache in non-.drift directory
+        ResponseCache(cache_dir=cache_dir, enabled=True)
+
+        # Verify no .gitignore was created in parent
+        gitignore_path = tmp_path / ".gitignore"
+        assert not gitignore_path.exists()

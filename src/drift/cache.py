@@ -10,7 +10,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -50,15 +50,17 @@ class ResponseCache:
         self,
         cache_key: str,
         content_hash: str,
+        prompt_hash: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> Optional[str]:
         """Get cached response if valid.
 
-        Checks if cache exists for the key, validates content hash matches,
+        Checks if cache exists for the key, validates content and prompt hashes match,
         and verifies TTL hasn't expired.
 
         -- cache_key: Arbitrary cache key string (e.g., file name)
         -- content_hash: SHA-256 hash of the content being analyzed
+        -- prompt_hash: Optional SHA-256 hash of the prompt (for invalidation on prompt changes)
         -- ttl: Optional TTL override in seconds
 
         Returns cached response content if valid, None otherwise.
@@ -78,11 +80,23 @@ class ResponseCache:
             # Validate content hash
             if cached_data.get("content_hash") != content_hash:
                 logger.debug(
-                    f"Cache invalidated: {cache_key} (hash mismatch: "
+                    f"Cache invalidated: {cache_key} (content hash mismatch: "
                     f"{cached_data.get('content_hash')[:8]}... != {content_hash[:8]}...)"
                 )
                 self.invalidate(cache_key)
                 return None
+
+            # Validate prompt hash if provided
+            if prompt_hash is not None:
+                cached_prompt_hash = cached_data.get("prompt_hash")
+                if cached_prompt_hash != prompt_hash:
+                    logger.debug(
+                        f"Cache invalidated: {cache_key} (prompt hash mismatch: "
+                        f"{cached_prompt_hash[:8] if cached_prompt_hash else 'none'}... != "
+                        f"{prompt_hash[:8]}...)"
+                    )
+                    self.invalidate(cache_key)
+                    return None
 
             # Check TTL
             effective_ttl = ttl if ttl is not None else self.default_ttl
@@ -105,6 +119,7 @@ class ResponseCache:
         cache_key: str,
         content_hash: str,
         response_content: str,
+        prompt_hash: Optional[str] = None,
         drift_type: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> None:
@@ -113,6 +128,7 @@ class ResponseCache:
         -- cache_key: Arbitrary cache key string (e.g., file name)
         -- content_hash: SHA-256 hash of the content being analyzed
         -- response_content: LLM response content to cache
+        -- prompt_hash: Optional SHA-256 hash of the prompt (for invalidation on prompt changes)
         -- drift_type: Optional drift type for debugging
         -- ttl: Optional TTL override in seconds
         """
@@ -128,6 +144,10 @@ class ResponseCache:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "ttl": ttl if ttl is not None else self.default_ttl,
         }
+
+        # Add prompt_hash if provided
+        if prompt_hash is not None:
+            cache_data["prompt_hash"] = prompt_hash
 
         try:
             with open(cache_file, "w", encoding="utf-8") as f:
@@ -188,7 +208,7 @@ class ResponseCache:
         safe_key = re.sub(r'[/\\:*?"<>|]', "_", cache_key)
         return self.cache_dir / f"{safe_key}.json"
 
-    def _is_expired(self, cached_data: dict, ttl: int) -> bool:
+    def _is_expired(self, cached_data: Dict[str, Any], ttl: int) -> bool:
         """Check if cached data is expired.
 
         -- cached_data: Cached data dictionary

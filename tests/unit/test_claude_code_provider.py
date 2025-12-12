@@ -334,7 +334,7 @@ class TestClaudeCodeProviderCaching:
         )
 
         assert result == "Cached response"
-        mock_cache.get.assert_called_once_with("test_key", "abc123")
+        mock_cache.get.assert_called_once_with("test_key", "abc123", None)
         # Should not call CLI since we hit cache
         assert mock_run.call_count == 1  # Only version check
 
@@ -364,7 +364,9 @@ class TestClaudeCodeProviderCaching:
 
         assert result == "Fresh response"
         mock_cache.get.assert_called_once()
-        mock_cache.set.assert_called_once_with("test_key", "abc123", "Fresh response", "test_type")
+        mock_cache.set.assert_called_once_with(
+            "test_key", "abc123", "Fresh response", None, "test_type"
+        )
 
 
 class TestClaudeCodeProviderMethods:

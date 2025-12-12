@@ -608,6 +608,7 @@ class DriftAnalyzer:
         # Prepare cache parameters
         conversation_text = self._format_conversation(conversation)
         content_hash = ResponseCache.compute_content_hash(conversation_text)
+        prompt_hash = ResponseCache.compute_content_hash(prompt)
         cache_key = f"{conversation.session_id}_{rule_type}"
 
         # Generate analysis
@@ -616,6 +617,7 @@ class DriftAnalyzer:
             prompt,
             cache_key=cache_key,
             content_hash=content_hash,
+            prompt_hash=prompt_hash,
             drift_type=rule_type,
         )
         logger.debug(f"Raw response from {model_name}:\n{response}")
@@ -1310,6 +1312,7 @@ as JSON."""
                     doc_loader = DocumentLoader(bundle.project_path)
                     bundle_content = doc_loader.format_bundle_for_llm(bundle)
                     content_hash = ResponseCache.compute_content_hash(bundle_content)
+                    prompt_hash = ResponseCache.compute_content_hash(prompt)
                     cache_key = f"{bundle.bundle_id}_{rule_type}_phase{phase_idx}"
 
                     logger.debug(f"Sending prompt (phase {phase_idx+1}) to {model_name}:\n{prompt}")
@@ -1317,6 +1320,7 @@ as JSON."""
                         prompt,
                         cache_key=cache_key,
                         content_hash=content_hash,
+                        prompt_hash=prompt_hash,
                         drift_type=rule_type,
                     )
                     logger.debug(f"Raw response from {model_name}:\n{response}")
@@ -1383,6 +1387,7 @@ as JSON."""
         doc_loader = DocumentLoader(bundle.project_path)
         bundle_content = doc_loader.format_bundle_for_llm(bundle)
         content_hash = ResponseCache.compute_content_hash(bundle_content)
+        prompt_hash = ResponseCache.compute_content_hash(prompt)
         cache_key = f"{bundle.bundle_id}_{rule_type}"
 
         logger.debug(f"Sending prompt to {model_name}:\n{prompt}")
@@ -1390,6 +1395,7 @@ as JSON."""
             prompt,
             cache_key=cache_key,
             content_hash=content_hash,
+            prompt_hash=prompt_hash,
             drift_type=rule_type,
         )
         logger.debug(f"Raw response from {model_name}:\n{response}")
@@ -1946,6 +1952,7 @@ as JSON."""
             # Prepare cache parameters for multi-phase analysis
             conversation_text = self._format_conversation(conversation)
             content_hash = ResponseCache.compute_content_hash(conversation_text)
+            prompt_hash = ResponseCache.compute_content_hash(prompt)
             cache_key = f"{conversation.session_id}_{rule_type}_phase{phase_idx + 1}"
 
             # Call LLM
@@ -1954,6 +1961,7 @@ as JSON."""
                 prompt,
                 cache_key=cache_key,
                 content_hash=content_hash,
+                prompt_hash=prompt_hash,
                 drift_type=rule_type,
             )
             logger.debug(f"Raw response from {model_name} (phase {phase_idx + 1}):\n{response}")
