@@ -278,6 +278,40 @@ This workflow is especially useful when:
 - Scaffolding repetitive structures (skills, commands, agents)
 - Ensuring generated files meet all requirements from the start
 
+Generating Rule Documentation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use ``drift document`` to generate documentation from your rule definitions:
+
+.. code-block:: bash
+
+    # Document a single rule
+    drift document --rules skill_validation
+
+    # Document multiple rules
+    drift document --rules skill_validation,agent_validation --output docs.md
+
+    # Document all rules in HTML format
+    drift document --all --format html --output rules.html
+
+    # Use custom rules file
+    drift document --rules my_rule --rules-file custom_rules.yaml
+
+The generated documentation includes:
+
+- Rule description and context
+- Scope and metadata (severity, group name, supported clients)
+- Document bundle configuration
+- Validation phases with parameters
+- Draft instructions if defined
+
+This is useful for:
+
+- Creating reference documentation for your team
+- Sharing rule definitions across projects
+- Understanding complex validation logic
+- Onboarding new team members
+
 How Drift Works
 ---------------
 

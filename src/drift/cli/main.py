@@ -3,7 +3,7 @@
 import argparse
 from importlib.metadata import version
 
-from drift.cli.commands import analyze, draft
+from drift.cli.commands import analyze, document, draft
 
 __version__ = version("ai-drift")
 
@@ -51,6 +51,11 @@ Examples:
   drift draft --target-rule skill_validation
   drift draft --target-rule skill_validation --output prompt.md
   drift draft --target-rule skill_validation --target-file .claude/skills/testing/SKILL.md
+
+  # Document command - generate rule documentation
+  drift document --rules skill_validation
+  drift document --rules skill_validation,agent_validation --output docs.md
+  drift document --all --format html --output rules.html
         """,
     )
 
@@ -93,6 +98,59 @@ Examples:
         help="Project path (defaults to current directory)",
     )
     draft_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG)",
+    )
+
+    # Document subcommand
+    document_parser = subparsers.add_parser(
+        "document",
+        help="Generate documentation for Drift rules",
+        description="Generate documentation from rule definitions",
+    )
+    document_parser.add_argument(
+        "--rules",
+        "-r",
+        default=None,
+        help="Comma-separated list of rule names to document",
+    )
+    document_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="all_rules",
+        help="Document all loaded rules",
+    )
+    document_parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="Output file path (default: stdout)",
+    )
+    document_parser.add_argument(
+        "--format",
+        "-f",
+        default="markdown",
+        choices=["markdown", "html"],
+        help="Output format (default: markdown)",
+    )
+    document_parser.add_argument(
+        "--project",
+        "-p",
+        default=None,
+        help="Project path (defaults to current directory)",
+    )
+    document_parser.add_argument(
+        "--rules-file",
+        action="append",
+        default=None,
+        help=(
+            "Path to rules file (local file or HTTP(S) URL). " "Can be specified multiple times."
+        ),
+    )
+    document_parser.add_argument(
         "--verbose",
         "-v",
         action="count",
@@ -234,6 +292,17 @@ def main() -> None:
             output=args.output,
             force=args.force,
             project=args.project,
+            verbose=args.verbose,
+        )
+    elif args.command == "document":
+        # Call document command
+        document.document_command(
+            rules=args.rules,
+            all_rules=args.all_rules,
+            output=args.output,
+            format_type=args.format,
+            project=args.project,
+            rules_file=args.rules_file,
             verbose=args.verbose,
         )
     else:

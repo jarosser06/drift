@@ -1,6 +1,6 @@
 ---
 name: pr-writing
-description: Expert in creating well-structured pull requests with clear summaries and test plans. Use when writing or structuring PRs.
+description: Expert in creating well-structured pull requests with clear summaries. Use when writing or structuring PRs.
 ---
 
 # PR Writing Skill
@@ -13,9 +13,8 @@ Learn how to create well-structured, reviewable pull requests using the GitHub M
 
 A well-structured PR includes:
 1. **Summary** - What changed and why
-2. **Test Plan** - How you verified it works
-3. **Changes** - What files were affected
-4. **Related Issues** - Links to relevant issues
+2. **Changes** - What files were affected
+3. **Related Issues** - Links to relevant issues
 
 **Example structure:**
 ```markdown
@@ -23,12 +22,6 @@ A well-structured PR includes:
 - Added multi-drift-type analysis support
 - Implemented sequential processing for each type
 - Combined results in unified output format
-
-## Test Plan
-- [x] Unit tests added (10 new tests)
-- [x] Coverage at 92%
-- [x] Manual testing with multiple drift types
-- [x] All linters passing
 
 ## Changes
 ### Added
@@ -67,27 +60,6 @@ Focus on WHAT changed and WHY, not HOW:
 - Changed line 45 in cli.py to add a new variable called cache_dict
 - Updated the error handling function to print better messages
 - Added a lock object to the ProcessPool initialization
-```
-
-### How to Write Test Plans
-
-Checklist format works best:
-
-**Good example:**
-```markdown
-## Test Plan
-- [x] Unit tests added (12 new tests)
-- [x] Coverage increased from 88% to 93%
-- [x] Manual testing with 5 different config formats
-- [x] Tested with both Bedrock and Anthropic API
-- [x] All linters passing (./lint.sh)
-```
-
-**Avoid vague statements:**
-```markdown
-## Test Plan
-- Tests added
-- Everything works
 ```
 
 ### How to Document Changes
@@ -137,13 +109,6 @@ mcp__github__create_pull_request(
 - Added multi-drift-type analysis support to CLI
 - Implemented sequential processing for each drift type
 - Combined results in unified output format
-
-## Test Plan
-
-- [x] Unit tests added (10 new tests)
-- [x] Coverage at 92%
-- [x] Manual testing with multiple types
-- [x] All linters passing
 
 ## Changes
 
@@ -387,12 +352,6 @@ pr = mcp__github__create_pull_request(
 - Added CustomValidator base class
 - Implemented plugin loading system
 - Updated config schema
-
-## Test Plan
-- [x] Unit tests (12 new)
-- [x] Integration tests (3 new)
-- [x] Coverage at 95%
-- [x] Manual testing with example validators
 
 ## Changes
 
