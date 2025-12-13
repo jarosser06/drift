@@ -10,41 +10,11 @@ from pathlib import Path
 from typing import Optional
 
 from drift.cli.logging_config import setup_logging
+from drift.cli.utils import print_error, print_success, print_warning
 from drift.config.loader import ConfigLoader
 from drift.draft import DraftEligibility, FileExistenceChecker, FilePatternResolver, PromptGenerator
 
 logger = logging.getLogger(__name__)
-
-# ANSI color codes for terminal output
-RED = "\033[91m"
-YELLOW = "\033[93m"
-GREEN = "\033[92m"
-BLUE = "\033[94m"
-RESET = "\033[0m"
-
-
-def print_error(message: str) -> None:
-    """Print error message to stderr with red color.
-
-    -- message: Error message to print
-    """
-    print(f"{RED}{message}{RESET}", file=sys.stderr)
-
-
-def print_warning(message: str) -> None:
-    """Print warning message to stderr with yellow color.
-
-    -- message: Warning message to print
-    """
-    print(f"{YELLOW}{message}{RESET}", file=sys.stderr)
-
-
-def print_success(message: str) -> None:
-    """Print success message to stdout with green color.
-
-    -- message: Success message to print
-    """
-    print(f"{GREEN}{message}{RESET}")
 
 
 def draft_command(
@@ -53,6 +23,7 @@ def draft_command(
     output: Optional[str] = None,
     force: bool = False,
     project: Optional[str] = None,
+    rules_file: Optional[list[str]] = None,
     verbose: int = 0,
 ) -> None:
     """Generate AI prompt for drafting a file from a Drift rule.
@@ -65,31 +36,13 @@ def draft_command(
     (e.g., ".claude/skills/*/SKILL.md"), you must specify which file to draft
     using --target-file.
 
-    Parameters
-    ----------
-    rule : str
-        Name of the rule to draft (e.g., "skill_validation").
-    target_file : Optional[str], optional
-        Specific file path to draft (required if rule pattern has wildcards).
-    output : Optional[str], optional
-        Output file path. If None, prints to stdout.
-    force : bool, optional
-        If True, generate prompt even if target file exists.
-    project : Optional[str], optional
-        Project path. If None, uses current directory.
-    verbose : int, optional
-        Verbosity level (0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG).
-
-    Examples
-    --------
-    # Rule with specific path (no wildcards)
-    drift draft --target-rule skill_validation
-
-    # Rule with wildcard pattern - requires --target-file
-    drift draft --target-rule skill_validation --target-file .claude/skills/testing/SKILL.md
-
-    # Save to file
-    drift draft --target-rule skill_validation --output prompt.md
+    -- rule: Name of the rule to draft (e.g., 'skill_validation')
+    -- target_file: Specific file path to draft (required if rule pattern has wildcards)
+    -- output: Output file path (if None, prints to stdout)
+    -- force: If True, generate prompt even if target file exists
+    -- project: Project path (if None, uses current directory)
+    -- rules_file: List of custom rules files to load
+    -- verbose: Verbosity level (0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG)
     """
     # Setup colored logging based on verbosity
     setup_logging(verbose)
@@ -106,7 +59,7 @@ def draft_command(
 
         # Load configuration
         try:
-            config = ConfigLoader.load_config(project_path, rules_files=None)
+            config = ConfigLoader.load_config(project_path, rules_files=rules_file)
         except ValueError as e:
             print_error(f"Configuration error: {e}")
             sys.exit(1)

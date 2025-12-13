@@ -50,6 +50,10 @@ drift --no-llm           # Fast programmatic validation (define → validate →
 drift --format json      # JSON output for CI/CD
 drift --rules <names>    # Validate specific rules only
 
+# List available rules
+drift list               # Output rule names (one per line)
+drift list --format json # Output as JSON
+
 # Draft: Generate AI prompts from rules
 drift draft --target-rule <rule_name>           # Generate prompt to stdout
 drift draft --target-rule <rule_name> --output prompt.md  # Save to file

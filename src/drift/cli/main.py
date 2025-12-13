@@ -3,7 +3,7 @@
 import argparse
 from importlib.metadata import version
 
-from drift.cli.commands import analyze, document, draft
+from drift.cli.commands import analyze, document, draft, list
 
 __version__ = version("ai-drift")
 
@@ -56,7 +56,53 @@ Examples:
   drift document --rules skill_validation
   drift document --rules skill_validation,agent_validation --output docs.md
   drift document --all --format html --output rules.html
+
+  # List command - list available rules
+  drift list
+  drift list --format json
         """,
+    )
+
+    # Global arguments (available to all commands)
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"drift version {__version__}",
+        help="Show version and exit",
+    )
+
+    parser.add_argument(
+        "--project",
+        "-p",
+        default=None,
+        help="Project path (defaults to current directory)",
+    )
+
+    parser.add_argument(
+        "--rules-file",
+        action="append",
+        default=None,
+        help=(
+            "Path to rules file (local file or HTTP(S) URL). "
+            "Can be specified multiple times. "
+            "When provided, ONLY loads specified files "
+            "(ignores .drift.yaml and .drift_rules.yaml rules)."
+        ),
+    )
+
+    parser.add_argument(
+        "--format",
+        "-f",
+        default="markdown",
+        help="Output format (markdown or json)",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="count",
+        default=0,
+        help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
     )
 
     # Create subparsers for commands
@@ -87,22 +133,8 @@ Examples:
     )
     draft_parser.add_argument(
         "--force",
-        "-f",
         action="store_true",
         help="Generate prompt even if target file exists",
-    )
-    draft_parser.add_argument(
-        "--project",
-        "-p",
-        default=None,
-        help="Project path (defaults to current directory)",
-    )
-    draft_parser.add_argument(
-        "--verbose",
-        "-v",
-        action="count",
-        default=0,
-        help="Increase verbosity (-v for INFO, -vv for DEBUG)",
     )
 
     # Document subcommand
@@ -129,49 +161,15 @@ Examples:
         default=None,
         help="Output file path (default: stdout)",
     )
-    document_parser.add_argument(
-        "--format",
-        "-f",
-        default="markdown",
-        choices=["markdown", "html"],
-        help="Output format (default: markdown)",
-    )
-    document_parser.add_argument(
-        "--project",
-        "-p",
-        default=None,
-        help="Project path (defaults to current directory)",
-    )
-    document_parser.add_argument(
-        "--rules-file",
-        action="append",
-        default=None,
-        help=(
-            "Path to rules file (local file or HTTP(S) URL). " "Can be specified multiple times."
-        ),
-    )
-    document_parser.add_argument(
-        "--verbose",
-        "-v",
-        action="count",
-        default=0,
-        help="Increase verbosity (-v for INFO, -vv for DEBUG)",
+
+    # List subcommand
+    subparsers.add_parser(
+        "list",
+        help="List all available Drift rules",
+        description="List all available rules from configuration",
     )
 
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"drift version {__version__}",
-        help="Show version and exit",
-    )
-
-    parser.add_argument(
-        "--format",
-        "-f",
-        default="markdown",
-        help="Output format (markdown or json)",
-    )
-
+    # Analyze command arguments (default command - no explicit subcommand)
     parser.add_argument(
         "--scope",
         "-s",
@@ -245,33 +243,6 @@ Examples:
         help="Disable parallel execution of validation rules",
     )
 
-    parser.add_argument(
-        "--project",
-        "-p",
-        default=None,
-        help="Project path (defaults to current directory)",
-    )
-
-    parser.add_argument(
-        "--rules-file",
-        action="append",
-        default=None,
-        help=(
-            "Path to rules file (local file or HTTP(S) URL). "
-            "Can be specified multiple times. "
-            "When provided, ONLY loads specified files "
-            "(ignores .drift.yaml and .drift_rules.yaml rules)."
-        ),
-    )
-
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="count",
-        default=0,
-        help="Increase verbosity (-v for INFO, -vv for DEBUG, -vvv for TRACE)",
-    )
-
     return parser
 
 
@@ -285,17 +256,18 @@ def main() -> None:
 
     # Handle subcommands
     if args.command == "draft":
-        # Call draft command
+        # Call draft command - uses global args: project, rules_file, format, verbose
         draft.draft_command(
             rule=args.draft_rule,
             target_file=args.target_file,
             output=args.output,
             force=args.force,
             project=args.project,
+            rules_file=args.rules_file,
             verbose=args.verbose,
         )
     elif args.command == "document":
-        # Call document command
+        # Call document command - uses global args: project, rules_file, format, verbose
         document.document_command(
             rules=args.rules,
             all_rules=args.all_rules,
@@ -305,8 +277,17 @@ def main() -> None:
             rules_file=args.rules_file,
             verbose=args.verbose,
         )
+    elif args.command == "list":
+        # Call list command - uses global args: project, rules_file, format, verbose
+        list.list_command(
+            format_type=args.format,
+            project=args.project,
+            rules_file=args.rules_file,
+            verbose=args.verbose,
+        )
     else:
         # Default to analyze command for backward compatibility
+        # Uses global args: project, rules_file, format, verbose
         analyze.analyze_command(
             format=args.format,
             scope=args.scope,
