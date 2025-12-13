@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2025-12-13
+
+- Add list command for outputting rule names; Refactor CLI to use global arguments
+
 ## [0.7.0] - 2025-12-13
 
 - Add document command for generating rule documentation; Add phase information to rule failure output; Organize rules into subdirectories; Add prompt hash validation to cache invalidation
