@@ -85,6 +85,8 @@ class JsonFormatter(OutputFormatter):
                     learning_data["affected_files"] = learning.affected_files
                 if hasattr(learning, "bundle_id") and learning.bundle_id:
                     learning_data["bundle_id"] = learning.bundle_id
+                if hasattr(learning, "phase_name") and learning.phase_name:
+                    learning_data["phase_name"] = learning.phase_name
 
                 learnings_list = conversation_data.get("rules")
                 if isinstance(learnings_list, list):

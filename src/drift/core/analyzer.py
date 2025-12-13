@@ -1068,6 +1068,7 @@ as JSON."""
                 source_type="document",  # Mark as document-sourced learning
                 affected_files=doc_learning.file_paths,  # Transfer file information
                 bundle_id=doc_learning.bundle_id,  # Transfer bundle identifier
+                phase_name=doc_learning.phase_name,  # Transfer phase name if present
             )
             converted_learnings.append(learning)
 
@@ -1291,6 +1292,10 @@ as JSON."""
 
                     if result is not None:
                         result.rule_type = rule_type
+                        # Add phase name if rule has multiple phases
+                        if len(phases) > 1:
+                            phase_name = getattr(phase, "name", f"phase_{phase_idx + 1}")
+                            result.phase_name = phase_name
                         all_rules.append(result)
                         # Stop on failure
                         return all_rules, all_execution_details
@@ -1346,6 +1351,11 @@ as JSON."""
                     all_execution_details.append(exec_info)
 
                     if rules:
+                        # Add phase name if rule has multiple phases
+                        if len(phases) > 1:
+                            phase_name = getattr(phase, "name", f"phase_{phase_idx + 1}")
+                            for doc_rule in rules:
+                                doc_rule.phase_name = phase_name
                         all_rules.extend(rules)
                         # Stop on failure
                         return all_rules, all_execution_details
