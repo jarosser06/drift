@@ -6,10 +6,21 @@ This guide walks you through the TDD workflow for AI projects: define your stand
 Installation
 ------------
 
+Running with uv
+~~~~~~~~~~~~~~~
+
+Run Drift directly without installing:
+
+.. code-block:: bash
+
+    uvx --from ai-drift drift
+
+This downloads and runs the latest version of Drift each time. No installation needed.
+
 Installing from PyPI
 ~~~~~~~~~~~~~~~~~~~~
 
-Install the latest stable version:
+Alternatively, install Drift:
 
 .. code-block:: bash
 
@@ -23,7 +34,7 @@ Verify the installation:
 
 Expected output::
 
-    drift version 0.2.0
+    drift version 0.7.0
 
 Installing for Development
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,7 +118,7 @@ After creating ``.drift.yaml``, run validation to see what fails:
 
 .. code-block:: bash
 
-    drift
+    uvx --from ai-drift drift
 
 What happens:
 

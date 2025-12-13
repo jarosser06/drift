@@ -28,7 +28,7 @@ rule_definitions:
 **2. Run validation:**
 
 ```bash
-drift
+uvx --from ai-drift drift
 ```
 
 **3. Fix issues, re-run until green.**
@@ -36,6 +36,14 @@ drift
 That's it. Define standards → validate → fix → iterate.
 
 ## Installation
+
+Run directly with `uv` (no installation needed):
+
+```bash
+uvx --from ai-drift drift
+```
+
+Or install with `uv`:
 
 ```bash
 uv pip install ai-drift
@@ -46,14 +54,14 @@ uv pip install ai-drift
 ```bash
 # 1. Define your standards in .drift.yaml
 # 2. Run validation
-drift
+uvx --from ai-drift drift
 
 # 3. Generate AI prompts to create missing files
-drift draft --target-rule skill_validation > prompt.md
+uvx --from ai-drift drift draft --target-rule skill_validation > prompt.md
 
 # 4. Fix issues manually or with AI
 # 5. Re-validate until green
-drift
+uvx --from ai-drift drift
 ```
 
 ## What You Can Validate
