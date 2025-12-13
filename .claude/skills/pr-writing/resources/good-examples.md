@@ -17,19 +17,6 @@ Examples of excellent pull requests with annotations.
 - Each drift type gets separate API call for clearer prompts and better results
 - Output format groups detections by type for easy scanning
 
-## Test Plan
-
-- [ ] Unit tests for multi-type argument parsing (tests/unit/test_cli.py)
-- [ ] Integration tests for multi-pass analysis (tests/integration/test_multi_pass.py)
-- [ ] Coverage at 92% (above 90% threshold)
-- [ ] Manual testing:
-  - [ ] Single drift type (backward compatibility)
-  - [ ] Two drift types (incomplete_work + incorrect_tool)
-  - [ ] All built-in drift types (5 types)
-  - [ ] Custom + built-in types mixed
-  - [ ] Empty results handling
-- [ ] All linters passing (flake8, black, isort, mypy)
-
 ## Changes
 
 ### Added
@@ -59,7 +46,6 @@ Relates to #15 - Configuration improvements (enables per-type config)
 
 **Why this is excellent:**
 - ✅ Clear summary with key decisions explained
-- ✅ Comprehensive test plan with specific scenarios
 - ✅ File changes with line numbers
 - ✅ Shows backward compatibility consideration
 - ✅ Links related issues
@@ -75,14 +61,6 @@ Relates to #15 - Configuration improvements (enables per-type config)
 - Fixed config parser crash when .drift.yaml is missing `drift_types` section
 - Root cause: Code assumed all config sections were present
 - Solution: Added safe dict access with built-in defaults
-
-## Test Plan
-
-- [ ] Test prevents regression (tests/unit/test_config.py::test_missing_drift_types)
-- [ ] Verified fix with minimal .drift.yaml (only llm_config section)
-- [ ] All existing tests still pass (no behavior change for valid configs)
-- [ ] Coverage maintained at 91%
-- [ ] Linters passing
 
 ## Changes
 
@@ -104,8 +82,7 @@ Fixes #56 - Config parser crashes on missing drift_types section
 
 **Why this is excellent:**
 - ✅ Explains root cause and solution
-- ✅ Shows regression test added
-- ✅ Confirms no side effects
+- ✅ Adds regression test
 - ✅ Concise but complete
 
 ---
@@ -124,17 +101,6 @@ Fixes #56 - Config parser crashes on missing drift_types section
 - Easier to test (providers can be mocked independently)
 - Simpler to add new providers (implement base interface)
 - Clearer separation of concerns (detection vs LLM interaction)
-
-## Test Plan
-
-- [ ] All existing tests pass (158/158 passing)
-- [ ] New tests for provider abstraction (tests/unit/test_providers.py)
-- [ ] Coverage increased to 93% (was 91%)
-- [ ] Manual verification:
-  - [ ] Bedrock provider works as before
-  - [ ] All drift types still functional
-  - [ ] Error handling unchanged
-- [ ] Linters passing
 
 ## Changes
 
@@ -163,7 +129,7 @@ Improves #23 - Better testability
 
 **Why this is excellent:**
 - ✅ Explains refactoring motivation
-- ✅ Shows no behavior change (all tests pass)
+- ✅ Confirms no behavior change
 - ✅ Documents benefits clearly
 - ✅ Links to future work enabled
 
@@ -178,12 +144,6 @@ Even small PRs should have proper structure:
 
 - Fixed typo in error message: "converstion" → "conversation"
 - Updated help text for clarity
-
-## Test Plan
-
-- [ ] Verified error message displays correctly
-- [ ] All tests still pass
-- [ ] No functional changes
 
 ## Changes
 
@@ -202,7 +162,6 @@ N/A
 **Why this is good:**
 - ✅ Even small changes have context
 - ✅ Shows what changed and where
-- ✅ Confirms testing
 
 ---
 
@@ -215,13 +174,6 @@ N/A
 - Documented .drift.yaml schema for custom types
 - Included complete example configuration
 - Addressed common user questions from issues
-
-## Test Plan
-
-- [ ] Reviewed by 2 team members
-- [ ] All links work
-- [ ] Code examples are valid
-- [ ] Screenshots are clear
 
 ## Changes
 
@@ -253,28 +205,21 @@ Every PR answers:
 - **How:** How does it work?
 - **Impact:** What else might be affected?
 
-### 2. Testing is Thorough
-
-- Specific test files and scenarios listed
-- Coverage percentage stated
-- Manual testing documented
-- Edge cases covered
-
-### 3. Changes are Organized
+### 2. Changes are Organized
 
 - Grouped by Added/Modified/Removed
 - File paths with line numbers
 - Brief description of each change
 - No surprises for reviewer
 
-### 4. Trade-offs are Explained
+### 3. Trade-offs are Explained
 
 Good PRs explain decisions:
 - "Chose X over Y because Z"
 - "Trade-off: slightly more complexity for better testability"
 - "Alternative considered: A, but rejected because B"
 
-### 5. Size is Manageable
+### 4. Size is Manageable
 
 - Focused on one thing
 - Can be reviewed in reasonable time
@@ -289,9 +234,6 @@ A good PR is ready when:
 
 - [ ] Title follows format: `Issue #N: Description`
 - [ ] Summary explains what, why, and how
-- [ ] Test plan is specific and complete
-- [ ] All tests passing locally
-- [ ] All linters passing locally
 - [ ] Changes section shows what changed
 - [ ] Related issues linked
 - [ ] Branch is up to date with main
@@ -308,22 +250,17 @@ A good PR is ready when:
    - Help them understand quickly
    - Make review easy and fast
 
-2. **Show your work**
-   - Include test results
-   - Show coverage numbers
-   - List what you tested
-
-3. **Explain decisions**
+2. **Explain decisions**
    - Why this approach?
    - What else did you consider?
    - What are the trade-offs?
 
-4. **Keep it focused**
+3. **Keep it focused**
    - One feature/fix per PR
    - Separate refactoring from features
    - Split large changes if possible
 
-5. **Make it reviewable**
+4. **Make it reviewable**
    - Logical commits
    - Clear change descriptions
    - Easy to verify correctness

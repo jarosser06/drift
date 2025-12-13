@@ -54,6 +54,10 @@ drift --rules <names>    # Validate specific rules only
 drift draft --target-rule <rule_name>           # Generate prompt to stdout
 drift draft --target-rule <rule_name> --output prompt.md  # Save to file
 
+# Document: Generate documentation from rules
+drift document --rules <rule_name>              # Generate docs to stdout
+drift document --all --format html --output rules.html  # All rules in HTML
+
 # Optional: Conversation analysis
 drift                    # Analyze latest conversation (requires LLM)
 drift --days 7           # Analyze last 7 days
