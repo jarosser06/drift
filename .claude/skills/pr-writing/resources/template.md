@@ -10,12 +10,6 @@ Use this as a reference when creating PRs. Adapt based on the type of change.
 - [Key implementation decisions]
 - [Any trade-offs or notes]
 
-## Test Plan
-- [ ] Unit tests added/updated
-- [ ] Coverage at 90%+
-- [ ] Manual testing completed
-- [ ] All linters passing
-
 ## Changes
 ### Added
 - [New files or functionality]

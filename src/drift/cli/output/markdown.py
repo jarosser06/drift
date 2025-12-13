@@ -302,6 +302,9 @@ class MarkdownFormatter(OutputFormatter):
 
                 # Format each violation of this type
                 for analysis_result, learning in items:
+                    if hasattr(learning, "phase_name") and learning.phase_name:
+                        lines.append(f"**Phase:** {learning.phase_name}")
+
                     # Session info
                     session_info = f"**Session:** {analysis_result.session_id}"
                     if analysis_result.project_path:

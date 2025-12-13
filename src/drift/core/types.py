@@ -129,6 +129,10 @@ class Rule(BaseModel):
         default=None,
         description="Bundle identifier (e.g., 'testing_skill') for document rule violations",
     )
+    phase_name: Optional[str] = Field(
+        default=None,
+        description="Name of the phase that detected this violation (for multi-phase rules)",
+    )
 
 
 class AnalysisResult(BaseModel):
@@ -259,4 +263,8 @@ class DocumentRule(BaseModel):
             "Validators can provide specific details (e.g., circular_path, actual_depth) "
             "that can be interpolated into violation messages for more actionable output."
         ),
+    )
+    phase_name: Optional[str] = Field(
+        default=None,
+        description="Name of the phase that detected this violation (for multi-phase rules)",
     )
