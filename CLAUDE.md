@@ -45,32 +45,16 @@ The `.claude/` directory contains specialized configurations for AI agents:
 ## Key Commands
 
 ```bash
-# Run Drift validation (primary use - TDD workflow)
-drift --no-llm           # Fast programmatic validation (define → validate → fix → iterate)
+# Primary use - TDD workflow (define → validate → fix → iterate)
+drift --no-llm           # Fast programmatic validation
 drift --format json      # JSON output for CI/CD
 drift --rules <names>    # Validate specific rules only
-
-# List available rules
-drift list               # Output rule names (one per line)
-drift list --format json # Output as JSON
-
-# Draft: Generate AI prompts from rules
-drift draft --target-rule <rule_name>           # Generate prompt to stdout
-drift draft --target-rule <rule_name> --output prompt.md  # Save to file
-
-# Document: Generate documentation from rules
-drift document --rules <rule_name>              # Generate docs to stdout
-drift document --all --format html --output rules.html  # All rules in HTML
-
-# Optional: Conversation analysis
-drift                    # Analyze latest conversation (requires LLM)
-drift --days 7           # Analyze last 7 days
-
+drift list               # List available rules
+drift draft --target-rule <rule_name> [--output file.md]   # Generate AI prompt
+drift document --rules <rule_name> [--format html]         # Generate documentation
 # Development
-./test.sh                # Run tests with 90%+ coverage requirement
-./lint.sh                # Run all linters (flake8, black, isort, mypy)
-./lint.sh --fix          # Auto-fix formatting issues
-
+./test.sh                # Run tests (90%+ coverage)
+./lint.sh [--fix]        # Run linters
 # Installation
 uv pip install -e ".[dev]"
 ```

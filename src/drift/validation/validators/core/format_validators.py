@@ -590,6 +590,21 @@ class YamlFrontmatterValidator(BaseValidator):
                     ),
                 )
 
+        # Check forbidden fields
+        if rule.params and "forbidden_fields" in rule.params:
+            forbidden_fields = rule.params["forbidden_fields"]
+            present_forbidden = [field for field in forbidden_fields if field in frontmatter_data]
+
+            if present_forbidden:
+                return self._create_failure(
+                    rule=rule,
+                    bundle=bundle,
+                    file_paths=[file_path],
+                    observed_issue=(
+                        f"Frontmatter contains forbidden fields: {', '.join(present_forbidden)}"
+                    ),
+                )
+
         # Optionally validate schema if provided
         if rule.params and "schema" in rule.params:
             try:

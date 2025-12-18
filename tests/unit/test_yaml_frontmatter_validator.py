@@ -484,8 +484,34 @@ tags:
         result = validator.validate(rule, bundle)
         assert result is None  # Should pass
 
-    def test_trigger_schema_error(self, validator, bundle, tmp_path):
-        """Test that SchemaError is caught when schema is structurally invalid."""
+    def test_validation_with_forbidden_fields(self, validator, bundle, tmp_path):
+        """Test validation with forbidden fields."""
+        test_file = tmp_path / "SKILL.md"
+        content = """---
+title: Test
+skills: [one, two]
+description: A test file
+---
+Content
+"""
+        test_file.write_text(content)
+
+        rule = ValidationRule(
+            rule_type="core:yaml_frontmatter",
+            description="Test rule",
+            file_path="SKILL.md",
+            params={
+                "forbidden_fields": ["skills", "other_forbidden"],
+                "required_fields": ["title"],
+            },
+            failure_message="Forbidden fields found",
+            expected_behavior="Should fail",
+        )
+
+        result = validator.validate(rule, bundle)
+        assert result is not None
+        assert "Frontmatter contains forbidden fields: skills" in result.observed_issue
+
         test_file = tmp_path / "SKILL.md"
         content = """---
 title: Test Skill
