@@ -1,0 +1,128 @@
+# Drift Rules File - Antigravity Best Practices
+
+group_name: "Antigravity"
+
+# ==============================================================================
+# WORKFLOW VALIDATION
+# ==============================================================================
+workflow_validation:
+  description: "Comprehensive validation for Antigravity workflows"
+  scope: project_level
+  context: "Workflows must be clear, consistent, and maintainable. This rule validates frontmatter, execution clarity, and correct Antigravity syntax."
+  requires_project_context: true
+  supported_clients:
+    - claude-code
+  document_bundle:
+    bundle_type: workflow
+    file_patterns:
+      - .agent/workflows/*.md
+    bundle_strategy: individual
+    resource_patterns: []
+  phases:
+    # Phase 1: Antigravity Frontmatter validation
+    - name: check_frontmatter
+      type: core:yaml_frontmatter
+      params:
+        required_fields:
+          - description
+        schema:
+          type: object
+          properties:
+            description:
+              type: string
+              minLength: 10
+              description: "Workflow description must be at least 10 characters"
+            title:
+              type: string
+              description: "Optional title for the workflow"
+          required:
+            - description
+      failure_message: "Workflow file has invalid or missing YAML frontmatter. Only 'description' is required."
+      expected_behavior: "Workflow files should have valid YAML frontmatter with a 'description' field. 'skills' and 'argument-hint' are NOT Antigravity features."
+
+    # Phase 2: Check for Legacy Claude Fields
+    - name: check_legacy_fields
+      type: prompt
+      model: sonnet
+      prompt: |
+        Check if the workflow frontmatter contains specific legacy fields from Claude Code that are not supported in Antigravity.
+
+        CRITICAL ISSUES (report these):
+        - Frontmatter contains `skills`: Skills are a Claude Code feature.
+        - Frontmatter contains `argument-hint`: This is a Claude Code feature.
+        - Frontmatter contains `dependent-agents`: This is a Claude Code feature.
+
+        ACCEPTABLE:
+        - `description`: Required.
+        - `title`: Optional but accepted.
+        - Any custom Antigravity fields documented in .agent/workflows/README.md (if it exists).
+        - Directives in the BODY (like `// turbo`) are NOT frontmatter and should be IGNORED by this check.
+
+        Focus: Does the FRONTMATTER use unsupported Legacy features? Ignore the body.
+      available_resources:
+        - workflow
+
+    # Phase 3: Antigravity Best Practices (Turbo & Formatting)
+    - name: check_antigravity_practices
+      type: prompt
+      model: sonnet
+      prompt: |
+        Evaluate the workflow against Antigravity-specific best practices.
+
+        CRITICAL ISSUES (report these):
+        1. **Missing Turbo Annotations**: If the workflow involves multiple `run_command` steps that are safe to auto-run (like creating folders), it should suggest using `// turbo`.
+        2. **Excessive Verbosity**: Steps should be direct and action-oriented. Avoid long explanatory paragraphs.
+        3. **Missing Tool Guidance**: If the workflow implies using specific tools (like `run_command` or `view_file`), it should be clear about it.
+        4. **Ambiguous Steps**: Steps like "Run validation" are too vague. Use "./test.sh" or "Run pytest".
+
+        ACCEPTABLE (do NOT report):
+        - Usage of `// turbo` or `// turbo-all` ✓
+        - Concise steps like "1. Run tests" ✓
+        - Explicit `run_command` blocks ✓
+        - Use of standard variables like $ARGUMENTS ✓
+
+        DO NOT check frontmatter (description, etc.) - this is handled by a separate phase.
+        Focus: Does this workflow leverage Antigravity's capabilities (turbo mode) and follow its concise style?
+      available_resources:
+        - workflow
+
+    # Phase 4: Check broken links
+    - name: check_broken_links
+      type: core:markdown_link
+      description: "Check for broken links in workflow documentation"
+      failure_message: "Found broken links in workflows"
+      expected_behavior: "All file references and links should be valid"
+      params:
+        check_local_files: true
+        check_external_urls: false
+        skip_code_blocks: true
+        custom_skip_patterns:
+          - '\.py'
+          - '\.yaml'
+          - '\.yml'
+          - '\.cfg'
+          - '\.json'
+          - 'CHANGELOG\.md'
+          - 'github/workflows/'
+
+    # Phase 5: Final quality check
+    - name: final_quality_check
+      type: prompt
+      model: sonnet
+      prompt: |
+        Review all findings from previous validation phases for this workflow.
+
+        ONLY report if there are CRITICAL structural problems that would prevent the workflow from functioning:
+        - Missing required frontmatter fields
+        - Contradictory instructions
+        - Completely missing or empty required sections
+
+        IGNORE and do NOT report:
+        - Minor formatting preferences
+        - Style suggestions
+        - Optional improvements
+        - Subjective quality opinions
+
+        If all critical issues were already caught by earlier phases, report: "No additional critical issues found."
+      available_resources:
+        - workflow
