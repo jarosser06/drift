@@ -14,7 +14,7 @@ description: Create a Pull Request with quality validation (tests, linting)
 ## Step 2: Check Results
 If validation fails, STOP and fix issues. Do not proceed to PR creation.
 
-## Step 3: Create PR Description
+## Step 3: Draft PR Description
 
 ### Required Structure
 Every PR description MUST include:
@@ -57,9 +57,19 @@ Closes #42
 - **Length**: Under 72 characters
 - **Content**: Describe WHAT changed, not how
 
-## Step 4: Create PR
-Use GitHub CLI or UI to create the PR with the description from Step 3.
+## Step 4: Get User Approval
+
+**CRITICAL**: Present the draft PR title and description to the user for review and approval.
+- Use the `notify_user` tool to show the draft
+- Wait for user confirmation
+- Make any requested changes before proceeding
+
+DO NOT proceed to Step 5 without explicit user approval.
+
+## Step 5: Create PR
+
+After receiving user approval, create the PR using GitHub CLI.
 
 ```bash
-gh pr create --title "Issue #42: Add feature X" --body "<description from step 3>"
+gh pr create --title "<approved title>" --body "<approved description>"
 ```
