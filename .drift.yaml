@@ -29,3 +29,7 @@ agent_tools:
 conversations:
   mode: latest
   days: 7
+
+additional_rules_files:
+  - .drift_rules.claude.yaml
+  - .drift_rules.antigravity.yaml

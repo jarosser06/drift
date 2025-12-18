@@ -5,6 +5,8 @@
 # Each rule contains multiple phases that validate different aspects of that resource type.
 # This structure makes it easier to understand what's validated for each resource at a glance.
 
+group_name: "Claude Code"
+
 # ==============================================================================
 # SKILL VALIDATION
 # ==============================================================================

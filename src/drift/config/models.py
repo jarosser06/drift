@@ -416,6 +416,10 @@ class DriftConfig(BaseModel):
         default_factory=lambda: ParallelExecutionConfig(enabled=True),
         description="Parallel execution configuration for validation rules",
     )
+    additional_rules_files: List[str] = Field(
+        default_factory=list,
+        description="List of additional rule files to load (relative to project root)",
+    )
 
     @field_validator("default_model")
     @classmethod

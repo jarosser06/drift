@@ -322,7 +322,7 @@ class ConfigLoader:
                 except ValueError as e:
                     raise ValueError(f"Error loading rules file '{rules_file}': {e}")
         else:
-            # No CLI rules files - use default locations
+            # No CLI rules files - use default locations and configured additional files
             # Start with rules from .drift.yaml (lowest priority)
             if "rule_definitions" in merged:
                 rules_dict = merged.get("rule_definitions", {})
@@ -335,6 +335,27 @@ class ConfigLoader:
                     rules_dict = cls._merge_rules(rules_dict, default_rules, default_group_name)
                 except ValueError as e:
                     raise ValueError(f"Error loading {cls.DEFAULT_RULES_FILE}: {e}")
+
+            # Check for additional rules files defined in config
+            # These override default rules but are overridden by CLI rules
+            if "additional_rules_files" in merged:
+                for rules_file_path in merged["additional_rules_files"]:
+                    try:
+                        # Resolve relative to project path if it's a relative path
+                        if (
+                            not cls._is_remote_url(rules_file_path)
+                            and not Path(rules_file_path).is_absolute()
+                        ):
+                            full_path = str(project_path / rules_file_path)
+                        else:
+                            full_path = rules_file_path
+
+                        file_rules = cls._load_rules_file(full_path)
+                        rules_dict = cls._merge_rules(rules_dict, file_rules, default_group_name)
+                    except ValueError as e:
+                        raise ValueError(
+                            f"Error loading additional rules file '{rules_file_path}': {e}"
+                        )
 
         # Update merged config with final rules
         merged["rule_definitions"] = rules_dict
