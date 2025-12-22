@@ -4,14 +4,16 @@
 #
 # Usage:
 #   ./scripts/update-changelog.sh <version> "<description>"
+#   ./scripts/update-changelog.sh <version> "<item1>; <item2>; <item3>"
 #
 # Example:
-#   ./scripts/update-changelog.sh 0.2.0 "Added new feature X, Fixed bug Y"
+#   ./scripts/update-changelog.sh 0.2.0 "Added new feature X; Fixed bug Y"
 #
 # This script:
 # 1. Adds a new version entry to CHANGELOG.md
 # 2. Formats entry with version, date, and description
-# 3. Preserves existing changelog entries
+# 3. Splits description by semicolons into separate bullet points
+# 4. Preserves existing changelog entries
 #
 
 set -e
@@ -31,7 +33,7 @@ if [[ -z "$VERSION" ]]; then
     echo "Usage: $0 <version> \"<description>\"" >&2
     echo "" >&2
     echo "Example:" >&2
-    echo "  $0 0.2.0 \"Added new feature X, Fixed bug Y\"" >&2
+    echo "  $0 0.2.0 \"Added new feature X; Fixed bug Y\"" >&2
     exit 1
 fi
 
@@ -65,7 +67,23 @@ echo -e "${YELLOW}→${NC} Updating CHANGELOG.md..." >&2
 echo "" >&2
 echo "Version: $VERSION" >&2
 echo "Date:    $DATE" >&2
-echo "Changes: $DESCRIPTION" >&2
+echo "Changes:" >&2
+
+# Split description into items by semicolon
+if [[ "$DESCRIPTION" == *";"* ]]; then
+    # Split and display items
+    IFS=";" read -ra ITEMS <<< "$DESCRIPTION"
+    for item in "${ITEMS[@]}"; do
+        # Trim whitespace
+        item=$(echo "$item" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        if [[ -n "$item" ]]; then
+            echo "  - $item" >&2
+        fi
+    done
+else
+    # Single item
+    echo "  - $DESCRIPTION" >&2
+fi
 echo "" >&2
 
 # Create temp file with new entry
@@ -81,7 +99,22 @@ awk -v version="$VERSION" -v date="$DATE" -v desc="$DESCRIPTION" '
     # Insert new entry
     print "## [" version "] - " date
     print ""
-    print "- " desc
+
+    # Split description by semicolon
+    if (index(desc, ";") > 0) {
+        n = split(desc, items, ";")
+        # Print each item as a bullet point
+        for (i = 1; i <= n; i++) {
+            # Trim whitespace
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", items[i])
+            if (length(items[i]) > 0) {
+                print "- " items[i]
+            }
+        }
+    } else {
+        # Single item
+        print "- " desc
+    }
     print ""
     next
 }

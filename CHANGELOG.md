@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-12-22
+
+- Add support for multiple rules files via additional_rules_files config
+- Fix conversation_path requirement for agent tools
+
 ## [0.8.0] - 2025-12-13
 
 - Add list command for outputting rule names; Refactor CLI to use global arguments
