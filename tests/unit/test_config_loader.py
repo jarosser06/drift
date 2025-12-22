@@ -386,7 +386,10 @@ class TestConfigLoader:
     def test_validate_config_no_enabled_agent_tools(
         self, sample_provider_config, sample_model_config
     ):
-        """Test validation passes when no agent tools are enabled (project-level validation only)."""
+        """Test validation passes when no agent tools are enabled.
+
+        Agent tools are only required for conversation analysis, not project-level validation.
+        """
         from drift.config.models import PhaseDefinition
 
         config = DriftConfig(
