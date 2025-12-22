@@ -217,6 +217,13 @@ class DriftAnalyzer:
         """Initialize agent loaders based on config."""
         for tool_name, tool_config in self.config.get_enabled_agent_tools().items():
             if tool_name == "claude-code":
+                if tool_config.conversation_path is None:
+                    raise ValueError(
+                        f"Agent tool '{tool_name}' requires 'conversation_path' to be "
+                        "configured when analyzing conversations. Add 'conversation_path' "
+                        "to your .drift.yaml or use --scope project for project-level "
+                        "validation only."
+                    )
                 self.agent_loaders[tool_name] = ClaudeCodeLoader(tool_config.conversation_path)
             # Future: Add other agent loaders
             # elif tool_name == "cursor":

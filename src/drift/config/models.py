@@ -344,13 +344,15 @@ class RuleDefinition(BaseModel):
 class AgentToolConfig(BaseModel):
     """Configuration for an agent tool."""
 
-    conversation_path: str = Field(..., description="Path to conversation files")
+    conversation_path: Optional[str] = Field(None, description="Path to conversation files")
     enabled: bool = Field(True, description="Whether this agent tool is enabled")
 
     @field_validator("conversation_path")
     @classmethod
-    def expand_path(cls, v: str) -> str:
+    def expand_path(cls, v: Optional[str]) -> Optional[str]:
         """Expand user home directory in path."""
+        if v is None:
+            return None
         return str(Path(v).expanduser())
 
 

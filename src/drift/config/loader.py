@@ -400,11 +400,6 @@ class ConfigLoader:
                             f"Available models: {available}"
                         )
 
-        # Validate at least one enabled agent tool
-        enabled_tools = config.get_enabled_agent_tools()
-        if not enabled_tools:
-            raise ValueError("At least one agent tool must be enabled")
-
         # Validate rule name + group name uniqueness
         ConfigLoader._validate_rule_group_uniqueness(config)
 

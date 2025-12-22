@@ -386,7 +386,7 @@ class TestConfigLoader:
     def test_validate_config_no_enabled_agent_tools(
         self, sample_provider_config, sample_model_config
     ):
-        """Test validation fails when no agent tools are enabled."""
+        """Test validation passes when no agent tools are enabled (project-level validation only)."""
         from drift.config.models import PhaseDefinition
 
         config = DriftConfig(
@@ -396,7 +396,7 @@ class TestConfigLoader:
             rule_definitions={
                 "test": RuleDefinition(
                     description="test",
-                    scope="conversation_level",
+                    scope="project_level",
                     context="test",
                     requires_project_context=False,
                     phases=[
@@ -411,9 +411,8 @@ class TestConfigLoader:
             agent_tools={"claude-code": AgentToolConfig(conversation_path="/tmp", enabled=False)},
         )
 
-        with pytest.raises(ValueError) as exc_info:
-            ConfigLoader._validate_config(config)
-        assert "At least one agent tool must be enabled" in str(exc_info.value)
+        # Should not raise - agent tools only required for conversation analysis
+        ConfigLoader._validate_config(config)
 
     def test_validate_config_no_learning_types(self, sample_provider_config, sample_model_config):
         """Test validation with no learning types (allows project-specific configs)."""

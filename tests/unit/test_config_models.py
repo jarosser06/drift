@@ -173,6 +173,18 @@ class TestAgentToolConfig:
         )
         assert config.enabled is True
 
+    def test_optional_conversation_path(self):
+        """Test that conversation_path is optional."""
+        config = AgentToolConfig(enabled=True)
+        assert config.conversation_path is None
+        assert config.enabled is True
+
+    def test_optional_conversation_path_with_none(self):
+        """Test that conversation_path can be explicitly None."""
+        config = AgentToolConfig(conversation_path=None, enabled=True)
+        assert config.conversation_path is None
+        assert config.enabled is True
+
 
 class TestConversationSelection:
     """Tests for ConversationSelection model."""
