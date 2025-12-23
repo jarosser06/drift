@@ -275,7 +275,7 @@ agent_validation:
       type: core:regex_match
       description: "Validate tools field uses comma-separated format on single line"
       params:
-        pattern: '^tools:\s+[A-Za-z][\w_]+(?:,\s*[A-Za-z][\w_]+)*\s*$'
+        pattern: '^tools:\s+[A-Za-z][\w_-]+(?:,\s*[A-Za-z][\w_-]+)*\s*$'
         flags: 8
       failure_message: "Agent tools field uses YAML list format (- Read) instead of comma-separated format"
       expected_behavior: "Tools should be comma-separated on one line: 'tools: Read, Write, Edit, Grep, Glob' not YAML list with dashes"
