@@ -30,6 +30,10 @@ def mock_config():
     config.providers = {}
     config.models = {}
     config.rule_definitions = {}
+    config.validator_param_overrides = {}
+    config.rule_param_overrides = {}
+    config.default_group_name = "General"
+    config.ignore_validation_rules = []
     config.get_enabled_agent_tools.return_value = {}
     return config
 
@@ -71,6 +75,14 @@ def sample_validation_rules():
             expected_behavior="File should exist",
         ),
     ]
+
+
+@pytest.fixture
+def mock_type_config():
+    """Create a mock type config for testing."""
+    type_config = Mock()
+    type_config.group_name = "TestGroup"
+    return type_config
 
 
 class TestParallelExecutionConfig:
@@ -209,6 +221,10 @@ class TestExecutionRouting:
         config.providers = {}
         config.models = {}
         config.rule_definitions = {}
+        config.validator_param_overrides = {}
+        config.rule_param_overrides = {}
+        config.default_group_name = "General"
+        config.ignore_validation_rules = []
         config.get_enabled_agent_tools.return_value = {}
 
         mock_registry = Mock()
@@ -247,7 +263,13 @@ class TestSequentialExecution:
 
     @patch("drift.core.analyzer.ValidatorRegistry")
     def test_sequential_executes_all_rules(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that sequential execution runs all rules."""
         # Setup
@@ -259,7 +281,7 @@ class TestSequentialExecution:
 
         # Execute
         doc_rules, execution_details = analyzer._execute_rules_sequential(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify all rules were executed
@@ -268,7 +290,13 @@ class TestSequentialExecution:
 
     @patch("drift.core.analyzer.ValidatorRegistry")
     def test_sequential_continues_on_error(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that sequential execution continues when a rule errors."""
         # Setup
@@ -285,7 +313,7 @@ class TestSequentialExecution:
 
         # Execute
         doc_rules, execution_details = analyzer._execute_rules_sequential(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify all rules were attempted
@@ -302,7 +330,13 @@ class TestSequentialExecution:
 
     @patch("drift.core.analyzer.ValidatorRegistry")
     def test_sequential_tracks_failed_validations(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that sequential execution tracks failed validations."""
         # Setup
@@ -316,7 +350,7 @@ class TestSequentialExecution:
 
         # Execute
         doc_rules, execution_details = analyzer._execute_rules_sequential(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify failure was tracked
@@ -335,7 +369,13 @@ class TestParallelExecution:
     @pytest.mark.asyncio
     @patch("drift.core.analyzer.ValidatorRegistry")
     async def test_parallel_executes_all_rules(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that parallel execution runs all rules."""
         # Setup
@@ -347,7 +387,7 @@ class TestParallelExecution:
 
         # Execute
         doc_rules, execution_details = await analyzer._execute_rules_parallel(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify all rules were executed
@@ -357,7 +397,13 @@ class TestParallelExecution:
     @pytest.mark.asyncio
     @patch("drift.core.analyzer.ValidatorRegistry")
     async def test_parallel_continues_on_error(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that parallel execution continues when a rule errors."""
         # Setup
@@ -378,7 +424,7 @@ class TestParallelExecution:
 
         # Execute
         doc_rules, execution_details = await analyzer._execute_rules_parallel(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify all rules were attempted
@@ -391,7 +437,13 @@ class TestParallelExecution:
     @pytest.mark.asyncio
     @patch("drift.core.analyzer.ValidatorRegistry")
     async def test_parallel_tracks_failed_validations(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that parallel execution tracks failed validations."""
         # Setup
@@ -414,7 +466,7 @@ class TestParallelExecution:
 
         # Execute
         doc_rules, execution_details = await analyzer._execute_rules_parallel(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify failure was tracked
@@ -530,7 +582,13 @@ class TestConcurrencySafety:
     @pytest.mark.asyncio
     @patch("drift.core.analyzer.ValidatorRegistry")
     async def test_each_task_gets_own_registry(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that each async task creates its own ValidatorRegistry."""
         # Setup
@@ -551,7 +609,7 @@ class TestConcurrencySafety:
 
         # Execute
         await analyzer._execute_rules_parallel(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify each task created its own registry (3 tasks = 3 new registries)
@@ -561,7 +619,13 @@ class TestConcurrencySafety:
     @pytest.mark.asyncio
     @patch("drift.core.analyzer.ValidatorRegistry")
     async def test_parallel_and_sequential_produce_same_results(
-        self, mock_registry_class, mock_config, mock_bundle, sample_validation_rules, temp_project
+        self,
+        mock_registry_class,
+        mock_config,
+        mock_bundle,
+        sample_validation_rules,
+        mock_type_config,
+        temp_project,
     ):
         """Test that parallel and sequential execution produce identical results."""
         # Setup - deterministic results
@@ -583,13 +647,13 @@ class TestConcurrencySafety:
         # Execute sequentially
         call_index = 0
         seq_rules, seq_details = analyzer._execute_rules_sequential(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Execute in parallel
         call_index = 0
         par_rules, par_details = await analyzer._execute_rules_parallel(
-            sample_validation_rules, mock_bundle, "test_rule", None
+            sample_validation_rules, mock_bundle, "test_rule", mock_type_config, None
         )
 
         # Verify same number of results

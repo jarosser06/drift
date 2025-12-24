@@ -80,19 +80,19 @@ class RegexMatchValidator(BaseValidator):
                 pattern_str=pattern_str,
             )
 
-        # Otherwise, validate all files in bundle
+        # Otherwise, validate all files in bundle (respecting ignore_patterns from rule.params)
         failed_files = []
-        for doc_file in bundle.files:
+        for rel_path, content, _file_path in self._iter_bundle_files(bundle, rule):
             result = self._validate_content(
                 rule=rule,
                 bundle=bundle,
-                file_path=doc_file.relative_path,
-                content=doc_file.content,
+                file_path=rel_path,
+                content=content,
                 pattern=pattern,
                 pattern_str=pattern_str,
             )
             if result:
-                failed_files.append(doc_file.relative_path)
+                failed_files.append(rel_path)
 
         if failed_files:
             return self._create_failure_learning(

@@ -331,6 +331,7 @@ class TestPluginSystemEndToEnd:
                 rule: ValidationRule,
                 bundle: DocumentBundle,
                 all_bundles: Optional[List[DocumentBundle]] = None,
+                ignore_patterns: Optional[List[str]] = None,
             ) -> Optional[DocumentRule]:
                 # Track received parameters
                 ParameterTrackingValidator.received_params = {
@@ -436,6 +437,7 @@ class TestPluginErrorHandling:
                 rule: ValidationRule,
                 bundle: DocumentBundle,
                 all_bundles: Optional[List[DocumentBundle]] = None,
+                ignore_patterns: Optional[List[str]] = None,
             ) -> Optional[DocumentRule]:
                 raise ValueError("Simulated validation error")
 

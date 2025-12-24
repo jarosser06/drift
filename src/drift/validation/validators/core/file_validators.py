@@ -44,6 +44,7 @@ class FileExistsValidator(BaseValidator):
         -- rule: ValidationRule with params.file_path (supports glob patterns)
         -- bundle: Document bundle being validated
         -- all_bundles: Not used for this validator
+        -- ignore_patterns: Optional list of patterns to ignore (not used by FileExistsValidator)
 
         Returns DocumentRule if file doesn't exist, None if it does.
         """
@@ -224,7 +225,7 @@ class FileSizeValidator(BaseValidator):
 
         # Otherwise, validate all files in the bundle
         failed_files = []
-        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle, rule):
             failure = self._validate_file_constraints(
                 rel_path, abs_path, content, max_count, min_count, max_size, min_size
             )
