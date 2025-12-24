@@ -4,6 +4,7 @@ This document provides comprehensive documentation for all validator types avail
 
 ## Table of Contents
 
+- [Ignore Patterns](#ignore-patterns)
 - [Default Failure Messages](#default-failure-messages)
 - [Custom Validator Plugins](#custom-validator-plugins)
 - [Failure Details Feature](#failure-details-feature)
@@ -15,6 +16,106 @@ This document provides comprehensive documentation for all validator types avail
 - [Dependency Validators](#dependency-validators)
 - [Claude Code Validators](#claude-code-validators)
 - [LLM-Based Validators](#llm-based-validators)
+
+---
+
+## Ignore Patterns
+
+Validators support three levels of ignore configuration to control which files are processed:
+
+### Global Ignore Patterns
+
+Global patterns apply to all validators. Configure in `.drift.yaml`:
+
+```yaml
+global_ignore:
+  - "**/*.tmp"
+  - ".venv/**"
+  - "node_modules/**"
+```
+
+### Validator-Specific Ignore Patterns
+
+Validator-specific patterns apply only to a specific validator type:
+
+```yaml
+validator_ignore:
+  core:markdown_link:
+    patterns:
+      - "https://example.com/**"
+      - "http://localhost:**"
+
+  core:file_size:
+    patterns:
+      - "**/*.svg"
+      - "**/*.png"
+```
+
+### Pattern Matching
+
+Drift supports three pattern types:
+
+**Glob patterns** (recommended):
+- `*.md` - All .md files in root
+- `**/*.py` - All .py files recursively
+- `src/**` - Everything under src/
+
+**Regex patterns** (auto-detected by metacharacters):
+- `^https://example\.com/.*` - URLs matching pattern
+- `.*\.test\.js$` - Files ending with .test.js
+
+**Literal paths**:
+- `README.md` - Exact file name
+- `docs/guide.md` - Exact relative path
+
+### How Ignores Work
+
+When a validator processes files:
+
+1. Global patterns from `global_ignore` are collected
+2. Validator-specific patterns from `validator_ignore[validator_type].patterns` are collected
+3. Both sets are merged
+4. Files matching any pattern are skipped
+
+Example:
+
+```yaml
+global_ignore:
+  - "**/*.tmp"
+
+validator_ignore:
+  core:file_size:
+    patterns:
+      - "**/*.svg"
+```
+
+When `core:file_size` runs:
+- Ignores: `**/*.tmp`, `**/*.svg`
+- Processes: All other files
+
+When `core:file_exists` runs:
+- Ignores: `**/*.tmp`
+- Processes: All other files (including `.svg`)
+
+### Which Validators Support Ignores
+
+All validators that process file content support ignore patterns:
+
+- `core:file_exists`
+- `core:file_size`
+- `core:token_count`
+- `core:block_line_count`
+- `core:regex_match`
+- `core:list_match`
+- `core:list_regex_match`
+- `core:markdown_link`
+- `core:json_schema`
+- `core:yaml_schema`
+- `core:yaml_frontmatter`
+
+Validators that analyze structure (dependency validators, Claude Code validators) do not use ignore patterns.
+
+See the [Configuration Guide](configuration.rst) for complete details on ignore configuration.
 
 ---
 

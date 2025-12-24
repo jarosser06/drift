@@ -187,6 +187,137 @@ class DriftAnalyzer:
             return rule_def.group_name or self.config.default_group_name
         return self.config.default_group_name
 
+    def _merge_params(
+        self,
+        base_params: Dict[str, Any],
+        validator_type: str,
+        rule_name: str,
+        group_name: Optional[str] = None,
+        phase_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Merge parameters from base params with overrides.
+
+        Applies parameter overrides in order of precedence:
+        1. Start with base_params (from rule definition)
+        2. Apply validator_param_overrides (for all rules using validator_type)
+        3. Apply rule_param_overrides (for specific rule)
+
+        For each override level, applies 'replace' strategy first, then 'merge':
+        - replace: Overwrites param value
+        - merge: For lists/dicts, extends/combines with existing value
+
+        -- base_params: Starting parameters from rule definition
+        -- validator_type: The validator type (e.g., 'core:file_exists')
+        -- rule_name: Name of the rule
+        -- group_name: Optional group name for rule matching
+        -- phase_name: Optional phase name for rule matching
+
+        Returns merged parameters dictionary.
+        """
+        merged = dict(base_params)
+
+        # Apply validator-level overrides
+        if validator_type in self.config.validator_param_overrides:
+            overrides = self.config.validator_param_overrides[validator_type]
+
+            # Apply replace strategy first
+            if "replace" in overrides:
+                for param_name, param_value in overrides["replace"].items():
+                    merged[param_name] = param_value
+
+            # Apply merge strategy
+            if "merge" in overrides:
+                for param_name, param_value in overrides["merge"].items():
+                    if param_name in merged:
+                        existing = merged[param_name]
+                        # Merge lists by extending
+                        if isinstance(existing, list) and isinstance(param_value, list):
+                            merged[param_name] = existing + param_value
+                        # Merge dicts by updating
+                        elif isinstance(existing, dict) and isinstance(param_value, dict):
+                            merged[param_name] = {**existing, **param_value}
+                        else:
+                            # Can't merge different types - replace instead
+                            merged[param_name] = param_value
+                    else:
+                        merged[param_name] = param_value
+
+        # Apply rule-level overrides (check all matching identifiers)
+        # Use default group name if not provided
+        effective_group_name = group_name or self.config.default_group_name
+
+        rule_identifiers = [
+            rule_name,  # Match by rule name only
+        ]
+        if effective_group_name:
+            rule_identifiers.append(f"{effective_group_name}::{rule_name}")  # Match group::rule
+        if effective_group_name and phase_name:
+            rule_identifiers.append(
+                f"{effective_group_name}::{rule_name}::{phase_name}"
+            )  # Match all
+
+        for rule_id in rule_identifiers:
+            if rule_id in self.config.rule_param_overrides:
+                overrides = self.config.rule_param_overrides[rule_id]
+
+                # Apply replace strategy first
+                if "replace" in overrides:
+                    for param_name, param_value in overrides["replace"].items():
+                        merged[param_name] = param_value
+
+                # Apply merge strategy
+                if "merge" in overrides:
+                    for param_name, param_value in overrides["merge"].items():
+                        if param_name in merged:
+                            existing = merged[param_name]
+                            # Merge lists by extending
+                            if isinstance(existing, list) and isinstance(param_value, list):
+                                merged[param_name] = existing + param_value
+                            # Merge dicts by updating
+                            elif isinstance(existing, dict) and isinstance(param_value, dict):
+                                merged[param_name] = {**existing, **param_value}
+                            else:
+                                # Can't merge different types - replace instead
+                                merged[param_name] = param_value
+                        else:
+                            merged[param_name] = param_value
+
+        return merged
+
+    def _should_ignore_rule(
+        self, rule_name: str, group_name: Optional[str] = None, phase_name: Optional[str] = None
+    ) -> bool:
+        """Check if a rule should be ignored based on ignore_validation_rules config.
+
+        Supports three formats:
+        - 'rule_name' - matches any rule with this name
+        - 'group::rule_name' - matches specific group and rule
+        - 'group::rule_name::phase' - matches specific phase
+
+        -- rule_name: Name of the rule
+        -- group_name: Optional group name
+        -- phase_name: Optional phase name
+
+        Returns True if rule should be ignored, False otherwise.
+        """
+        if not self.config.ignore_validation_rules:
+            return False
+
+        for ignore_pattern in self.config.ignore_validation_rules:
+            parts = ignore_pattern.split("::")
+
+            if len(parts) == 1:
+                if parts[0] == rule_name:
+                    return True
+            elif len(parts) == 2:
+                if parts[0] == group_name and parts[1] == rule_name:
+                    return True
+            elif len(parts) == 3:
+                if parts[0] == group_name and parts[1] == rule_name and parts[2] == phase_name:
+                    return True
+
+        return False
+
     def _initialize_providers(self) -> None:
         """Initialize LLM providers based on config."""
         for model_name, model_config in self.config.models.items():
@@ -266,6 +397,12 @@ class DriftAnalyzer:
             # Document and project level rules should be run via analyze_documents()
             types_to_check = {}
             for name, config in all_types.items():
+                # Check if rule should be ignored
+                group_name = config.group_name or self.config.default_group_name
+                if self._should_ignore_rule(name, group_name):
+                    logger.debug(f"Skipping ignored rule: {name}")
+                    continue
+
                 scope = getattr(config, "scope", "turn_level")
                 if scope in ("turn_level", "conversation_level"):
                     types_to_check[name] = config
@@ -911,6 +1048,12 @@ as JSON."""
 
         document_types = {}
         for name, config in all_types.items():
+            # Check if rule should be ignored
+            group_name = config.group_name or self.config.default_group_name
+            if self._should_ignore_rule(name, group_name):
+                logger.debug(f"Skipping ignored rule: {name}")
+                continue
+
             # Include rules with document bundles
             if hasattr(config, "document_bundle") and config.document_bundle is not None:
                 document_types[name] = config
@@ -1266,10 +1409,20 @@ as JSON."""
                     if phase.file_path and "file_path" not in phase_params:
                         phase_params["file_path"] = phase.file_path
 
+                    # Merge parameter overrides
+                    group_name = type_config.group_name or self.config.default_group_name
+                    merged_params = self._merge_params(
+                        base_params=phase_params,
+                        validator_type=phase.type,
+                        rule_name=rule_type,
+                        group_name=group_name,
+                        phase_name=phase.name,
+                    )
+
                     rule = ValidationRule(  # type: ignore[call-arg]
                         rule_type=phase.type,
                         description=type_config.description,
-                        params=phase_params,
+                        params=merged_params,
                         file_path=phase.file_path,
                         failure_message=phase.failure_message,
                         expected_behavior=phase.expected_behavior,
@@ -1476,12 +1629,14 @@ as JSON."""
         if parallel_enabled and num_rules > 1:
             logger.debug(f"Using parallel execution for {num_rules} rules")
             return asyncio.run(
-                self._execute_rules_parallel(validation_config.rules, bundle, rule_type, loader)
+                self._execute_rules_parallel(
+                    validation_config.rules, bundle, rule_type, type_config, loader
+                )
             )
         else:
             logger.debug(f"Using sequential execution for {num_rules} rules")
             return self._execute_rules_sequential(
-                validation_config.rules, bundle, rule_type, loader
+                validation_config.rules, bundle, rule_type, type_config, loader
             )
 
     def _execute_rules_sequential(
@@ -1489,6 +1644,7 @@ as JSON."""
         rules: List[ValidationRule],
         bundle: DocumentBundle,
         rule_type: str,
+        type_config: Any,
         loader: Optional[Any] = None,
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute validation rules sequentially.
@@ -1497,6 +1653,7 @@ as JSON."""
             rules: List of validation rules to execute
             bundle: Document bundle to validate
             rule_type: Name of learning type
+            type_config: Configuration for this rule
             loader: Optional document loader for resource access
 
         Returns:
@@ -1508,9 +1665,24 @@ as JSON."""
 
         logger.debug(f"_execute_rules_sequential: Processing {len(rules)} rules for {rule_type}")
 
+        group_name = type_config.group_name or self.config.default_group_name
+
         for rule in rules:
             try:
                 logger.debug(f"_execute_rules_sequential: Executing rule {rule.description}")
+
+                # Merge parameter overrides
+                merged_params = self._merge_params(
+                    base_params=rule.params,
+                    validator_type=rule.rule_type,
+                    rule_name=rule_type,
+                    group_name=group_name,
+                    phase_name=None,  # No phase context for validation rules
+                )
+
+                # Update rule params with merged params
+                rule.params = merged_params
+
                 result = registry.execute_rule(rule, bundle)
                 logger.debug(f"_execute_rules_sequential: Rule result: {result}")
 
@@ -1557,6 +1729,7 @@ as JSON."""
         rules: List[ValidationRule],
         bundle: DocumentBundle,
         rule_type: str,
+        type_config: Any,
         loader: Optional[Any] = None,
     ) -> tuple[List[DocumentRule], List[dict]]:
         """Execute validation rules in parallel using asyncio.
@@ -1568,6 +1741,7 @@ as JSON."""
             rules: List of validation rules to execute
             bundle: Document bundle to validate
             rule_type: Name of learning type
+            type_config: Configuration for this rule
             loader: Optional document loader for resource access
 
         Returns:
@@ -1576,6 +1750,19 @@ as JSON."""
             execution_details: List of dicts with execution info for all rules
         """
         logger.debug(f"_execute_rules_parallel: Processing {len(rules)} rules for {rule_type}")
+
+        group_name = type_config.group_name or self.config.default_group_name
+
+        # Merge parameter overrides for all rules before creating tasks
+        for rule in rules:
+            merged_params = self._merge_params(
+                base_params=rule.params,
+                validator_type=rule.rule_type,
+                rule_name=rule_type,
+                group_name=group_name,
+                phase_name=None,  # No phase context for validation rules
+            )
+            rule.params = merged_params
 
         # Create tasks for all rules
         tasks = [self._execute_single_rule_async(rule, bundle, rule_type, loader) for rule in rules]

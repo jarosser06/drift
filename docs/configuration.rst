@@ -442,17 +442,355 @@ Keep configuration separate from rules using the default loading behavior:
     # Automatically loads .drift.yaml config + .drift_rules.yaml rules
     drift
 
-**Environment-specific validation:**
+Parameter Override Configuration
+---------------------------------
 
-Use different rule sets for different environments:
+Drift provides a flexible parameter override system to control validator behavior at different levels. This allows you to exclude files using ignore patterns, override validation parameters, or skip entire rules.
+
+Validator Parameter Overrides
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Validator-level overrides apply to all rules using a specific validator type. Use this for project-wide parameter overrides like ignore patterns for all file validation rules.
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    validator_param_overrides:
+      core:file_exists:
+        merge:
+          ignore_patterns:
+            - ".venv/**"
+            - "node_modules/**/*"
+            - "build/**"
+            - "**/*.tmp"
+            - "**/__pycache__/**"
+
+      core:markdown_link:
+        merge:
+          ignore_patterns:
+            - "https://example.com/**"
+            - "http://localhost:**"
+
+      core:file_size:
+        replace:
+          max_size_kb: 5000
+
+**Override strategies**:
+
+- ``merge``: Extends lists (like ``ignore_patterns``) or combines dicts
+- ``replace``: Completely replaces the parameter value
+
+Rule Parameter Overrides
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Rule-level overrides apply to specific rules. This is useful when you need rule-specific configuration that differs from the validator defaults.
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    rule_param_overrides:
+      # Rule-level override
+      Python::documentation:
+        merge:
+          ignore_patterns:
+            - "tests/**"
+
+      # Group-qualified rule
+      General::skill_validation:
+        replace:
+          check_external_urls: false
+
+      # Phase-specific override (most specific)
+      General::skill_validation::check_links:
+        merge:
+          ignore_patterns:
+            - "examples/**"
+
+**Rule identifier formats**:
+
+- ``rule_name`` - Applies to all rules with this name (any group)
+- ``group::rule_name`` - Applies to specific group and rule
+- ``group::rule_name::phase_name`` - Applies to specific phase (most specific)
+
+Skip Validation Rules
+~~~~~~~~~~~~~~~~~~~~~~
+
+Skip entire rules or specific phases during validation. This prevents rules from executing at all.
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    ignore_validation_rules:
+      - "Claude Code::skill_validation::check_description_quality"
+      - "Python::formatting::check_line_length"
+      - "Documentation::links"
+
+**Rule identifier formats**:
+
+- ``rule_name`` - Matches any rule with this name (any group)
+- ``group::rule_name`` - Matches specific group and rule
+- ``group::rule_name::phase_name`` - Matches specific phase within a rule
+
+Pattern Matching Types
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Drift supports three types of patterns for file matching:
+
+**Glob patterns** (recommended for most use cases):
+
+.. code-block:: yaml
+
+    patterns:
+      - "*.md"              # All .md files in root
+      - "**/*.py"           # All .py files recursively
+      - "src/**"            # Everything under src/
+      - "test_*.py"         # Files starting with test_
+      - "*.{yml,yaml}"      # Multiple extensions
+
+**Regex patterns** (auto-detected by metacharacters):
+
+.. code-block:: yaml
+
+    patterns:
+      - "^https://example\\.com/.*"     # URLs starting with example.com
+      - ".*\\.test\\.js$"                # Files ending with .test.js
+      - "^/tmp/.*"                       # Absolute paths in /tmp
+
+Regex patterns are detected when the pattern contains metacharacters like ``\(``, ``\)``, ``\^``, ``\$``, ``\+``, ``\.``, ``\|``.
+
+**Literal paths** (exact matching):
+
+.. code-block:: yaml
+
+    patterns:
+      - "README.md"         # Exact file name
+      - "docs/guide.md"     # Exact relative path
+
+Literal paths are matched exactly after path normalization.
+
+Precedence and Merging
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Parameter overrides are applied in this order of precedence:
+
+1. **Base parameters** from rule definition
+2. **Validator overrides** applied to all rules using that validator
+3. **Rule overrides** applied to matching rule identifiers
+4. **Phase overrides** applied to specific phases (most specific)
+
+With **merge strategy**:
+
+- Lists are extended (e.g., ``ignore_patterns``)
+- Dicts are combined (later values win on conflicts)
+
+With **replace strategy**:
+
+- Parameter value is completely replaced
+
+Example:
+
+.. code-block:: yaml
+
+    # .drift.yaml
+    validator_param_overrides:
+      core:file_exists:
+        merge:
+          ignore_patterns:
+            - "**/*.tmp"
+            - ".venv/**"
+
+    rule_param_overrides:
+      Python::documentation:
+        merge:
+          ignore_patterns:
+            - "tests/**"
+
+When ``Python::documentation`` rule runs with ``core:file_exists`` validator:
+
+- Final ``ignore_patterns``: ``["**/*.tmp", ".venv/**", "tests/**"]``
+- All three patterns are applied (merged from validator + rule levels)
+
+When ``General::readme_check`` rule runs with ``core:file_exists`` validator:
+
+- Final ``ignore_patterns``: ``["**/*.tmp", ".venv/**"]``
+- Only validator-level patterns apply (no rule-specific overrides)
+
+Use Cases and Examples
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Exclude build artifacts for all validators:**
+
+.. code-block:: yaml
+
+    validator_param_overrides:
+      core:file_exists:
+        merge:
+          ignore_patterns:
+            - "dist/**"
+            - "build/**"
+            - "*.egg-info/**"
+            - "**/__pycache__/**"
+            - ".pytest_cache/**"
+
+**Skip link checking for development URLs:**
+
+.. code-block:: yaml
+
+    validator_param_overrides:
+      core:markdown_link:
+        merge:
+          ignore_patterns:
+            - "http://localhost:**"
+            - "https://127.0.0.1:**"
+            - "http://0.0.0.0:**"
+
+**Ignore size checks for binary files:**
+
+.. code-block:: yaml
+
+    validator_param_overrides:
+      core:file_size:
+        merge:
+          ignore_patterns:
+            - "**/*.png"
+            - "**/*.jpg"
+            - "**/*.gif"
+            - "**/*.pdf"
+
+**Override max file size for specific rule:**
+
+.. code-block:: yaml
+
+    rule_param_overrides:
+      Documentation::assets:
+        replace:
+          max_size_kb: 10000
+
+**Skip frontmatter validation in templates (rule-specific):**
+
+.. code-block:: yaml
+
+    rule_param_overrides:
+      Documentation::frontmatter_check:
+        merge:
+          ignore_patterns:
+            - "templates/**/*.md"
+            - "examples/**/*.md"
+
+**Disable specific rules during development:**
+
+.. code-block:: yaml
+
+    ignore_validation_rules:
+      - "Documentation::completeness"
+      - "Code Style::line_length"
+
+**Disable LLM-based quality checks:**
+
+.. code-block:: yaml
+
+    ignore_validation_rules:
+      - "Claude Code::skill_validation::check_description_quality"
+      - "Claude Code::agent_validation::analyze_completeness"
+
+Configuration Validation
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Drift validates parameter override configuration at load time:
+
+**Validator type validation:**
+
+.. code-block:: text
+
+    Invalid validator type 'file_exists' in validator_param_overrides.
+    Must be in format 'namespace:type' (e.g., 'core:file_exists')
+
+Validator types must follow the namespaced format: ``namespace:type``
+
+**Override strategy validation:**
+
+.. code-block:: text
+
+    Invalid strategy 'append' in validator_param_overrides.
+    Must be 'merge' or 'replace'
+
+Only ``merge`` and ``replace`` strategies are supported.
+
+**Rule identifier validation:**
+
+.. code-block:: text
+
+    Invalid rule identifier 'group::' in rule_param_overrides.
+    Format must be 'rule', 'group::rule', or 'group::rule::phase'
+
+Rule identifiers cannot have empty parts or more than three segments.
+
+**Pattern validation:**
+
+Invalid regex patterns are caught when patterns are applied:
+
+.. code-block:: text
+
+    Invalid regex pattern '^(unclosed': missing ), unterminated subpattern
+
+Use glob patterns when possible to avoid regex syntax issues.
+
+Environment-Specific Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Different environments may need different parameter overrides. Use separate configuration files with ``--rules-file`` to maintain environment-specific settings.
+
+**Development environment:**
+
+.. code-block:: yaml
+
+    # .drift.dev.yaml
+    validator_param_overrides:
+      core:file_exists:
+        merge:
+          ignore_patterns:
+            - "**/*.tmp"
+            - ".venv/**"
+
+    # Relaxed validation during development
+    ignore_validation_rules:
+      - "Documentation::completeness"
 
 .. code-block:: bash
 
-    # Development environment (relaxed rules)
-    drift --rules-file rules/dev-rules.yaml
+    drift --rules-file .drift.dev.yaml
 
-    # Production environment (strict rules)
-    drift --rules-file rules/prod-rules.yaml
+**CI/CD environment:**
 
-    # CI/CD environment (subset of checks)
-    drift --rules-file rules/ci-rules.yaml
+.. code-block:: yaml
+
+    # .drift.ci.yaml
+    validator_param_overrides:
+      core:file_exists:
+        merge:
+          ignore_patterns:
+      - "**/*.tmp"
+      - ".venv/**"
+
+    # Strict validation in CI - no rules ignored
+
+.. code-block:: bash
+
+    drift --rules-file .drift.ci.yaml
+
+**Production environment:**
+
+.. code-block:: yaml
+
+    # .drift.prod.yaml
+    global_ignore:
+      - "**/*.tmp"
+      - ".venv/**"
+
+    # Skip expensive LLM checks in production
+    ignore_validation_rules:
+      - "Code Quality::llm_review"
+
+.. code-block:: bash
+
+    drift --rules-file .drift.prod.yaml

@@ -198,6 +198,7 @@ class TestPluginLoading:
                     rule: ValidationRule,
                     bundle: DocumentBundle,
                     all_bundles: Optional[List[DocumentBundle]] = None,
+                    ignore_patterns: Optional[List[str]] = None,
                 ) -> Optional[DocumentRule]:
                     return None
 
@@ -412,6 +413,7 @@ class TestPluginExecution:
                 rule: ValidationRule,
                 bundle: DocumentBundle,
                 all_bundles: Optional[List[DocumentBundle]] = None,
+                ignore_patterns: Optional[List[str]] = None,
             ) -> Optional[DocumentRule]:
                 # Always fails
                 return DocumentRule(

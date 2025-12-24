@@ -422,6 +422,138 @@ class DriftConfig(BaseModel):
         default_factory=list,
         description="List of additional rule files to load (relative to project root)",
     )
+    validator_param_overrides: Dict[str, Dict[str, Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description=(
+            "Parameter overrides for all rules using a validator type. "
+            "Structure: {validator_type: {strategy: {param: value}}}. "
+            "Strategies: 'replace' (overwrites) or 'merge' (extends lists/dicts)."
+        ),
+    )
+    rule_param_overrides: Dict[str, Dict[str, Dict[str, Any]]] = Field(
+        default_factory=dict,
+        description=(
+            "Parameter overrides for specific rules. "
+            "Structure: {rule_identifier: {strategy: {param: value}}}. "
+            "Rule identifier formats: 'rule', 'group::rule', or 'group::rule::phase'."
+        ),
+    )
+    ignore_validation_rules: List[str] = Field(
+        default_factory=list,
+        description=(
+            "List of rule identifiers to skip entirely "
+            "(format: 'group::rule', 'group::rule::phase', or 'rule')"
+        ),
+    )
+
+    @field_validator("validator_param_overrides")
+    @classmethod
+    def validate_validator_param_overrides(
+        cls, v: Dict[str, Dict[str, Dict[str, Any]]]
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Validate validator_param_overrides structure.
+
+        Validates that validator types follow namespace:type format and that
+        strategies are either 'replace' or 'merge'.
+
+        -- v: Validator parameter overrides dictionary
+
+        Returns the validated dictionary.
+
+        Raises ValueError if validation fails.
+        """
+        for validator_type, strategies in v.items():
+            if ":" not in validator_type:
+                raise ValueError(
+                    f"Invalid validator type '{validator_type}' in validator_param_overrides. "
+                    "Must be in format 'namespace:type' (e.g., 'core:file_exists')"
+                )
+
+            if not VALIDATION_TYPE_PATTERN.match(validator_type):
+                raise ValueError(
+                    f"Invalid validator type format '{validator_type}' in "
+                    "validator_param_overrides. Must match pattern: namespace:type"
+                )
+
+            for strategy in strategies.keys():
+                if strategy not in ("replace", "merge"):
+                    raise ValueError(
+                        f"Invalid strategy '{strategy}' for validator '{validator_type}'. "
+                        "Must be 'replace' or 'merge'"
+                    )
+
+        return v
+
+    @field_validator("rule_param_overrides")
+    @classmethod
+    def validate_rule_param_overrides(
+        cls, v: Dict[str, Dict[str, Dict[str, Any]]]
+    ) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        """Validate rule_param_overrides structure.
+
+        Validates that rule identifiers follow the correct format and that
+        strategies are either 'replace' or 'merge'.
+
+        -- v: Rule parameter overrides dictionary
+
+        Returns the validated dictionary.
+
+        Raises ValueError if validation fails.
+        """
+        for rule_id, strategies in v.items():
+            parts = rule_id.split("::")
+            if len(parts) > 3:
+                raise ValueError(
+                    f"Invalid rule identifier '{rule_id}' in rule_param_overrides. "
+                    "Format must be 'rule', 'group::rule', or 'group::rule::phase'"
+                )
+
+            if any(not part.strip() for part in parts):
+                raise ValueError(
+                    f"Invalid rule identifier '{rule_id}' in rule_param_overrides. "
+                    "Empty parts not allowed (e.g., '::rule' or 'group::')"
+                )
+
+            for strategy in strategies.keys():
+                if strategy not in ("replace", "merge"):
+                    raise ValueError(
+                        f"Invalid strategy '{strategy}' for rule '{rule_id}'. "
+                        "Must be 'replace' or 'merge'"
+                    )
+
+        return v
+
+    @field_validator("ignore_validation_rules")
+    @classmethod
+    def validate_ignore_validation_rules(cls, v: List[str]) -> List[str]:
+        """Validate rule identifier format for ignored rules.
+
+        Rule identifiers can be in one of these formats:
+        - 'rule_name' - matches any rule with this name
+        - 'group::rule_name' - matches specific group and rule
+        - 'group::rule_name::phase_name' - matches specific phase
+
+        -- v: List of rule identifiers to ignore
+
+        Returns the validated list.
+
+        Raises ValueError if any rule identifier has invalid format.
+        """
+        for rule_id in v:
+            parts = rule_id.split("::")
+            if len(parts) > 3:
+                raise ValueError(
+                    f"Invalid rule identifier '{rule_id}' in ignore_validation_rules. "
+                    "Format must be 'rule', 'group::rule', or 'group::rule::phase'"
+                )
+
+            if any(not part.strip() for part in parts):
+                raise ValueError(
+                    f"Invalid rule identifier '{rule_id}' in ignore_validation_rules. "
+                    "Empty parts not allowed (e.g., '::rule' or 'group::')"
+                )
+
+        return v
 
     @field_validator("default_model")
     @classmethod

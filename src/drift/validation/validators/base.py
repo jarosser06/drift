@@ -50,6 +50,7 @@ from typing import Any, Dict, Generator, List, Literal, Optional, Tuple
 
 from drift.config.models import ClientType, ValidationRule
 from drift.core.types import DocumentBundle, DocumentRule
+from drift.validation.patterns import should_ignore_path
 
 
 class BaseValidator(ABC):
@@ -170,6 +171,9 @@ class BaseValidator(ABC):
                 ),
                 failure_details={"circular_path": "A → B → C → A"}
             )
+
+            Validators can access ignore_patterns from rule.params:
+                ignore_patterns = rule.params.get("ignore_patterns")
         """
         pass
 
@@ -250,24 +254,39 @@ class BaseValidator(ABC):
 
         return formatted
 
+    def _should_ignore_file(self, file_path: str, ignore_patterns: Optional[List[str]]) -> bool:
+        """Check if a file should be ignored based on ignore patterns.
+
+        -- file_path: Path to check (relative or absolute)
+        -- ignore_patterns: Optional list of patterns to check against
+
+        Returns True if file should be ignored, False otherwise.
+        """
+        if not ignore_patterns:
+            return False
+        return should_ignore_path(file_path, ignore_patterns)
+
     def _iter_bundle_files(
-        self, bundle: DocumentBundle
+        self, bundle: DocumentBundle, rule: ValidationRule
     ) -> Generator[Tuple[str, str, str], None, None]:
-        """Iterate over files in the bundle.
+        """Iterate over files in the bundle, optionally filtering by ignore patterns.
 
         Yields tuples of (relative_path, content, file_path) for each file
         in the bundle. This is a helper method to standardize bundle file
         iteration across validators.
 
         -- bundle: Document bundle containing files to iterate
+        -- rule: ValidationRule that may contain ignore_patterns in params
 
         Yields tuples of (relative_path: str, content: str, file_path: str).
 
         Example:
-            >>> for rel_path, content, file_path in self._iter_bundle_files(bundle):
+            >>> for rel_path, content, file_path in self._iter_bundle_files(bundle, rule):
             ...     # Validate each file
             ...     if not self._validate_content(content):
             ...         failures.append(rel_path)
         """
+        ignore_patterns = rule.params.get("ignore_patterns") if rule.params else None
         for file in bundle.files:
-            yield (file.relative_path, file.content, str(file.file_path))
+            if not self._should_ignore_file(file.relative_path, ignore_patterns):
+                yield (file.relative_path, file.content, str(file.file_path))

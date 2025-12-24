@@ -68,7 +68,7 @@ class JsonSchemaValidator(BaseValidator):
 
         # Otherwise, validate all files in the bundle
         failed_files = []
-        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle, rule):
             failure = self._validate_file_content(rule, bundle, rel_path, content)
             if failure:
                 failed_files.append((rel_path, failure))
@@ -282,7 +282,7 @@ class YamlSchemaValidator(BaseValidator):
 
         # Otherwise, validate all files in the bundle
         failed_files = []
-        for rel_path, content, abs_path in self._iter_bundle_files(bundle):
+        for rel_path, content, abs_path in self._iter_bundle_files(bundle, rule):
             failure = self._validate_yaml_file_content(rule, bundle, rel_path, content)
             if failure:
                 failed_files.append((rel_path, failure))

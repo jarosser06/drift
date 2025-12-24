@@ -58,11 +58,17 @@ class MarkdownLinkValidator(BaseValidator):
         skip_placeholder_paths = rule.params.get("skip_placeholder_paths", True)
         custom_skip_patterns = rule.params.get("custom_skip_patterns", [])
 
+        # Merge custom_skip_patterns with ignore_patterns (ignore_patterns take precedence)
+        merged_skip_patterns = list(custom_skip_patterns)
+        ignore_patterns = rule.params.get("ignore_patterns")
+        if ignore_patterns:
+            merged_skip_patterns.extend(ignore_patterns)
+
         validator = LinkValidator(
             skip_example_domains=skip_example_domains,
             skip_code_blocks=skip_code_blocks,
             skip_placeholder_paths=skip_placeholder_paths,
-            custom_skip_patterns=custom_skip_patterns,
+            custom_skip_patterns=merged_skip_patterns,
         )
         broken_links = []
 
