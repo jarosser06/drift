@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2025-12-28
+
+- Replace ignore_patterns parameter with parameter override system
+- Add validator_param_overrides and rule_param_overrides to DriftConfig
+- Support merge/replace strategies for hierarchical parameter overrides
+- Validators now read ignore_patterns from rule.params
+- Add pattern matching utilities for glob/regex/literal patterns
+
 ## [0.9.0] - 2025-12-22
 
 - Add support for multiple rules files via additional_rules_files config
